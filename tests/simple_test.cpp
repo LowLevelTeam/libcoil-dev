@@ -2,6 +2,7 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <iomanip>
 
 #include "coil/binary_format.h"
 #include "coil/type_system.h"
@@ -9,6 +10,41 @@
 #include "coil/variable_system.h"
 #include "coil/error_codes.h"
 #include "coil/utils/validation.h"
+
+// Helper function to print binary data for debugging
+void printBinaryData(const std::vector<uint8_t>& data, size_t start = 0, size_t count = (size_t)-1) {
+    if (count == (size_t)-1) count = data.size();
+    count = std::min(count, data.size() - start);
+    
+    std::cout << "Binary data (" << count << " bytes):" << std::endl;
+    for (size_t i = 0; i < count; i += 16) {
+        std::cout << std::setw(4) << std::setfill('0') << std::hex << i + start << ": ";
+        
+        // Print hex values
+        for (size_t j = 0; j < 16 && i + j < count; j++) {
+            std::cout << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(data[i + j + start]) << " ";
+            if (j == 7) std::cout << " "; // Extra space in the middle
+        }
+        
+        // Fill remaining space if less than 16 bytes
+        size_t remaining = (i + 16 <= count) ? 0 : 16 - (count - i);
+        for (size_t j = 0; j < remaining; j++) {
+            std::cout << "   ";
+            if (j == 7) std::cout << " "; // Extra space in the middle
+        }
+        
+        std::cout << "  ";
+        
+        // Print ASCII representation
+        for (size_t j = 0; j < 16 && i + j < count; j++) {
+            char c = data[i + j + start];
+            std::cout << (isprint(c) ? c : '.');
+        }
+        
+        std::cout << std::endl;
+    }
+    std::cout << std::dec; // Reset to decimal
+}
 
 // Helper function to write binary data to a file
 void writeBinaryFile(const std::string& filename, const std::vector<uint8_t>& data) {
@@ -103,9 +139,9 @@ int main() {
   uint16_t dataSectIndex = obj.addSection(dataSect);
   
   // Update symbols with correct section indices
-  obj.getSymbol(textSectionSymIndex).section_index = textSectIndex;
-  obj.getSymbol(dataSectionSymIndex).section_index = dataSectIndex;
-  obj.getSymbol(mainSymIndex).section_index = textSectIndex;
+  obj.setSymbolSectionIndex(textSectionSymIndex, textSectIndex);
+  obj.setSymbolSectionIndex(dataSectionSymIndex, dataSectIndex);
+  obj.setSymbolSectionIndex(mainSymIndex, textSectIndex);
   
   // Create some instructions for the text section
   // Main function with a simple variable declaration and arithmetic
@@ -135,24 +171,20 @@ int main() {
   // Return: RET
   coil::Instruction retInstr(coil::Opcode::RET, {});
   
+  // Clear the text section data
+  obj.clearSectionData(textSectIndex);
+  
   // Add instructions to the text section
-  obj.getSection(textSectIndex).data.clear();
+  obj.addInstruction(textSectIndex, procInstr);
+  obj.addInstruction(textSectIndex, scopeEnterInstr);
+  obj.addInstruction(textSectIndex, varInstr);
+  obj.addInstruction(textSectIndex, incInstr);
+  obj.addInstruction(textSectIndex, scopeLeaveInstr);
+  obj.addInstruction(textSectIndex, retInstr);
   
-  auto addInstr = [&obj, textSectIndex](const coil::Instruction& instr) {
-      auto encoded = instr.encode();
-      auto& sectionData = obj.getSection(textSectIndex).data;
-      sectionData.insert(sectionData.end(), encoded.begin(), encoded.end());
-  };
-  
-  addInstr(procInstr);
-  addInstr(scopeEnterInstr);
-  addInstr(varInstr);
-  addInstr(incInstr);
-  addInstr(scopeLeaveInstr);
-  addInstr(retInstr);
-  
-  // Update the section size
-  obj.getSection(textSectIndex).size = static_cast<uint32_t>(obj.getSection(textSectIndex).data.size());
+  // Print entire text section data for debugging
+  std::cout << "\nText section binary data:" << std::endl;
+  printBinaryData(obj.getSection(textSectIndex).data);
   
   // Add some data to the data section
   // Simple null-terminated string "Hello, COIL!"
@@ -162,7 +194,7 @@ int main() {
   dataSect.size = static_cast<uint32_t>(dataSect.data.size());
   
   // Update the data section
-  obj.getSection(dataSectIndex) = dataSect;
+  obj.updateSection(dataSectIndex, dataSect);
   
   // Create an error manager for validation
   coil::ErrorManager errorManager;
@@ -219,6 +251,20 @@ int main() {
           std::cout << "  " << i << ": " << decodedObj.getSymbol(sect.name_index).name 
                     << " (size: " << sect.size << " bytes)" << std::endl;
       }
+      
+      // Validate the decoded object
+      coil::ErrorManager decodeErrorManager;
+      bool decodedValid = coil::utils::Validation::validateCoilObject(decodedObj, decodeErrorManager);
+      
+      if (!decodedValid) {
+          std::cerr << "\nDecoded COIL object validation failed:" << std::endl;
+          for (const auto& error : decodeErrorManager.getErrors()) {
+              std::cerr << error.toString() << std::endl;
+          }
+          return 1;
+      }
+      
+      std::cout << "\nDecoded COIL object validation passed!" << std::endl;
       
   } catch (const std::exception& e) {
       std::cerr << "Error decoding COIL object: " << e.what() << std::endl;

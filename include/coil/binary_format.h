@@ -15,7 +15,7 @@ namespace FormatFlags {
   constexpr uint8_t OBJECT_FILE = 0x01;       // Object file (.coil)
   constexpr uint8_t OUTPUT_OBJECT = 0x02;     // Output object file (.coilo)
   constexpr uint8_t DEBUG_INFO = 0x04;        // Contains debug information
-  constexpr uint8_t BIG_ENDIAN = 0x08;        // Big-endian encoding (default is little-endian)
+  constexpr uint8_t FORMAT_BIG_ENDIAN = 0x08;        // Big-endian encoding (default is little-endian)
 }
 
 /**
@@ -191,8 +191,32 @@ public:
   // Get a relocation by index
   const Relocation& getRelocation(uint16_t index) const;
   
+  // Update a symbol by index (non-const version for modifying)
+  void updateSymbol(uint16_t index, const Symbol& symbol);
+  
+  // Update a section by index (non-const version for modifying)
+  void updateSection(uint16_t index, const Section& section);
+  
+  // Update a section's data
+  void updateSectionData(uint16_t index, const std::vector<uint8_t>& data);
+  
+  // Set a section's size
+  void setSectionSize(uint16_t index, uint32_t size);
+  
+  // Update a symbol's section index
+  void setSymbolSectionIndex(uint16_t symbolIndex, uint16_t sectionIndex);
+  
   // Get symbol index by name
   uint16_t findSymbol(const std::string& name) const;
+  
+  // Get symbol count
+  uint16_t getSymbolCount() const;
+  
+  // Get section count
+  uint16_t getSectionCount() const;
+  
+  // Get relocation count
+  uint16_t getRelocationCount() const;
   
   // Encode the entire object to binary
   std::vector<uint8_t> encode() const;
@@ -202,6 +226,12 @@ public:
   
   // Add instruction to a section by creating binary encoding and appending to section data
   void addInstruction(uint16_t sectionIndex, uint8_t opcode, const std::vector<uint8_t>& operands);
+  
+  // Add instruction to a section (convenience version that encodes an Instruction object)
+  void addInstruction(uint16_t sectionIndex, const class Instruction& instruction);
+  
+  // Clear a section's data
+  void clearSectionData(uint16_t sectionIndex);
   
 private:
   CoilHeader header_;

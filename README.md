@@ -79,7 +79,7 @@ coil::CoilObject obj;
 
 // Add a section
 coil::Section textSection;
-textSection.nameIndex = 1;  // Assuming symbol index 1 is ".text"
+textSection.name_index = 1;  // Assuming symbol index 1 is ".text"
 textSection.attributes = coil::SectionFlags::EXECUTABLE | coil::SectionFlags::READABLE;
 obj.addSection(textSection);
 
@@ -88,15 +88,35 @@ std::vector<coil::Operand> operands = {
     coil::Operand::createVariable(1),
     coil::Operand::createImmediate(42, coil::Type::INT32)
 };
-obj.addInstruction(coil::Instruction::MOV, operands);
+coil::Instruction instrMov(coil::Opcode::MOV, operands);
+obj.addInstruction(0, instrMov.getOpcode(), instrMov.encode());
 
 // Encode to binary
 std::vector<uint8_t> binary = obj.encode();
 ```
 
-## Documentation
+## API Reference
 
-For full API documentation and examples, see the [docs](./docs) directory.
+### Core Components
+
+- **CoilObject**: Container for all COIL file components
+- **Symbol**: Symbol table entries for names and references
+- **Section**: Code and data section management
+- **Relocation**: Relocation entries for linking
+- **Instruction**: COIL instruction representation
+- **Operand**: Instruction operand representation
+- **TypeInfo**: Type system utilities
+- **VariableManager**: Variable and scope management
+- **ErrorManager**: Error tracking and reporting
+
+### Utility Components
+
+- **BinaryUtils**: Binary data manipulation utilities
+- **Validation**: Object validation utilities
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to the project.
 
 ## License
 

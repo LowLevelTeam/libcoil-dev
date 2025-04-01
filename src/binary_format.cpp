@@ -1,4 +1,5 @@
 #include "coil/binary_format.h"
+#include "coil/instruction_set.h"
 #include <cstring>
 #include <stdexcept>
 #include <algorithm>
@@ -37,7 +38,7 @@ std::vector<uint8_t> CoilHeader::encode() const {
   *ptr++ = flags;
   
   // Store offsets in little-endian (default)
-  bool isBigEndian = (flags & FormatFlags::BIG_ENDIAN) != 0;
+  bool isBigEndian = (flags & FormatFlags::FORMAT_BIG_ENDIAN) != 0;
   
   if (!isBigEndian) {
       *reinterpret_cast<uint32_t*>(ptr) = symbol_offset; ptr += 4;
@@ -74,7 +75,7 @@ CoilHeader CoilHeader::decode(const std::vector<uint8_t>& data, size_t& offset) 
   header.flags = *ptr++;
   
   // Read offsets based on endianness
-  bool isBigEndian = (header.flags & FormatFlags::BIG_ENDIAN) != 0;
+  bool isBigEndian = (header.flags & FormatFlags::FORMAT_BIG_ENDIAN) != 0;
   
   if (!isBigEndian) {
       header.symbol_offset = *reinterpret_cast<const uint32_t*>(ptr); ptr += 4;
@@ -146,7 +147,7 @@ std::vector<uint8_t> CoilOHeader::encode() const {
   *ptr++ = flags;
   
   // Store offsets in little-endian (default)
-  bool isBigEndian = (flags & FormatFlags::BIG_ENDIAN) != 0;
+  bool isBigEndian = (flags & FormatFlags::FORMAT_BIG_ENDIAN) != 0;
   
   if (!isBigEndian) {
       *reinterpret_cast<uint32_t*>(ptr) = symbol_offset; ptr += 4;
@@ -181,7 +182,7 @@ CoilOHeader CoilOHeader::decode(const std::vector<uint8_t>& data, size_t& offset
   header.flags = *ptr++;
   
   // Read offsets based on endianness
-  bool isBigEndian = (header.flags & FormatFlags::BIG_ENDIAN) != 0;
+  bool isBigEndian = (header.flags & FormatFlags::FORMAT_BIG_ENDIAN) != 0;
   
   if (!isBigEndian) {
       header.symbol_offset = *reinterpret_cast<const uint32_t*>(ptr); ptr += 4;
@@ -466,6 +467,53 @@ const Relocation& CoilObject::getRelocation(uint16_t index) const {
   return relocations_[index];
 }
 
+void CoilObject::updateSymbol(uint16_t index, const Symbol& symbol) {
+  if (index >= symbols_.size()) {
+      throw std::out_of_range("Symbol index out of range");
+  }
+  symbols_[index] = symbol;
+}
+
+void CoilObject::updateSection(uint16_t index, const Section& section) {
+  if (index >= sections_.size()) {
+      throw std::out_of_range("Section index out of range");
+  }
+  sections_[index] = section;
+}
+
+void CoilObject::updateSectionData(uint16_t index, const std::vector<uint8_t>& data) {
+  if (index >= sections_.size()) {
+      throw std::out_of_range("Section index out of range");
+  }
+  sections_[index].data = data;
+  sections_[index].size = static_cast<uint32_t>(data.size());
+}
+
+void CoilObject::setSectionSize(uint16_t index, uint32_t size) {
+  if (index >= sections_.size()) {
+      throw std::out_of_range("Section index out of range");
+  }
+  sections_[index].size = size;
+}
+
+void CoilObject::setSymbolSectionIndex(uint16_t symbolIndex, uint16_t sectionIndex) {
+  if (symbolIndex >= symbols_.size()) {
+      throw std::out_of_range("Symbol index out of range");
+  }
+  if (sectionIndex != 0xFFFF && sectionIndex >= sections_.size()) {
+      throw std::out_of_range("Section index out of range");
+  }
+  symbols_[symbolIndex].section_index = sectionIndex;
+}
+
+void CoilObject::clearSectionData(uint16_t sectionIndex) {
+  if (sectionIndex >= sections_.size()) {
+      throw std::out_of_range("Section index out of range");
+  }
+  sections_[sectionIndex].data.clear();
+  sections_[sectionIndex].size = 0;
+}
+
 uint16_t CoilObject::findSymbol(const std::string& name) const {
   for (size_t i = 0; i < symbols_.size(); i++) {
       if (symbols_[i].name == name) {
@@ -473,6 +521,18 @@ uint16_t CoilObject::findSymbol(const std::string& name) const {
       }
   }
   return UINT16_MAX; // Not found
+}
+
+uint16_t CoilObject::getSymbolCount() const {
+  return static_cast<uint16_t>(symbols_.size());
+}
+
+uint16_t CoilObject::getSectionCount() const {
+  return static_cast<uint16_t>(sections_.size());
+}
+
+uint16_t CoilObject::getRelocationCount() const {
+  return static_cast<uint16_t>(relocations_.size());
 }
 
 std::vector<uint8_t> CoilObject::encode() const {
@@ -639,6 +699,22 @@ void CoilObject::addInstruction(uint16_t sectionIndex, uint8_t opcode, const std
   
   // Add operands
   section.data.insert(section.data.end(), operands.begin(), operands.end());
+  
+  // Update section size
+  section.size = static_cast<uint32_t>(section.data.size());
+}
+
+void CoilObject::addInstruction(uint16_t sectionIndex, const Instruction& instruction) {
+  if (sectionIndex >= sections_.size()) {
+      throw std::out_of_range("Section index out of range");
+  }
+  
+  // Encode instruction
+  std::vector<uint8_t> encoded = instruction.encode();
+  
+  // Add to section data
+  Section& section = sections_[sectionIndex];
+  section.data.insert(section.data.end(), encoded.begin(), encoded.end());
   
   // Update section size
   section.size = static_cast<uint32_t>(section.data.size());

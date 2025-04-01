@@ -56,6 +56,11 @@ install(DIRECTORY include/
     DESTINATION include
 )
 
+# Install subdirectories correctly
+install(DIRECTORY include/coil/utils
+    DESTINATION include/coil
+)
+
 # Configure and install CMake package files
 install(EXPORT libcoil-dev-targets
     FILE libcoil-dev-targets.cmake

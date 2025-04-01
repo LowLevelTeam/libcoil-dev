@@ -352,7 +352,7 @@ std::string BinaryUtils::readLengthPrefixedString(const std::vector<uint8_t>& da
   return result;
 }
 
-bool BinaryUtils::isBigEndian() {
+bool BinaryUtils::isMachineBigEndian() {
   union {
       uint32_t i;
       char c[4];

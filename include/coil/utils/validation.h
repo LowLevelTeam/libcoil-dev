@@ -1,5 +1,5 @@
-#ifndef COIL_VALIDATION_H
-#define COIL_VALIDATION_H
+#ifndef COIL_UTILS_VALIDATION_H
+#define COIL_UTILS_VALIDATION_H
 
 #include <cstdint>
 #include <vector>
@@ -62,4 +62,4 @@ public:
 } // namespace utils
 } // namespace coil
 
-#endif // COIL_VALIDATION_H
+#endif // COIL_UTILS_VALIDATION_H

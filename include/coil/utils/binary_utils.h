@@ -1,5 +1,5 @@
-#ifndef COIL_BINARY_UTILS_H
-#define COIL_BINARY_UTILS_H
+#ifndef COIL_UTILS_BINARY_UTILS_H
+#define COIL_UTILS_BINARY_UTILS_H
 
 #include <cstdint>
 #include <vector>
@@ -67,7 +67,7 @@ public:
   static std::string readLengthPrefixedString(const std::vector<uint8_t>& data, size_t& offset, bool bigEndian = false);
   
   // Check if machine is big endian
-  static bool isBigEndian();
+  static bool isMachineBigEndian();
   
   // Swap endianness
   static uint16_t swapEndian16(uint16_t value);
@@ -80,4 +80,4 @@ public:
 } // namespace utils
 } // namespace coil
 
-#endif // COIL_BINARY_UTILS_H
+#endif // COIL_UTILS_BINARY_UTILS_H

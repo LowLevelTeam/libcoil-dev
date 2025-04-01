@@ -46,11 +46,15 @@ namespace LinkingSubcategory {
 * Validation subcategory codes
 */
 namespace ValidationSubcategory {
-  constexpr uint8_t TYPE_CHECK      = 0x00;   // Type checking errors
-  constexpr uint8_t MEMORY_SAFETY   = 0x01;   // Memory safety errors
+  constexpr uint8_t TYPE_CHECK         = 0x00;   // Type checking errors
+  constexpr uint8_t MEMORY_SAFETY      = 0x01;   // Memory safety errors
   constexpr uint8_t INSTRUCTION_VALIDITY = 0x02; // Instruction validity errors
-  constexpr uint8_t ABI_COMPLIANCE  = 0x03;   // ABI compliance errors
-  constexpr uint8_t RESOURCE_USAGE  = 0x04;   // Resource usage errors
+  constexpr uint8_t ABI_COMPLIANCE     = 0x03;   // ABI compliance errors
+  constexpr uint8_t RESOURCE_USAGE     = 0x04;   // Resource usage errors
+  constexpr uint8_t FORMAT             = 0x05;   // Format validation errors
+  constexpr uint8_t SYMBOL_RESOLUTION  = 0x06;   // Symbol validation errors
+  constexpr uint8_t SECTION_ALIGNMENT  = 0x07;   // Section validation errors
+  constexpr uint8_t RELOCATION         = 0x08;   // Relocation validation errors
 }
 
 /**

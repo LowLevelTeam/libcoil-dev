@@ -4,6 +4,8 @@
 #include <unordered_map>
 #include <algorithm>
 #include <stdexcept>
+#include <sstream>
+#include <iomanip>
 
 namespace coil {
 
@@ -104,17 +106,26 @@ std::vector<uint8_t> Operand::encode() const {
 }
 
 Operand Operand::decode(const std::vector<uint8_t>& data, size_t& offset) {
-  if (data.size() < offset + 2) {
-      throw std::runtime_error("Insufficient data for Operand");
+  // Get remaining size for error reporting
+  size_t remainingBytes = (offset < data.size()) ? data.size() - offset : 0;
+  
+  // Check for minimum data size (type field = 2 bytes)
+  if (remainingBytes < 2) {
+      std::stringstream ss;
+      ss << "Insufficient data for Operand type at offset " << offset 
+         << ": need 2 bytes but only " << remainingBytes << " bytes left";
+      throw std::runtime_error(ss.str());
   }
   
   // Type
   uint16_t type = data[offset] | (data[offset + 1] << 8);
   offset += 2;
+  remainingBytes -= 2;
   
   // Value size depends on type
   size_t valueSize = 0;
   uint8_t mainType = TypeInfo::getMainType(type);
+  std::string typeName = TypeInfo::getTypeName(type);
   
   if (type == Type::VAR || type == Type::SYM) {
       valueSize = 2; // Variable/Symbol ID (16 bits)
@@ -133,8 +144,17 @@ Operand Operand::decode(const std::vector<uint8_t>& data, size_t& offset) {
       valueSize = 4;
   }
   
-  if (data.size() < offset + valueSize) {
-      throw std::runtime_error("Insufficient data for Operand value");
+  // Create hex representation of type for error reporting
+  std::stringstream typeHex;
+  typeHex << "0x" << std::hex << std::setw(4) << std::setfill('0') << type;
+  
+  // Check if we have enough bytes for the value
+  if (remainingBytes < valueSize) {
+      std::stringstream ss;
+      ss << "Insufficient data for Operand value at offset " << offset 
+         << ": type=" << typeName << " (" << typeHex.str() << "), expected " 
+         << valueSize << " bytes but only " << remainingBytes << " bytes left";
+      throw std::runtime_error(ss.str());
   }
   
   // Extract value
@@ -168,22 +188,61 @@ std::vector<uint8_t> Instruction::encode() const {
 }
 
 Instruction Instruction::decode(const std::vector<uint8_t>& data, size_t& offset) {
-  if (data.size() < offset + 2) {
-      throw std::runtime_error("Insufficient data for Instruction");
+  // Get remaining size for error reporting
+  size_t remainingBytes = (offset < data.size()) ? data.size() - offset : 0;
+  
+  // Check for minimum data size (opcode + operand count = 2 bytes)
+  if (remainingBytes < 2) {
+      std::stringstream ss;
+      ss << "Insufficient data for Instruction at offset " << offset 
+         << ": expected at least 2 bytes (opcode and operand count) but only " 
+         << remainingBytes << " bytes left";
+      throw std::runtime_error(ss.str());
   }
   
   // Opcode
   uint8_t opcode = data[offset++];
   
+  // Get instruction name for error messages
+  std::string instrName = InstructionSet::getInstructionName(opcode);
+  
+  // Create hex representation of opcode for error reporting
+  std::stringstream opcodeHex;
+  opcodeHex << "0x" << std::hex << std::setw(2) << std::setfill('0') 
+            << static_cast<int>(opcode);
+  
   // Operand count
   uint8_t operandCount = data[offset++];
+  
+  // Validate operand count against expected count for this opcode
+  auto expectedCount = InstructionSet::getExpectedOperandCount(opcode);
+  if (expectedCount && *expectedCount != operandCount && 
+      opcode != Opcode::CALL && opcode != Opcode::RET && 
+      opcode != Opcode::VAR && opcode != Opcode::SWITCH) {
+      // Variable operand count instructions are excluded from this check
+      std::stringstream ss;
+      ss << "Unexpected operand count for instruction " << instrName
+         << " (" << opcodeHex.str() << ") at offset " << (offset - 2)
+         << ": expected " << *expectedCount << ", got " << static_cast<int>(operandCount);
+      throw std::runtime_error(ss.str());
+  }
   
   // Operands
   std::vector<Operand> operands;
   operands.reserve(operandCount);
   
-  for (uint8_t i = 0; i < operandCount; i++) {
-      operands.push_back(Operand::decode(data, offset));
+  try {
+      for (uint8_t i = 0; i < operandCount; i++) {
+          operands.push_back(Operand::decode(data, offset));
+      }
+  } catch (const std::exception& e) {
+      std::stringstream ss;
+      ss << "Error decoding operand " << operands.size() + 1
+         << " of " << static_cast<int>(operandCount)
+         << " for instruction " << instrName
+         << " (" << opcodeHex.str() << ") at offset " << (offset - 2)
+         << ": " << e.what();
+      throw std::runtime_error(ss.str());
   }
   
   return Instruction(opcode, operands);

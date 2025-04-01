@@ -170,15 +170,26 @@ bool Validation::validateSymbolTable(const CoilObject& object, ErrorManager& err
           isValid = false;
       }
       
-      // Check if the symbol name is valid
-      if (!symbol.name.empty() && !isValidIdentifier(symbol.name)) {
-          errorManager.addError(
-              ErrorManager::makeErrorCode(ErrorCategory::VALIDATION, ValidationSubcategory::SYMBOL_RESOLUTION, 0x0003),
-              "Invalid symbol name: " + symbol.name,
-              ErrorSeverity::WARNING,
-              0, 0, 0, 0, i
-          );
-          // Not a fatal error, so we don't set isValid = false
+      // Check if the symbol name is valid - handle section names separately
+      if (!symbol.name.empty()) {
+          bool nameValid = false;
+          if (symbol.name[0] == '.') {
+              // If name starts with a dot, it's likely a section name
+              nameValid = isValidSectionName(symbol.name);
+          } else {
+              // Otherwise use regular identifier validation
+              nameValid = isValidIdentifier(symbol.name);
+          }
+          
+          if (!nameValid) {
+              errorManager.addError(
+                  ErrorManager::makeErrorCode(ErrorCategory::VALIDATION, ValidationSubcategory::SYMBOL_RESOLUTION, 0x0003),
+                  "Invalid symbol name: " + symbol.name,
+                  ErrorSeverity::WARNING,
+                  0, 0, 0, 0, i
+              );
+              // Not a fatal error, so we don't set isValid = false
+          }
       }
   }
   
@@ -249,10 +260,31 @@ bool Validation::validateSectionData(const CoilObject& object, uint16_t sectionI
                   isValid = false;
               }
           } catch (const std::exception& e) {
+              std::string errorMsg = std::string("Error decoding instruction at offset ") + 
+                                      std::to_string(offset) + ": " + e.what();
+              
+              // Optionally add debug info by printing a hex dump of the data around the error
+              // This helps with diagnosing complex binary format issues
+              std::string hexDump = "";
+              const size_t bytesToShow = 16; // Show 16 bytes before and after the error point
+              size_t startOffset = (offset > bytesToShow) ? offset - bytesToShow : 0;
+              size_t endOffset = std::min(offset + bytesToShow, section.data.size());
+              
+              for (size_t i = startOffset; i < endOffset; i++) {
+                  char hexByte[4];
+                  sprintf(hexByte, "%02X ", section.data[i]);
+                  hexDump += hexByte;
+                  if ((i - startOffset + 1) % 8 == 0) hexDump += " ";
+                  if ((i - startOffset + 1) % 16 == 0) hexDump += "\n";
+              }
+              
+              if (!hexDump.empty()) {
+                  errorMsg += "\nData around offset: \n" + hexDump;
+              }
+              
               errorManager.addError(
                   ErrorManager::makeErrorCode(ErrorCategory::VALIDATION, ValidationSubcategory::INSTRUCTION_VALIDITY, 0x0003),
-                  std::string("Error decoding instruction at offset ") + 
-                  std::to_string(offset) + ": " + e.what(),
+                  errorMsg,
                   ErrorSeverity::ERROR,
                   offset, 0, 0, 0, 0, sectionIndex
               );
