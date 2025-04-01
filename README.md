@@ -5,17 +5,41 @@
 
 ## Overview
 
-`libcoil-dev` is the core library that provides the fundamental data structures, utilities, and common functionality for the COIL (Computer Oriented Intermediate Language) ecosystem. It serves as the foundation upon which all other COIL components are built.
+`libcoil-dev` is the foundational library for the COIL (Computer Oriented Intermediate Language) Toolchain. It provides the core data structures, utilities, and functionality needed by all other COIL components.
 
-This library defines the COIL binary format, type system, error handling mechanisms, and other essential components that ensure interoperability between different COIL implementations.
+As the base layer of the LLT COIL Toolchain, this library ensures consistent implementation of the COIL specification across all tools in the ecosystem.
 
 ## Features
 
-- **Binary Format Definitions**: Complete implementation of the COIL binary format
-- **Type System**: Comprehensive type system with support for all COIL types
+- **Binary Format**: Complete implementation of the COIL binary format
+- **Type System**: Comprehensive type system with all COIL types
+- **Instruction Set**: Encoding and decoding of COIL instructions
+- **Variable System**: Implementation of COIL's variable abstraction
 - **Error Handling**: Standardized error classification and reporting
-- **Utilities**: Common utilities for binary manipulation, validation, and encoding/decoding
 - **Extensibility**: Clean interfaces for implementing platform-specific features
+
+## COIL Toolchain Integration
+
+This library is the foundation for all components in the LLT COIL Toolchain:
+
+```
+[libcoil-dev]
+    |
+    ├─── CASM (Assembler)
+    |      |
+    |      v
+    |    (.coil files)
+    |
+    ├─── COILP (Processor)
+    |      |
+    |      v
+    |    (.coilo files)
+    |
+    └─── CBC (Bytecode Interpreter)
+           |
+           v
+         (.cbc files)
+```
 
 ## Installation
 
@@ -27,20 +51,11 @@ This library defines the COIL binary format, type system, error handling mechani
 ### Building from Source
 
 ```bash
-# Clone the repository
 git clone https://github.com/LLT/libcoil-dev.git
 cd libcoil-dev
-
-# Create build directory
 mkdir build && cd build
-
-# Generate build files
 cmake ..
-
-# Build
 cmake --build .
-
-# Install
 cmake --install .
 ```
 
@@ -58,7 +73,7 @@ target_link_libraries(your_target PRIVATE libcoil-dev)
 ```cpp
 #include <coil/binary_format.h>
 #include <coil/type_system.h>
-#include <coil/error_codes.h>
+#include <coil/instruction_set.h>
 
 // Create a COIL object
 coil::CoilObject obj;
@@ -67,29 +82,30 @@ coil::CoilObject obj;
 coil::Section textSection;
 textSection.nameIndex = 1;  // Assuming symbol index 1 is ".text"
 textSection.attributes = coil::SectionFlags::EXECUTABLE | coil::SectionFlags::READABLE;
-// ... set other properties
 obj.addSection(textSection);
+
+// Add an instruction
+std::vector<coil::Operand> operands = {
+    coil::Operand::createVariable(1),
+    coil::Operand::createImmediate(42, coil::Type::INT32)
+};
+obj.addInstruction(coil::Instruction::MOV, operands);
 
 // Encode to binary
 std::vector<uint8_t> binary = obj.encode();
-
-// Write to file
-std::ofstream file("output.coil", std::ios::binary);
-file.write(reinterpret_cast<const char*>(binary.data()), binary.size());
 ```
 
-## Components
+## Core Components
 
 ### Binary Format
 
-The `coil::binary_format` namespace provides the structures and functions for working with COIL binary files:
+The `coil::binary_format` namespace provides structures for working with COIL binary files:
 
 - `CoilHeader`: COIL object file header
 - `CoilOHeader`: COIL output object header
 - `Section`: Section definition
 - `Symbol`: Symbol definition
 - `Relocation`: Relocation entry
-- `Instruction`: Instruction encoding/decoding
 
 ### Type System
 
@@ -100,31 +116,26 @@ The `coil::type_system` namespace defines the COIL type system:
 - Type compatibility rules
 - Type conversion utilities
 
-### Error Handling
+### Instruction Set
 
-The `coil::error` namespace provides a standardized error handling system:
+The `coil::instruction_set` namespace provides:
 
-- Error codes organized by category
-- Error reporting functions
-- Error information structures
-- Diagnostic utilities
+- Instruction definitions and opcodes
+- Operand encoding and decoding
+- Instruction validation
 
 ## Documentation
 
-Comprehensive documentation is available in the `docs/` directory:
+Documentation is available in the `docs/` directory:
 
 - [API Reference](docs/api/index.html)
 - [Binary Format Specification](docs/spec/binary_format.md)
 - [Type System Specification](docs/spec/type_system.md)
-- [Error Code Reference](docs/ref/error_codes.md)
+- [Instruction Set Reference](docs/ref/instruction_set.md)
 
 ## Contributing
 
-Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute to libcoil-dev.
-
-## Implementation
-
-For details on the implementation approach, architecture, and development plans, see [IMPLEMENTATION.md](IMPLEMENTATION.md).
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute.
 
 ## License
 

@@ -1,348 +1,228 @@
 # libcoil-dev Implementation Plan
 
-This document outlines the implementation approach, architecture, and development plans for the `libcoil-dev` library.
+This document outlines the implementation approach for the `libcoil-dev` library, which serves as the foundation of the LLT COIL Toolchain.
 
 ## Architecture Overview
 
-`libcoil-dev` is designed as a pure C++ library with no external dependencies beyond the C++ standard library. It follows a modular architecture with the following major components:
+`libcoil-dev` is designed as a pure C++ library with no external dependencies beyond the C++ standard library. Its core components provide the essential functionality required by all COIL tools:
 
-1. **Binary Format**: Defines and implements the COIL binary format
-2. **Type System**: Implements the COIL type system
-3. **Error Handling**: Provides standardized error reporting
-4. **Utilities**: Common functionality used throughout the COIL ecosystem
+1. **Binary Format**: Defines and implements COIL binary encoding
+2. **Type System**: Implements COIL's unified type system
+3. **Instruction Set**: Provides instruction encoding and decoding
+4. **Variable System**: Implements COIL's variable abstraction
+5. **Error System**: Standardizes error reporting and handling
 
 ## Directory Structure
 
 ```
 libcoil-dev/
-├── CMakeLists.txt              # Main build system
+├── CMakeLists.txt
 ├── LICENSE                     # Unlicense
 ├── README.md                   # Project overview
-├── CONTRIBUTING.md             # Contribution guidelines
-├── IMPLEMENTATION.md           # This file
-│
 ├── include/                    # Public header files
-│   └── coil/                   # Main include directory
+│   └── coil/
 │       ├── binary_format.h     # COIL binary format definitions
-│       ├── error_codes.h       # Error classification system
 │       ├── type_system.h       # Type system definitions
 │       ├── instruction_set.h   # Instruction encoding/decoding
-│       ├── version.h           # Version information
+│       ├── variable_system.h   # Variable handling
+│       ├── error_codes.h       # Error classification system
 │       └── utils/              # Utility headers
 │           ├── binary_utils.h  # Binary manipulation utilities
-│           ├── endian.h        # Endianness handling
 │           └── validation.h    # Validation utilities
-│
 ├── src/                        # Implementation source files
-│   ├── binary_format.cpp       # Binary format implementation
-│   ├── error_codes.cpp         # Error system implementation
-│   ├── type_system.cpp         # Type system implementation
-│   ├── instruction_set.cpp     # Instruction encoding/decoding
-│   └── utils/                  # Utility implementations
-│       ├── binary_utils.cpp    # Binary utilities
-│       ├── endian.cpp          # Endianness utilities
-│       └── validation.cpp      # Validation utilities
-│
 ├── tests/                      # Test suite
-│   ├── unit/                   # Unit tests
-│   │   ├── binary_format_tests.cpp
-│   │   ├── error_codes_tests.cpp
-│   │   ├── type_system_tests.cpp
-│   │   └── utils_tests.cpp
-│   └── integration/            # Integration tests
-│       └── format_validation_tests.cpp
-│
 └── docs/                       # Documentation
-    ├── api/                    # API documentation
-    ├── spec/                   # Specifications
-    └── examples/               # Usage examples
 ```
 
 ## Implementation Plan
 
-### Phase 1: Core Foundations
+### Phase 1: Core Foundations (4-6 weeks)
 
-1. **Binary Format Essentials**
-   - Implement basic structures (headers, sections, symbols)
-   - Create encoding/decoding functions
-   - Implement validation utilities
+1. **Binary Format**
+   - Implement header structures (CoilHeader, CoilOHeader)
+   - Create section and symbol tables
+   - Implement encoding/decoding functions
 
-2. **Type System Basics**
+2. **Type System**
    - Define type encoding format
    - Implement primary type categories
-   - Create type compatibility utilities
+   - Create type compatibility checking
 
-3. **Error System Framework**
+3. **Error System**
    - Define error code structure
    - Implement error reporting mechanisms
-   - Create error information classes
+   - Create error context tracking
 
-**Estimated Time**: 4-6 weeks
+### Phase 2: Instruction and Variable System (6-8 weeks)
 
-### Phase 2: Feature Completion
-
-4. **Binary Format Completion**
-   - Implement relocation handling
-   - Add section merging utilities
-   - Create format validation tools
-
-5. **Type System Expansion**
-   - Implement complex type support
-   - Add type conversion utilities
-   - Create platform-specific type handling
-
-6. **Instruction Encoding/Decoding**
+4. **Instruction Set**
    - Implement instruction format
    - Create encoding/decoding utilities
    - Add instruction validation
 
-**Estimated Time**: 6-8 weeks
+5. **Variable System**
+   - Implement variable declaration
+   - Create scope management
+   - Add variable tracking
 
-### Phase 3: Optimization and Polishing
+6. **Relocation System**
+   - Implement relocation table
+   - Create symbol resolution
+   - Add linking support
+
+### Phase 3: Optimization and Integration (4-6 weeks)
 
 7. **Performance Optimization**
    - Profile and optimize critical paths
    - Implement memory-efficient representations
    - Add caching for frequent operations
 
-8. **Documentation and Examples**
+8. **Documentation and Testing**
    - Complete API documentation
-   - Create comprehensive examples
+   - Create comprehensive test suite
    - Write specification documents
-
-9. **Testing and Validation**
-   - Expand test coverage
-   - Create benchmark suite
-   - Validate against specification
-
-**Estimated Time**: 4-6 weeks
 
 ## Technical Approach
 
 ### Binary Format Implementation
 
-The binary format implementation will use a combination of structured C++ classes with clear serialization interfaces. Key design decisions include:
-
-1. **Memory Efficiency**: Binary data will be stored in compact formats and only expanded when needed
-2. **Streaming Support**: Functions will support both in-memory and stream-based operations
-3. **Validation**: Comprehensive validation at all stages to ensure format conformance
-
-Example implementation for a section header:
-
 ```cpp
-// In binary_format.h
-struct Section {
-    uint16_t nameIndex;    ///< Symbol table index for name
-    uint32_t attributes;   ///< Section attributes
-    uint32_t offset;       ///< Offset from file start
-    uint32_t size;         ///< Size in bytes
-    uint32_t address;      ///< Virtual address
-    uint32_t alignment;    ///< Required alignment
-    uint8_t processorType; ///< Target processor
-    std::vector<uint8_t> data; ///< Section data
+struct CoilHeader {
+    char     magic[4];        // "COIL"
+    uint8_t  major;           // Major version
+    uint8_t  minor;           // Minor version
+    uint8_t  patch;           // Patch version
+    uint8_t  flags;           // Format flags
+    uint32_t symbol_offset;   // Offset to symbol table
+    uint32_t section_offset;  // Offset to section table
+    uint32_t reloc_offset;    // Offset to relocation table
+    uint32_t debug_offset;    // Offset to debug info (0 if none)
+    uint32_t file_size;       // Total file size
     
-    std::vector<uint8_t> encodeHeader() const;
-    static Section decodeHeader(const std::vector<uint8_t>& data, size_t& offset);
+    // Validation method
+    bool isValid() const;
+    
+    // Encode to binary
+    std::vector<uint8_t> encode() const;
+    
+    // Decode from binary
+    static CoilHeader decode(const std::vector<uint8_t>& data, size_t& offset);
 };
-
-// In binary_format.cpp
-std::vector<uint8_t> Section::encodeHeader() const {
-    std::vector<uint8_t> result;
-    result.reserve(24); // Size of section header
-    
-    // Encode nameIndex (little-endian)
-    result.push_back(nameIndex & 0xFF);
-    result.push_back((nameIndex >> 8) & 0xFF);
-    
-    // Encode attributes (little-endian)
-    for (int i = 0; i < 4; i++) {
-        result.push_back((attributes >> (i * 8)) & 0xFF);
-    }
-    
-    // ... encode remaining fields
-    
-    return result;
-}
-
-Section Section::decodeHeader(const std::vector<uint8_t>& data, size_t& offset) {
-    Section section;
-    
-    // Check remaining data size
-    if (offset + 24 > data.size()) {
-        throw std::runtime_error("Insufficient data for section header");
-    }
-    
-    // Decode nameIndex (little-endian)
-    section.nameIndex = data[offset] | (data[offset + 1] << 8);
-    offset += 2;
-    
-    // Decode attributes (little-endian)
-    section.attributes = 0;
-    for (int i = 0; i < 4; i++) {
-        section.attributes |= static_cast<uint32_t>(data[offset + i]) << (i * 8);
-    }
-    offset += 4;
-    
-    // ... decode remaining fields
-    
-    return section;
-}
 ```
 
 ### Type System Implementation
 
-The type system will be implemented using a combination of compile-time and runtime type information:
-
-1. **Type Encoding**: Efficient 16-bit encoding with extension data when needed
-2. **Type Operations**: Comprehensive set of operations on types (comparison, conversion, etc.)
-3. **Type Registry**: Runtime registry of platform-specific types
-
-Example implementation for type compatibility checking:
-
 ```cpp
-// In type_system.h
-namespace type_system {
-
-bool areTypesCompatible(uint16_t sourceType, uint16_t destType);
-bool canConvert(uint16_t sourceType, uint16_t destType);
-
-} // namespace type_system
-
-// In type_system.cpp
-bool type_system::areTypesCompatible(uint16_t sourceType, uint16_t destType) {
-    // Extract main type categories
-    uint8_t sourceMainType = sourceType & 0xFF;
-    uint8_t destMainType = destType & 0xFF;
+namespace TypeSystem {
+    // Check type compatibility
+    bool areTypesCompatible(uint16_t sourceType, uint16_t destType);
     
-    // Exact match
-    if (sourceType == destType) {
-        return true;
-    }
+    // Get type size in bytes
+    uint32_t getTypeSize(uint16_t type);
     
-    // Integer type compatibility rules
-    if (isIntegerType(sourceMainType) && isIntegerType(destMainType)) {
-        // Check signedness
-        bool sourceIsSigned = (sourceMainType >= 0x01 && sourceMainType <= 0x04);
-        bool destIsSigned = (destMainType >= 0x01 && destMainType <= 0x04);
-        
-        // If signedness differs, not directly compatible
-        if (sourceIsSigned != destIsSigned) {
-            return false;
-        }
-        
-        // Get sizes
-        unsigned sourceSize = getTypeSize(sourceMainType);
-        unsigned destSize = getTypeSize(destMainType);
-        
-        // Compatible if destination has equal or greater width
-        return destSize >= sourceSize;
-    }
+    // Create complex type
+    uint16_t createVectorType(uint16_t elementType, uint8_t elements);
     
-    // ... other type compatibility rules
+    // Extract type information
+    uint8_t getMainType(uint16_t type);
+    uint8_t getTypeExtensions(uint16_t type);
     
-    return false;
+    // Check if type is a specific category
+    bool isIntegerType(uint16_t type);
+    bool isFloatType(uint16_t type);
+    bool isVectorType(uint16_t type);
+    bool isPointerType(uint16_t type);
 }
 ```
 
-### Error Handling Implementation
-
-The error handling system will provide standardized error codes, reporting, and information gathering:
-
-1. **Error Codes**: Structured 32-bit error codes with category, subcategory, and specific error
-2. **Error Reporting**: Context-aware error reporting with source information
-3. **Error Recovery**: Support for different error recovery strategies
-
-Example implementation for error reporting:
+### Instruction Set Implementation
 
 ```cpp
-// In error_codes.h
-struct ErrorInfo {
-    uint32_t errorCode;     // Full 32-bit error code
-    uint32_t location;      // File offset or memory address
-    uint32_t fileId;        // Source file identifier
-    uint32_t line;          // Source line number
-    uint32_t column;        // Source column number
-    uint16_t symbolIndex;   // Related symbol index
-    uint16_t sectionIndex;  // Related section index
-    std::string message;    // Error message
+struct Instruction {
+    uint8_t opcode;
+    std::vector<Operand> operands;
+    
+    // Encode to binary
+    std::vector<uint8_t> encode() const;
+    
+    // Decode from binary
+    static Instruction decode(const std::vector<uint8_t>& data, size_t& offset);
+    
+    // Validate instruction
+    bool validate() const;
+    
+    // Get instruction size in bytes
+    size_t getSize() const;
+};
+```
+
+### Variable System Implementation
+
+```cpp
+struct Variable {
+    uint16_t id;
+    uint16_t type;
+    std::vector<uint8_t> initialValue;
+    uint32_t scopeLevel;
+    
+    // Create variable declaration
+    std::vector<uint8_t> createDeclaration() const;
+    
+    // Check if variable is initialized
+    bool isInitialized() const;
 };
 
-ErrorInfo reportError(uint32_t errorCode, const std::string& message);
-
-// In error_codes.cpp
-ErrorInfo reportError(uint32_t errorCode, const std::string& message) {
-    ErrorInfo info;
-    info.errorCode = errorCode;
-    info.message = message;
+class ScopeManager {
+public:
+    // Enter a new scope
+    void enterScope();
     
-    // Additional context gathering can happen here
+    // Leave current scope
+    void leaveScope();
     
-    // Log error if logging is enabled
-    if (isLoggingEnabled()) {
-        logError(info);
-    }
+    // Add variable to current scope
+    void addVariable(const Variable& var);
     
-    return info;
-}
+    // Find variable by ID
+    const Variable* findVariable(uint16_t id) const;
+    
+    // Get current scope level
+    uint32_t getCurrentScopeLevel() const;
+    
+private:
+    uint32_t currentScopeLevel_;
+    std::vector<std::vector<Variable>> scopes_;
+};
 ```
 
 ## Testing Strategy
 
-The testing strategy for `libcoil-dev` is comprehensive and multi-layered:
+The testing strategy for `libcoil-dev` includes:
 
 1. **Unit Tests**: Test each component in isolation
    - Binary format encoding/decoding
    - Type system operations
-   - Error handling mechanisms
-   - Utility functions
+   - Instruction encoding/decoding
+   - Variable system functionality
 
-2. **Integration Tests**: Test interactions between components
-   - Binary format validation
-   - Format conversion workflows
-   - Error reporting in complex scenarios
+2. **Integration Tests**: Test components working together
+   - Complete COIL object creation and parsing
+   - Type system integration with instructions
+   - Variable system integration with scopes
 
-3. **Conformance Tests**: Validate against the COIL specification
-   - Format compliance
+3. **Conformance Tests**: Verify against the COIL specification
+   - Binary format compliance
    - Type system behavior
-   - Error code correctness
+   - Instruction set completeness
 
-4. **Performance Tests**: Ensure performance meets requirements
-   - Encoding/decoding speed
-   - Memory efficiency
-   - Scaling with large files
-
-The testing system will use a modern C++ testing framework (e.g., Catch2 or Google Test) and will be integrated with continuous integration.
-
-## Deliverables
-
-The final deliverables for `libcoil-dev` include:
-
-1. **Library Components**:
-   - Static library (.a/.lib)
-   - Shared library (.so/.dll)
-   - Header files
-
-2. **Documentation**:
-   - API reference
-   - Usage examples
-   - Implementation notes
-
-3. **Build System**:
-   - CMake configuration
-   - Package configuration files
-   - Cross-platform build scripts
-
-4. **Tests**:
-   - Test suite
-   - Benchmark suite
-   - Validation tools
+The testing framework will use a modern C++ testing framework (Catch2 or Google Test) and include comprehensive coverage of all components.
 
 ## Timeline
 
 | Phase | Duration | Key Milestones |
 |-------|----------|---------------|
-| Phase 1 | 4-6 weeks | - Basic binary format structures<br>- Core type system<br>- Error system framework |
-| Phase 2 | 6-8 weeks | - Complete binary format support<br>- Expanded type system<br>- Instruction encoding/decoding |
-| Phase 3 | 4-6 weeks | - Optimized performance<br>- Complete documentation<br>- Comprehensive test suite |
+| Phase 1 | 4-6 weeks | Binary format, type system, error system |
+| Phase 2 | 6-8 weeks | Instruction set, variable system, relocations |
+| Phase 3 | 4-6 weeks | Optimization, documentation, testing |
 
-Total estimated duration: 14-20 weeks for a complete, production-ready implementation.
+Total estimated duration: 14-20 weeks for a complete implementation.
