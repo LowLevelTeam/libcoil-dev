@@ -1,90 +1,131 @@
 # libcoil-dev
 
-A zero-dependency development library for the COIL (Computer Oriented Intermediate Language) ecosystem.
+[![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](https://unlicense.org)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)]()
 
 ## Overview
 
-`libcoil-dev` provides foundational support for COIL toolchain development without any external dependencies - not even the C standard library. The library uses direct system calls for all operations, giving maximum control and performance while maintaining a clean, consistent API across platforms.
+`libcoil-dev` is the core library that provides the fundamental data structures, utilities, and common functionality for the COIL (Computer Oriented Intermediate Language) ecosystem. It serves as the foundation upon which all other COIL components are built.
 
-The library is organized into two main components:
+This library defines the COIL binary format, type system, error handling mechanisms, and other essential components that ensure interoperability between different COIL implementations.
 
-- **core/**: Replaces functionality typically found in standard libraries with zero-dependency implementations
-  - Memory management
-  - Error handling
-  - Platform abstraction
-  - Stream I/O operations
-  - Base types and utilities
+## Features
 
-- **format/**: Provides COIL-specific functionality for toolchain development
-  - Instruction encoding/decoding
-  - Binary section handling
-  - Type system implementation
-  - COIL binary validation
+- **Binary Format Definitions**: Complete implementation of the COIL binary format
+- **Type System**: Comprehensive type system with support for all COIL types
+- **Error Handling**: Standardized error classification and reporting
+- **Utilities**: Common utilities for binary manipulation, validation, and encoding/decoding
+- **Extensibility**: Clean interfaces for implementing platform-specific features
 
-## Design Principles
+## Installation
 
-- **No Dependencies**: No external libraries or standard library usage
-- **Raw System Calls**: Direct system call implementation for all operations
-- **Platform-Specific Optimization**: Structure layouts can vary across platforms to optimize for stack allocation
-- **Explicit Memory Management**: No implicit heap allocations
-- **User Control**: Memory allocation must always be explicit and controlled by the user
-- **No Nested Allocations**: Functions do not allocate memory internally
-- **Consistent API**: Maintain functional API consistency across platforms
-- **Stack-Only Structures**: All structures are defined in headers and can be stack-allocated
+### Prerequisites
 
-## Building
+- C++17 compliant compiler
+- CMake 3.15+
 
-`libcoil-dev` uses the Meson build system:
+### Building from Source
 
 ```bash
-meson setup builddir
-cd builddir
-meson compile
+# Clone the repository
+git clone https://github.com/LLT/libcoil-dev.git
+cd libcoil-dev
+
+# Create build directory
+mkdir build && cd build
+
+# Generate build files
+cmake ..
+
+# Build
+cmake --build .
+
+# Install
+cmake --install .
 ```
 
-## Platform Support
+## Usage
 
-Currently supported platforms:
-- Linux (x86_64, ARM64)
-- Windows (x86_64)
-- macOS (x86_64, ARM64)
+### In CMake Projects
 
-Platform-specific macros are defined by the Meson build system:
-- `__COIL_LINUX`
-- `__COIL_WIN32`
-- `__COIL_MACOS`
-
-## Usage Example
-
-```c
-#include <coil/core/memory.h>
-#include <coil/format/instructions.h>
-
-int main(void) {
-    // Allocate memory with direct system calls
-    CoilMemContext mem_ctx;
-    void* buffer = coil_mem_alloc(1024, COIL_MEM_READ | COIL_MEM_WRITE, &mem_ctx);
-    
-    // Create an instruction (on the stack)
-    CoilInstruction instr;
-    coil_instruction_init(&instr, 0x60, 3); // ADD instruction with 3 operands
-    
-    // Set up operands
-    // ... (code to configure operands)
-    
-    // Encode the instruction to the buffer
-    size_t bytes_written;
-    coil_instruction_encode(&instr, buffer, 1024, &bytes_written);
-    
-    // Process the encoded instruction...
-    
-    // Free allocated memory
-    coil_mem_free(buffer, &mem_ctx);
-    
-    return 0;
-}
+```cmake
+find_package(libcoil-dev REQUIRED)
+target_link_libraries(your_target PRIVATE libcoil-dev)
 ```
+
+### In Code
+
+```cpp
+#include <coil/binary_format.h>
+#include <coil/type_system.h>
+#include <coil/error_codes.h>
+
+// Create a COIL object
+coil::CoilObject obj;
+
+// Add a section
+coil::Section textSection;
+textSection.nameIndex = 1;  // Assuming symbol index 1 is ".text"
+textSection.attributes = coil::SectionFlags::EXECUTABLE | coil::SectionFlags::READABLE;
+// ... set other properties
+obj.addSection(textSection);
+
+// Encode to binary
+std::vector<uint8_t> binary = obj.encode();
+
+// Write to file
+std::ofstream file("output.coil", std::ios::binary);
+file.write(reinterpret_cast<const char*>(binary.data()), binary.size());
+```
+
+## Components
+
+### Binary Format
+
+The `coil::binary_format` namespace provides the structures and functions for working with COIL binary files:
+
+- `CoilHeader`: COIL object file header
+- `CoilOHeader`: COIL output object header
+- `Section`: Section definition
+- `Symbol`: Symbol definition
+- `Relocation`: Relocation entry
+- `Instruction`: Instruction encoding/decoding
+
+### Type System
+
+The `coil::type_system` namespace defines the COIL type system:
+
+- Type encodings (16-bit format)
+- Type categories (integer, floating-point, vector, etc.)
+- Type compatibility rules
+- Type conversion utilities
+
+### Error Handling
+
+The `coil::error` namespace provides a standardized error handling system:
+
+- Error codes organized by category
+- Error reporting functions
+- Error information structures
+- Diagnostic utilities
+
+## Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+- [API Reference](docs/api/index.html)
+- [Binary Format Specification](docs/spec/binary_format.md)
+- [Type System Specification](docs/spec/type_system.md)
+- [Error Code Reference](docs/ref/error_codes.md)
+
+## Contributing
+
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute to libcoil-dev.
+
+## Implementation
+
+For details on the implementation approach, architecture, and development plans, see [IMPLEMENTATION.md](IMPLEMENTATION.md).
 
 ## License
 
-This is free and unencumbered software released into the public domain. See the LICENSE file for details.
+This project is released under the Unlicense. See [LICENSE](LICENSE) for details.
