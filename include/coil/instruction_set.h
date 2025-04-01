@@ -111,10 +111,8 @@ public:
   static Operand createVariable(uint16_t varId);
   
   // Create immediate operand
-  static Operand createImmediate(int32_t value, uint16_t type);
-  static Operand createImmediate(int64_t value, uint16_t type);
-  static Operand createImmediate(float value);
-  static Operand createImmediate(double value);
+  template <class T> 
+  static Operand createImmediate(T value);
   
   // Create symbol operand
   static Operand createSymbol(uint16_t symbolId);

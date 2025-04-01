@@ -147,7 +147,7 @@ int main() {
   // Main function with a simple variable declaration and arithmetic
   
   // First instruction: PROC 0x01 (CPU)
-  std::vector<coil::Operand> procOperands = { coil::Operand::createImmediate(1, coil::Type::UNT8) };
+  std::vector<coil::Operand> procOperands = { coil::Operand::template createImmediate<int8_t>(1) };
   coil::Instruction procInstr(coil::Opcode::PROC, procOperands);
   
   // Enter scope
@@ -156,8 +156,8 @@ int main() {
   // Create a variable: VAR #1, TYPE_INT32, 10
   std::vector<coil::Operand> varOperands = {
       coil::Operand::createVariable(1),
-      coil::Operand::createImmediate(coil::Type::INT32, 0),
-      coil::Operand::createImmediate(10, coil::Type::INT32)
+      coil::Operand::createImmediate<uint16_t>(coil::Type::INT32),
+      coil::Operand::createImmediate<int32_t>(10)
   };
   coil::Instruction varInstr(coil::Opcode::VAR, varOperands);
   
@@ -183,7 +183,7 @@ int main() {
   obj.addInstruction(textSectIndex, retInstr);
   
   // Print entire text section data for debugging
-  std::cout << "\nText section binary data:" << std::endl;
+  std::cout << "Text section binary data:" << std::endl;
   printBinaryData(obj.getSection(textSectIndex).data);
   
   // Add some data to the data section
@@ -195,6 +195,10 @@ int main() {
   
   // Update the data section
   obj.updateSection(dataSectIndex, dataSect);
+
+  // Print entire text section data for debugging
+  std::cout << "Data section binary data:" << std::endl;
+  printBinaryData(obj.getSection(dataSectIndex).data);
   
   // Create an error manager for validation
   coil::ErrorManager errorManager;

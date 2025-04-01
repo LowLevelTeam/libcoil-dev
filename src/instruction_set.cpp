@@ -21,16 +21,59 @@ Operand Operand::createVariable(uint16_t varId) {
   return Operand(Type::VAR, value);
 }
 
-Operand Operand::createImmediate(int32_t value, uint16_t type) {
+template <>
+Operand Operand::createImmediate<int8_t>(int8_t value) {
+  std::vector<uint8_t> data(1);
+  data[0] = value & 0xFF;
+  return Operand(Type::INT8 | Type::IMM, data);
+}
+
+template <>
+Operand Operand::createImmediate<uint8_t>(uint8_t value) {
+  std::vector<uint8_t> data(1);
+  data[0] = value & 0xFF;
+  return Operand(Type::UNT8 | Type::IMM, data);
+}
+
+template <>
+Operand Operand::createImmediate<int16_t>(int16_t value) {
+  std::vector<uint8_t> data(2);
+  data[0] = value & 0xFF;
+  data[1] = (value >> 8) & 0xFF;
+  return Operand(Type::INT16 | Type::IMM, data);
+}
+
+
+template <>
+Operand Operand::createImmediate<uint16_t>(uint16_t value) {
+  std::vector<uint8_t> data(2);
+  data[0] = value & 0xFF;
+  data[1] = (value >> 8) & 0xFF;
+  return Operand(Type::UNT16 | Type::IMM, data);
+}
+
+template <>
+Operand Operand::createImmediate<int32_t>(int32_t value) {
   std::vector<uint8_t> data(4);
   data[0] = value & 0xFF;
   data[1] = (value >> 8) & 0xFF;
   data[2] = (value >> 16) & 0xFF;
   data[3] = (value >> 24) & 0xFF;
-  return Operand(type | Type::IMM, data);
+  return Operand(Type::INT32 | Type::IMM, data);
 }
 
-Operand Operand::createImmediate(int64_t value, uint16_t type) {
+template <>
+Operand Operand::createImmediate<uint32_t>(uint32_t value) {
+  std::vector<uint8_t> data(4);
+  data[0] = value & 0xFF;
+  data[1] = (value >> 8) & 0xFF;
+  data[2] = (value >> 16) & 0xFF;
+  data[3] = (value >> 24) & 0xFF;
+  return Operand(Type::UNT32 | Type::IMM, data);
+}
+
+template <>
+Operand Operand::createImmediate<int64_t>(int64_t value) {
   std::vector<uint8_t> data(8);
   data[0] = value & 0xFF;
   data[1] = (value >> 8) & 0xFF;
@@ -40,16 +83,32 @@ Operand Operand::createImmediate(int64_t value, uint16_t type) {
   data[5] = (value >> 40) & 0xFF;
   data[6] = (value >> 48) & 0xFF;
   data[7] = (value >> 56) & 0xFF;
-  return Operand(type | Type::IMM, data);
+  return Operand(Type::INT64 | Type::IMM, data);
 }
 
-Operand Operand::createImmediate(float value) {
+template <>
+Operand Operand::createImmediate<uint64_t>(uint64_t value) {
+  std::vector<uint8_t> data(8);
+  data[0] = value & 0xFF;
+  data[1] = (value >> 8) & 0xFF;
+  data[2] = (value >> 16) & 0xFF;
+  data[3] = (value >> 24) & 0xFF;
+  data[4] = (value >> 32) & 0xFF;
+  data[5] = (value >> 40) & 0xFF;
+  data[6] = (value >> 48) & 0xFF;
+  data[7] = (value >> 56) & 0xFF;
+  return Operand(Type::UNT64 | Type::IMM, data);
+}
+
+template <>
+Operand Operand::createImmediate<float>(float value) {
   std::vector<uint8_t> data(4);
   memcpy(data.data(), &value, 4);
   return Operand(Type::FP32 | Type::IMM, data);
 }
 
-Operand Operand::createImmediate(double value) {
+template <>
+Operand Operand::createImmediate<double>(double value) {
   std::vector<uint8_t> data(8);
   memcpy(data.data(), &value, 8);
   return Operand(Type::FP64 | Type::IMM, data);

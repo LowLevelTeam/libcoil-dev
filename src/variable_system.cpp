@@ -18,7 +18,7 @@ std::vector<uint8_t> Variable::createDeclaration() const {
   operands.push_back(Operand::createVariable(id_));
   
   // Type
-  operands.push_back(Operand::createImmediate(type_, 0));
+  operands.push_back(Operand::createImmediate<uint16_t>(type_));
   
   // Initial value (if present)
   if (!initialValue_.empty()) {
