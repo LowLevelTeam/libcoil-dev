@@ -91,6 +91,11 @@ bool TypeInfo::isCompositeType(uint16_t type) {
   return mainType >= 0xD0 && mainType <= 0xD3;
 }
 
+bool TypeInfo::isParameterType(uint16_t type) {
+  uint8_t mainType = getMainType(type);
+  return mainType >= 0xFA && mainType <= 0xFE;
+}
+
 bool TypeInfo::areTypesCompatible(uint16_t sourceType, uint16_t destType) {
   // Exact match is always compatible
   if (sourceType == destType) {
@@ -203,7 +208,15 @@ uint32_t TypeInfo::getTypeSize(uint16_t type) {
       case 0xD2: // UNION
       case 0xD3: // ARRAY
           return 0; // Size depends on the specific composite type
-      
+
+      // Parameter types (would need more context)
+      case 0xFA:
+      case 0xFB:
+      case 0xFC:
+      case 0xFD:
+      case 0xFE:
+          return 0; // Size depends on the specific composite type
+
       default:
           return 0; // Unknown type
   }
@@ -259,6 +272,13 @@ std::string TypeInfo::getTypeName(uint16_t type) {
       case 0xD1: result = "PACK"; break;
       case 0xD2: result = "UNION"; break;
       case 0xD3: result = "ARRAY"; break;
+
+      // parameter types
+      case 0xFA: result = "PARAMETER 4"; break;
+      case 0xFB: result = "PARAMETER 3"; break;
+      case 0xFC: result = "PARAMETER 2"; break;
+      case 0xFD: result = "PARAMETER 1"; break;
+      case 0xFE: result = "PARAMETER 0"; break;
       
       default:
           std::stringstream ss;

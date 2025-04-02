@@ -52,6 +52,13 @@ namespace Type {
   constexpr uint16_t UNION  = 0xD200;
   constexpr uint16_t ARRAY  = 0xD300;
   
+  // Parameter Types
+  constexpr uint16_t PARAM4 = 0xFA00;
+  constexpr uint16_t PARAM3 = 0xFB00;
+  constexpr uint16_t PARAM2 = 0xFC00;
+  constexpr uint16_t PARAM1 = 0xFD00;
+  constexpr uint16_t PARAM0 = 0xFE00;
+
   // Type Extensions
   constexpr uint8_t CONST    = 0x01;
   constexpr uint8_t VOLATILE = 0x02;
@@ -89,6 +96,7 @@ public:
   static bool isPointerType(uint16_t type);
   static bool isReferenceType(uint16_t type);
   static bool isCompositeType(uint16_t type);
+  static bool isParameterType(uint16_t type);
   
   // Type compatibility checks
   static bool areTypesCompatible(uint16_t sourceType, uint16_t destType);
