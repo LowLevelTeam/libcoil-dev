@@ -1,80 +1,128 @@
 # libcoil-dev
 
-[![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](https://unlicense.org)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)]()
+A C++ library for creating, manipulating, and reading COIL (Computer Oriented Intermediate Language) files according to the COIL specification v1.1.0.
 
 ## Overview
 
-`libcoil-dev` is the foundational library for the COIL (Computer Oriented Intermediate Language) Toolchain. It provides the core data structures, utilities, and functionality needed by all COIL components.
+libcoil-dev provides a comprehensive API for working with the COIL binary format, type system, instruction sets, and object files. It enables developers to:
+
+- Parse and generate COIL binary instructions
+- Create and manipulate COIL types
+- Assemble and disassemble COIL code
+- Create, read, and link COIL object files
+- Work with COIL's memory model
 
 ## Features
 
-- **Binary Format**: Complete implementation of the COIL binary format
-- **Type System**: Comprehensive type system with all COIL types
-- **Instruction Set**: Encoding and decoding of COIL instructions
-- **Variable System**: Implementation of COIL's variable abstraction
-- **Error Handling**: Standardized error classification and reporting
+- **Complete Type System**: Full implementation of the COIL type system, including fixed-width integers, floating-point types, vectors, matrices, tensors, and composite types.
+- **Instruction Set Support**: Support for all COIL instruction sets (Universal, Extended, Compiler).
+- **Binary Format Handling**: Low-level APIs for working with COIL's binary encoding.
+- **Object File Operations**: Parsing, creating, and modifying COIL object files.
+- **Linking Support**: Utilities for linking multiple COIL object files.
+- **ABI Definitions**: Support for creating and managing Application Binary Interface definitions.
+- **Cross-Platform**: Designed to work on Linux, macOS, and Windows.
+- **Modern C++**: Written in C++17 with clean, consistent interfaces.
 
-## COIL Toolchain Integration
+## Building
 
-This library serves as the foundation for all components in the LLT COIL Toolchain:
-
-```
-[libcoil-dev]
-    |
-    ├─── CASM (Assembler)
-    |      |
-    |      v
-    |    (.casm files -> .coil files)
-    |
-    ├─── COILP (Processor)
-    |      |
-    |      v
-    |    (.coil files -> .coilo / .cbc files)
-    |
-    └─── CBC (Bytecode Interpreter)
-           |
-           v
-         (.cbc files - > execution)
-```
-
-## Building from Source
+libcoil-dev uses the Meson build system.
 
 ### Prerequisites
 
-- C++17 compliant compiler
-- Meson build system
+- A C++17-compatible compiler (GCC 8+, Clang 6+, MSVC 19.14+)
+- Meson (0.50.0 or later)
+- Ninja (1.8.2 or later)
 
-### Build Instructions
+### Build Steps
 
 ```bash
+# Clone the repository
+git clone https://github.com/yourusername/libcoil-dev.git
+cd libcoil-dev
+
+# Configure the build
 meson setup builddir
-cd builddir
-meson compile
-meson install
+
+# Build the library
+meson compile -C builddir
+
+# Run tests
+meson test -C builddir
+
+# Install the library
+meson install -C builddir
 ```
 
-## Usage in Meson Projects
+## Usage Examples
 
-```meson
-libcoil_dep = dependency('libcoil-dev')
-executable('your_app', 'main.cpp',
-           dependencies: [libcoil_dep])
+### Creating a Simple COIL Program
+
+```cpp
+#include <coil/binary_builder.h>
+#include <coil/instruction.h>
+#include <coil/types.h>
+
+using namespace coil;
+
+int main() {
+    // Create a binary builder
+    BinaryBuilder builder;
+    
+    // Define a variable
+    Variable var1 = builder.createVariable(Type::INT32);
+    
+    // Add an instruction (MOV var1, 42)
+    builder.addInstruction(Instruction::MOV, {var1, Immediate(Type::INT32, 42)});
+    
+    // Write to a file
+    builder.writeToFile("example.coil");
+    
+    return 0;
+}
 ```
 
-## API Reference
+### Reading a COIL Object File
 
-### Core Components
+```cpp
+#include <coil/object_file.h>
+#include <iostream>
 
-- **CoilObject**: Container for all COIL file components
-- **Symbol**: Symbol table entries
-- **Section**: Code and data section management
-- **Relocation**: Relocation entries for linking
-- **Instruction**: COIL instruction representation
-- **TypeInfo**: Type system utilities
-- **VariableManager**: Variable and scope management
-- **ErrorManager**: Error tracking and reporting
+using namespace coil;
+
+int main() {
+    // Open a COIL object file
+    ObjectFile obj("input.coil");
+    
+    // Print information about sections
+    for (const auto& section : obj.getSections()) {
+        std::cout << "Section: " << section.getName() 
+                  << ", Size: " << section.getSize() << std::endl;
+    }
+    
+    // Print information about symbols
+    for (const auto& symbol : obj.getSymbols()) {
+        std::cout << "Symbol: " << symbol.getName() 
+                  << ", Value: " << symbol.getValue() << std::endl;
+    }
+    
+    return 0;
+}
+```
+
+## Documentation
+
+Comprehensive API documentation is available at [https://yourdomain.com/libcoil-dev-docs](https://yourdomain.com/libcoil-dev-docs).
 
 ## License
 
-This project is released under the Unlicense. See [LICENSE](LICENSE) for details.
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request

@@ -1,1 +1,3 @@
-option('build_tests', type : 'boolean', value : true, description : 'Build the testing tree')
+option('build_tests', type: 'boolean', value: true, description: 'Build unit tests')
+option('build_examples', type: 'boolean', value: true, description: 'Build examples')
+option('enable_debug_logs', type: 'boolean', value: false, description: 'Enable debug logging')
