@@ -239,12 +239,21 @@ MemoryArenaPtr createThreadArena(size_t size) {
     return arena;
 }
 
+// Implementation of getThreadArena() to avoid multiple definitions
 MemoryArenaPtr getThreadArena() {
     if (threadData) {
         return threadData->arena;
     }
     
-    return nullptr;
+    if (threadArenaGetter) {
+        MemoryArenaPtr arena = threadArenaGetter();
+        if (arena) {
+            return arena;
+        }
+    }
+    
+    // Fall back to global arena if no thread arena is available
+    return globalArena;
 }
 
 void setThreadArena(MemoryArenaPtr arena) {

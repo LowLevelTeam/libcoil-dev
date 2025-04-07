@@ -11,23 +11,6 @@ namespace coil {
 // Global default logger
 std::shared_ptr<Logger> defaultLogger;
 
-// ANSI color codes
-static const char* levelColors[] = {
-    "\x1b[90m",  // TRACE: Bright Black
-    "\x1b[36m",  // DEBUG: Cyan
-    "\x1b[32m",  // INFO: Green
-    "\x1b[33m",  // WARNING: Yellow
-    "\x1b[31m",  // ERROR: Red
-    "\x1b[35m",  // FATAL: Magenta
-    ""           // NONE: No color
-};
-
-static const char* levelNames[] = {
-    "TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "FATAL", "NONE"
-};
-
-static const char* resetColor = "\x1b[0m";
-
 Logger::Logger(const std::string& prefix, FILE* stream, LogLevel level)
     : stream_(stream)
     , level_(level)
@@ -64,45 +47,6 @@ std::string Logger::formatMessage(const char* fmt, ...) {
     vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
     return std::string(buffer);
-}
-
-template<typename... Args>
-void Logger::log(LogLevel level, const char* file, int line, const char* func, const char* fmt, Args&&... args) {
-    if (level < level_) return;
-    
-    char timestamp[32];
-    std::time_t now = std::time(nullptr);
-    std::tm* tm_info = std::localtime(&now);
-    std::strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", tm_info);
-    
-    std::lock_guard<std::mutex> lock(mutex_);
-    
-    // Print timestamp, level, and thread id
-    if (coloredOutput_) {
-        fprintf(stream_, "%s [%s%s%s] [%s] [%lu] ", 
-                timestamp, 
-                levelColors[static_cast<int>(level)], 
-                levelNames[static_cast<int>(level)], 
-                resetColor,
-                prefix_.c_str(),
-                static_cast<unsigned long>(std::hash<std::thread::id>{}(std::this_thread::get_id())));
-    } else {
-        fprintf(stream_, "%s [%s] [%s] [%lu] ", 
-                timestamp, 
-                levelNames[static_cast<int>(level)],
-                prefix_.c_str(),
-                static_cast<unsigned long>(std::hash<std::thread::id>{}(std::this_thread::get_id())));
-    }
-    
-    // Print source location for debug and higher
-    if (level >= LogLevel::Debug) {
-        fprintf(stream_, "(%s:%d:%s) ", file, line, func);
-    }
-    
-    // Print the actual message
-    fprintf(stream_, fmt, std::forward<Args>(args)...);
-    fprintf(stream_, "\n");
-    fflush(stream_);
 }
 
 Logger::~Logger() {

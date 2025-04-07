@@ -227,17 +227,18 @@ void setThreadArenaGetter(ThreadArenaGetter getter) {
     threadArenaGetter = getter;
 }
 
-MemoryArenaPtr getThreadArena() {
-    if (threadArenaGetter) {
-        MemoryArenaPtr arena = threadArenaGetter();
-        if (arena) {
-            return arena;
-        }
-    }
-    
-    // Fall back to global arena if no thread arena is available
-    return globalArena;
-}
+// Moved the implementation to thread.cpp to avoid multiple definitions
+// MemoryArenaPtr getThreadArena() {
+//     if (threadArenaGetter) {
+//         MemoryArenaPtr arena = threadArenaGetter();
+//         if (arena) {
+//             return arena;
+//         }
+//     }
+//     
+//     // Fall back to global arena if no thread arena is available
+//     return globalArena;
+// }
 
 void initializeMemory() {
     if (!defaultLogger) {
