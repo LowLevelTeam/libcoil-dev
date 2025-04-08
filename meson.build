@@ -8,11 +8,6 @@ project('coil', 'cpp',
   meson_version : '>= 0.56.0'
 )
 
-# Dependencies
-thread_dep = dependency('threads')
-gtest_dep = dependency('gtest', fallback : ['gtest', 'gtest_dep'])
-gmock_dep = dependency('gmock', fallback : ['gtest', 'gmock_dep'])
-
 # Include directories
 incdir = include_directories('include')
 
@@ -21,17 +16,17 @@ coil_src = [
   'src/coil.cpp',
   'src/log.cpp',
   'src/err.cpp',
-  'src/mem.cpp',
-  'src/args.cpp',
-  'src/stream.cpp',
-  'src/thread.cpp'
+  'src/stream.cpp'
 ]
+
+# Build the library with optimization flags
+compiler = meson.get_compiler('cpp')
+add_project_arguments('-fno-exceptions', '-fno-rtti', language : 'cpp')
 
 # Build the library
 coil_lib = library('coil',
   coil_src,
   include_directories : incdir,
-  dependencies : [thread_dep],
   install : true
 )
 
@@ -48,8 +43,8 @@ pkg_mod.generate(
   version : '0.1.0',
   name : 'coil',
   filebase : 'coil',
-  description : 'Library for reading and writing COIL formats'
+  description : 'Zero-cost library for reading and writing data streams'
 )
 
-# Subdirectories
-subdir('tests')
+# Tests could be added in a subdirectory if needed
+# subdir('tests')

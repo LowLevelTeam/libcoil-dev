@@ -2,12 +2,10 @@
 
 #include "coil/log.hpp"
 #include <string>
-#include <memory>
-#include <mutex>
 #include <vector>
 #include <stdexcept>
 #include <functional>
-#include <optional>
+#include <array>
 
 namespace coil {
 
@@ -67,10 +65,10 @@ public:
               const StreamPosition& position,
               const std::string& message);
     
-    ErrorCode getCode() const { return code_; }
-    ErrorSeverity getSeverity() const { return severity_; }
-    const StreamPosition& getPosition() const { return position_; }
-    const std::string& getMessage() const { return message_; }
+    inline ErrorCode getCode() const { return code_; }
+    inline ErrorSeverity getSeverity() const { return severity_; }
+    inline const StreamPosition& getPosition() const { return position_; }
+    inline const std::string& getMessage() const { return message_; }
     
 private:
     ErrorCode code_;
@@ -82,16 +80,16 @@ private:
 /**
  * @brief Error handler function type
  */
-using ErrorHandlerFunction = std::function<void(
+using ErrorHandlerFunction = void (*)(
     ErrorCode code,
     ErrorSeverity severity,
     const StreamPosition& position,
     const std::string& message,
     void* userData
-)>;
+);
 
 /**
- * @brief Modern C++ Error Manager class
+ * @brief Optimized error manager without thread safety or dynamic allocations
  */
 class ErrorManager {
 public:
@@ -100,15 +98,7 @@ public:
      * 
      * @param logger Logger for errors
      */
-    explicit ErrorManager(std::shared_ptr<Logger> logger);
-    
-    /**
-     * @brief Create an error manager
-     * 
-     * @param logger Logger for errors
-     * @return std::shared_ptr<ErrorManager> 
-     */
-    static std::shared_ptr<ErrorManager> create(std::shared_ptr<Logger> logger);
+    explicit ErrorManager(Logger& logger);
     
     /**
      * @brief Add an error
@@ -130,7 +120,9 @@ public:
      * @param position Stream position
      * @param message Message
      */
-    void addInfo(ErrorCode code, const StreamPosition& position, const std::string& message);
+    inline void addInfo(ErrorCode code, const StreamPosition& position, const std::string& message) {
+        addError(code, ErrorSeverity::Info, position, message);
+    }
     
     /**
      * @brief Add a warning
@@ -139,7 +131,9 @@ public:
      * @param position Stream position
      * @param message Warning message
      */
-    void addWarning(ErrorCode code, const StreamPosition& position, const std::string& message);
+    inline void addWarning(ErrorCode code, const StreamPosition& position, const std::string& message) {
+        addError(code, ErrorSeverity::Warning, position, message);
+    }
     
     /**
      * @brief Add an error
@@ -148,7 +142,9 @@ public:
      * @param position Stream position
      * @param message Error message
      */
-    void addError(ErrorCode code, const StreamPosition& position, const std::string& message);
+    inline void addError(ErrorCode code, const StreamPosition& position, const std::string& message) {
+        addError(code, ErrorSeverity::Error, position, message);
+    }
     
     /**
      * @brief Add a fatal error
@@ -157,7 +153,9 @@ public:
      * @param position Stream position
      * @param message Fatal error message
      */
-    void addFatal(ErrorCode code, const StreamPosition& position, const std::string& message);
+    inline void addFatal(ErrorCode code, const StreamPosition& position, const std::string& message) {
+        addError(code, ErrorSeverity::Fatal, position, message);
+    }
     
     /**
      * @brief Check if there are any errors of given severity or higher
@@ -180,16 +178,17 @@ public:
     /**
      * @brief Get the last error
      * 
-     * @return std::optional<ErrorEntry> 
+     * @return const ErrorEntry* Pointer to the last error or nullptr if none
      */
-    std::optional<ErrorEntry> getLastError() const;
+    const ErrorEntry* getLastError() const;
     
     /**
      * @brief Get all errors
      * 
-     * @return std::vector<ErrorEntry> 
+     * @param count Output parameter to receive error count
+     * @return const ErrorEntry* Pointer to the first error or nullptr if none
      */
-    std::vector<ErrorEntry> getAllErrors() const;
+    const ErrorEntry* getAllErrors(size_t* count = nullptr) const;
     
     /**
      * @brief Set an error handler
@@ -202,54 +201,48 @@ public:
     /**
      * @brief Destructor
      */
-    ~ErrorManager();
-    
-    // Delete copy and move constructors/assignments
-    ErrorManager(const ErrorManager&) = delete;
-    ErrorManager& operator=(const ErrorManager&) = delete;
-    ErrorManager(ErrorManager&&) = delete;
-    ErrorManager& operator=(ErrorManager&&) = delete;
+    ~ErrorManager() = default;
 
 private:
     std::vector<ErrorEntry> errors_;
-    mutable std::mutex mutex_;
-    std::shared_ptr<Logger> logger_;
-    ErrorHandlerFunction errorHandler_;
-    void* userData_;
+    Logger& logger_;
+    ErrorHandlerFunction errorHandler_ = nullptr;
+    void* userData_ = nullptr;
 };
 
-// Global default error manager
-extern std::shared_ptr<ErrorManager> defaultErrorManager;
+/**
+ * @brief Context structure for the COIL library
+ * 
+ * This holds references to the logger and error manager
+ * to avoid global state and allow for thread safety by using
+ * separate contexts in different threads.
+ */
+struct Context {
+    Logger& logger;
+    ErrorManager& errorManager;
+};
 
-// Initialize library error management
-void initializeErrorHandling();
-
-// Cleanup library error management
-void cleanupErrorHandling();
-
-// Get an error message for a given error code
-std::string getErrorMessage(ErrorCode code);
-
-// Create an exception from an error
+// Helper functions for error management
+const char* getErrorMessage(ErrorCode code);
 std::runtime_error createException(ErrorCode code, const std::string& message);
+inline StreamPosition createStreamPosition(const std::string& fileName, 
+                                       size_t line, 
+                                       size_t column, 
+                                       size_t offset) {
+    return {fileName, line, column, offset};
+}
 
-// Convenience function to create a stream position
-StreamPosition createStreamPosition(const std::string& fileName, 
-                                  size_t line, 
-                                  size_t column, 
-                                  size_t offset);
+// Convenience macros for error handling
+#define COIL_ERROR_INFO(errorMgr, code, position, message) \
+    (errorMgr).addInfo(code, position, message)
 
-// Default error manager convenience macros
-#define COIL_DEFAULT_ERROR_INFO(code, position, message) \
-    coil::defaultErrorManager->addInfo(code, position, message)
+#define COIL_ERROR_WARNING(errorMgr, code, position, message) \
+    (errorMgr).addWarning(code, position, message)
 
-#define COIL_DEFAULT_ERROR_WARNING(code, position, message) \
-    coil::defaultErrorManager->addWarning(code, position, message)
+#define COIL_ERROR_ERROR(errorMgr, code, position, message) \
+    (errorMgr).addError(code, position, message)
 
-#define COIL_DEFAULT_ERROR_ERROR(code, position, message) \
-    coil::defaultErrorManager->addError(code, position, message)
-
-#define COIL_DEFAULT_ERROR_FATAL(code, position, message) \
-    coil::defaultErrorManager->addFatal(code, position, message)
+#define COIL_ERROR_FATAL(errorMgr, code, position, message) \
+    (errorMgr).addFatal(code, position, message)
 
 } // namespace coil
