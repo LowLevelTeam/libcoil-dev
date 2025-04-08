@@ -1,4 +1,4 @@
-#include "coil/coil.h"
+#include "coil/coil.hpp"
 
 namespace coil {
 
@@ -8,7 +8,7 @@ constexpr int VERSION_MINOR = 0;
 constexpr int VERSION_PATCH = 0;
 constexpr const char* VERSION_STRING = "1.0.0";
 
-inline Version getVersion() {
+Version getVersion() {
     Version version;
     version.major = VERSION_MAJOR;
     version.minor = VERSION_MINOR;

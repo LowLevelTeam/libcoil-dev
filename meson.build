@@ -46,5 +46,5 @@ pkg_mod.generate(
   description : 'Zero-cost library for reading and writing data streams'
 )
 
-# Tests could be added in a subdirectory if needed
-# subdir('tests')
+# Include the tests directory
+subdir('tests')

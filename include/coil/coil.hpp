@@ -1,6 +1,3 @@
-#ifndef COIL_H
-#define COIL_H
-
 /**
  * @file coil.h
  * @brief Main header for the optimized COIL library.
@@ -9,6 +6,7 @@
  * focusing on zero-cost abstractions.
  */
 
+#pragma once
 #include <string>
 #include <string_view>
 
@@ -29,8 +27,6 @@ struct Version {
  * 
  * @return Version structure with version information
  */
-inline Version getVersion();
+Version getVersion();
 
 } // namespace coil
-
-#endif // COIL_H
