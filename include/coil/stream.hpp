@@ -46,11 +46,35 @@ public:
     virtual uint32_t getFlags() const = 0;
     
     /**
-     * @brief Get the current position information
+     * @brief Get the current read position information
      * 
      * @return StreamPosition 
      */
-    virtual StreamPosition getPosition() const = 0;
+    virtual StreamPosition getReadPosition() const = 0;
+    
+    /**
+     * @brief Get the current write position information
+     * 
+     * @return StreamPosition 
+     */
+    virtual StreamPosition getWritePosition() const = 0;
+    
+    /**
+     * @brief Get the current position information (for backward compatibility)
+     * 
+     * @return StreamPosition Current read position
+     */
+    virtual StreamPosition getPosition() const { return getReadPosition(); }
+    
+    /**
+     * @brief Reset the read position to the beginning of the stream
+     */
+    virtual void resetReadPosition() = 0;
+    
+    /**
+     * @brief Reset the write position to the beginning of the stream
+     */
+    virtual void resetWritePosition() = 0;
     
     /**
      * @brief Check if the stream is readable
@@ -239,6 +263,13 @@ public:
      */
     std::string readLine(size_t maxSize = 1024);
     
+    /**
+     * @brief Reset the read position to the beginning of the stream
+     */
+    inline void resetPosition() {
+        stream_.resetReadPosition();
+    }
+    
 private:
     Stream& stream_;
 };
@@ -390,6 +421,13 @@ public:
         return write(str.c_str(), str.size());
     }
     
+    /**
+     * @brief Reset the write position to the beginning of the stream
+     */
+    inline void resetPosition() {
+        stream_.resetWritePosition();
+    }
+    
 private:
     Stream& stream_;
 };
@@ -416,11 +454,18 @@ public:
     uint32_t getFlags() const override;
     
     /**
-     * @brief Get the current position information
+     * @brief Get the current read position information
      * 
      * @return StreamPosition 
      */
-    StreamPosition getPosition() const override;
+    StreamPosition getReadPosition() const override;
+    
+    /**
+     * @brief Get the current write position information
+     * 
+     * @return StreamPosition 
+     */
+    StreamPosition getWritePosition() const override;
     
     /**
      * @brief Destructor
@@ -431,9 +476,14 @@ protected:
     std::string name_;
     uint32_t flags_;
     const Context& ctx_;
-    StreamPosition position_;
+    StreamPosition readPosition_;
+    StreamPosition writePosition_;
     
-    void updatePosition(const char* buffer, size_t size);
+    // Position type enumeration
+    enum class PositionType { Read, Write };
+    
+    // Update the specified position
+    void updatePosition(const char* buffer, size_t size, PositionType type);
 };
 
 /**
@@ -467,6 +517,16 @@ public:
     void close() override;
     
     /**
+     * @brief Reset the read position to the beginning of the stream
+     */
+    void resetReadPosition() override;
+    
+    /**
+     * @brief Reset the write position to the beginning of the stream
+     */
+    void resetWritePosition() override;
+    
+    /**
      * @brief Destructor - automatically closes the file if still open
      */
     ~FileStream() override;
@@ -497,6 +557,8 @@ private:
         const Context& ctx);
     
     FILE* fp_ = nullptr;
+    size_t readOffset_ = 0;    // Current read offset
+    size_t writeOffset_ = 0;   // Current write offset
 };
 
 /**
@@ -532,6 +594,16 @@ public:
     void close() override;
     
     /**
+     * @brief Reset the read position to the beginning of the stream
+     */
+    void resetReadPosition() override;
+    
+    /**
+     * @brief Reset the write position to the beginning of the stream
+     */
+    void resetWritePosition() override;
+    
+    /**
      * @brief Get the buffer
      * 
      * @return void* Buffer
@@ -544,6 +616,20 @@ public:
      * @return size_t Size
      */
     size_t getSize() const;
+    
+    /**
+     * @brief Get the current write offset
+     * 
+     * @return size_t Current write offset
+     */
+    size_t getWriteOffset() const { return writeOffset_; }
+    
+    /**
+     * @brief Get the current read offset
+     * 
+     * @return size_t Current read offset
+     */
+    size_t getReadOffset() const { return readOffset_; }
     
     /**
      * @brief Destructor - automatically closes if needed
@@ -578,7 +664,8 @@ private:
     
     uint8_t* buffer_ = nullptr;
     size_t size_ = 0;
-    size_t memory_position_ = 0;
+    size_t readOffset_ = 0;     // Current read position
+    size_t writeOffset_ = 0;    // Current write position
     bool ownsBuffer_ = false;
 };
 

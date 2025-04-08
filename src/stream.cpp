@@ -36,31 +36,43 @@ BaseStream::BaseStream(const std::string& name, uint32_t flags, const Context& c
     , flags_(flags)
     , ctx_(ctx) {
     
-    position_.fileName = name;
-    position_.line = 1;
-    position_.column = 1;
-    position_.offset = 0;
+    // Initialize both positions
+    readPosition_.fileName = name;
+    readPosition_.line = 1;
+    readPosition_.column = 1;
+    readPosition_.offset = 0;
+    
+    writePosition_.fileName = name;
+    writePosition_.line = 1;
+    writePosition_.column = 1;
+    writePosition_.offset = 0;
 }
 
 uint32_t BaseStream::getFlags() const {
     return flags_;
 }
 
-StreamPosition BaseStream::getPosition() const {
-    return position_;
+StreamPosition BaseStream::getReadPosition() const {
+    return readPosition_;
 }
 
-void BaseStream::updatePosition(const char* buffer, size_t size) {
+StreamPosition BaseStream::getWritePosition() const {
+    return writePosition_;
+}
+
+void BaseStream::updatePosition(const char* buffer, size_t size, PositionType type) {
+    StreamPosition& position = (type == PositionType::Read) ? readPosition_ : writePosition_;
+    
     for (size_t i = 0; i < size; i++) {
         if (buffer[i] == '\n') {
-            position_.line++;
-            position_.column = 1;
+            position.line++;
+            position.column = 1;
         } else {
-            position_.column++;
+            position.column++;
         }
     }
     
-    position_.offset += size;
+    position.offset += size;
 }
 
 // FileStream implementation
@@ -70,7 +82,9 @@ FileStream::FileStream(
     uint32_t flags,
     const Context& ctx)
     : BaseStream(filename, flags, ctx)
-    , fp_(fp) {
+    , fp_(fp)
+    , readOffset_(0)
+    , writeOffset_(0) {
 }
 
 FileStream* FileStream::create(
@@ -112,16 +126,25 @@ size_t FileStream::readImpl(void* buffer, size_t size) {
         return 0;
     }
     
+    // Position the file pointer at the read offset
+    if (fseek(fp_, readOffset_, SEEK_SET) != 0) {
+        ctx_.errorManager.addError(ErrorCode::IO, readPosition_, 
+                                "Error positioning file pointer for reading: " + 
+                                std::string(strerror(errno)));
+        return 0;
+    }
+    
     size_t bytesRead = fread(buffer, 1, size, fp_);
     
     if (bytesRead < size && ferror(fp_)) {
-        ctx_.errorManager.addError(ErrorCode::IO, position_, 
+        ctx_.errorManager.addError(ErrorCode::IO, readPosition_, 
                                 "Error reading from file stream: " + 
                                 std::string(strerror(ferror(fp_))));
     }
     
     if (bytesRead > 0) {
-        updatePosition(static_cast<const char*>(buffer), bytesRead);
+        updatePosition(static_cast<const char*>(buffer), bytesRead, PositionType::Read);
+        readOffset_ += bytesRead;
     }
     
     if (feof(fp_)) {
@@ -136,16 +159,25 @@ size_t FileStream::writeImpl(const void* buffer, size_t size) {
         return 0;
     }
     
+    // Position the file pointer at the write offset
+    if (fseek(fp_, writeOffset_, SEEK_SET) != 0) {
+        ctx_.errorManager.addError(ErrorCode::IO, writePosition_, 
+                                "Error positioning file pointer for writing: " + 
+                                std::string(strerror(errno)));
+        return 0;
+    }
+    
     size_t bytesWritten = fwrite(buffer, 1, size, fp_);
     
     if (bytesWritten < size) {
-        ctx_.errorManager.addError(ErrorCode::IO, position_, 
+        ctx_.errorManager.addError(ErrorCode::IO, writePosition_, 
                                 "Error writing to file stream: " + 
                                 std::string(strerror(ferror(fp_))));
     }
     
     if (bytesWritten > 0) {
-        updatePosition(static_cast<const char*>(buffer), bytesWritten);
+        updatePosition(static_cast<const char*>(buffer), bytesWritten, PositionType::Write);
+        writeOffset_ += bytesWritten;
     }
     
     return bytesWritten;
@@ -156,7 +188,32 @@ bool FileStream::eof() const {
         return true;
     }
     
-    return (feof(fp_) != 0) || ((flags_ & StreamFlags::Eof) != 0);
+    // Save current position
+    long currentPos = ftell(fp_);
+    
+    // Seek to end of file
+    fseek(fp_, 0, SEEK_END);
+    long endPos = ftell(fp_);
+    
+    // Restore position
+    fseek(fp_, currentPos, SEEK_SET);
+    
+    // EOF if read position is at or past the end of the file
+    return readOffset_ >= static_cast<size_t>(endPos) || ((flags_ & StreamFlags::Eof) != 0);
+}
+
+void FileStream::resetReadPosition() {
+    readOffset_ = 0;
+    readPosition_.line = 1;
+    readPosition_.column = 1;
+    readPosition_.offset = 0;
+}
+
+void FileStream::resetWritePosition() {
+    writeOffset_ = 0;
+    writePosition_.line = 1;
+    writePosition_.column = 1;
+    writePosition_.offset = 0;
 }
 
 void FileStream::close() {
@@ -180,7 +237,8 @@ MemoryStream::MemoryStream(
     : BaseStream("memory", flags, ctx)
     , buffer_(static_cast<uint8_t*>(buffer))
     , size_(size)
-    , memory_position_(0)
+    , readOffset_(0)
+    , writeOffset_(0)
     , ownsBuffer_(ownsBuffer) {
 }
 
@@ -213,7 +271,7 @@ size_t MemoryStream::readImpl(void* buffer, size_t size) {
         return 0;
     }
     
-    size_t available = size_ - memory_position_;
+    size_t available = size_ - readOffset_;
     size_t bytesToRead = std::min(size, available);
     
     if (bytesToRead == 0) {
@@ -221,15 +279,14 @@ size_t MemoryStream::readImpl(void* buffer, size_t size) {
         return 0;
     }
     
-    memcpy(buffer, buffer_ + memory_position_, bytesToRead);
+    memcpy(buffer, buffer_ + readOffset_, bytesToRead);
     
     if (bytesToRead > 0) {
-        updatePosition(reinterpret_cast<const char*>(buffer_ + memory_position_), bytesToRead);
+        updatePosition(reinterpret_cast<const char*>(buffer_ + readOffset_), bytesToRead, PositionType::Read);
+        readOffset_ += bytesToRead;
     }
     
-    memory_position_ += bytesToRead;
-    
-    if (memory_position_ >= size_) {
+    if (readOffset_ >= size_) {
         flags_ |= StreamFlags::Eof;
     }
     
@@ -241,20 +298,19 @@ size_t MemoryStream::writeImpl(const void* buffer, size_t size) {
         return 0;
     }
     
-    size_t available = size_ - memory_position_;
+    size_t available = size_ - writeOffset_;
     size_t bytesToWrite = std::min(size, available);
     
     if (bytesToWrite == 0) {
         return 0;
     }
     
-    memcpy(buffer_ + memory_position_, buffer, bytesToWrite);
+    memcpy(buffer_ + writeOffset_, buffer, bytesToWrite);
     
     if (bytesToWrite > 0) {
-        updatePosition(static_cast<const char*>(buffer), bytesToWrite);
+        updatePosition(static_cast<const char*>(buffer), bytesToWrite, PositionType::Write);
+        writeOffset_ += bytesToWrite;
     }
-    
-    memory_position_ += bytesToWrite;
     
     return bytesToWrite;
 }
@@ -264,7 +320,21 @@ bool MemoryStream::eof() const {
         return true;
     }
     
-    return memory_position_ >= size_ || ((flags_ & StreamFlags::Eof) != 0);
+    return readOffset_ >= size_ || ((flags_ & StreamFlags::Eof) != 0);
+}
+
+void MemoryStream::resetReadPosition() {
+    readOffset_ = 0;
+    readPosition_.line = 1;
+    readPosition_.column = 1;
+    readPosition_.offset = 0;
+}
+
+void MemoryStream::resetWritePosition() {
+    writeOffset_ = 0;
+    writePosition_.line = 1;
+    writePosition_.column = 1;
+    writePosition_.offset = 0;
 }
 
 void MemoryStream::close() {
@@ -272,7 +342,8 @@ void MemoryStream::close() {
         free(buffer_);
         buffer_ = nullptr;
         size_ = 0;
-        memory_position_ = 0;
+        readOffset_ = 0;
+        writeOffset_ = 0;
     }
 }
 
