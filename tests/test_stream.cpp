@@ -126,6 +126,7 @@ TEST_CASE("FileStream basic operations", "[stream]") {
         std::string line1 = reader.readLine();
         std::string line2 = reader.readLine();
         std::string line3 = reader.readLine();
+        std::string line4 = reader.readLine(); // to read into eof
         
         REQUIRE(line1 == "Line 1");
         REQUIRE(line2 == "Line 2");
