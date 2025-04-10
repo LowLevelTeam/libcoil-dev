@@ -1,8 +1,8 @@
 /**
- * @file coil.h
- * @brief Main header for the optimized COIL library.
+ * @file coil.hpp
+ * @brief Main header for the COIL development library.
  * 
- * This header includes the core components for stream parsing,
+ * This header includes the core components for versioning.
  * focusing on zero-cost abstractions.
  */
 

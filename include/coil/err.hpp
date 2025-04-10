@@ -12,7 +12,7 @@ namespace coil {
 /**
  * @brief Error codes
  */
-enum class ErrorCode {
+enum ErrorCode {
     None = 0,
     Memory,         // Memory allocation failure
     IO,             // I/O error
@@ -28,7 +28,7 @@ enum class ErrorCode {
     Internal,       // Internal error
     Unsupported,    // Unsupported operation
     Custom          // Custom error
-};
+} err_t;
 
 /**
  * @brief Error severity
