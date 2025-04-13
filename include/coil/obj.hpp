@@ -34,28 +34,25 @@ namespace coil {
   };
 
   struct CoilHeader {
-    uint8_t magic[4];         // COIl
-    uint8_t  major;           // Major version
-    uint8_t  minor;           // Minor version
-    uint8_t  patch;           // Patch version
-    uint8_t  flags;           // Format flags
-    uint32_t symbol_offset;   // Offset to symbol table
-    uint32_t section_offset;  // Offset to section table
-    uint32_t reloc_offset;    // Offset to relocation table
-    uint32_t debug_offset;    // Offset to debug info (0 if none)
-    uint32_t file_size;       // Total file size
-    
-    // Validation method
-    bool isValid() const;
+    uint8_t magic[4] = {'C', 'O', 'I', 'L'}; // COIl
+    uint8_t  major = 1;              // Major version
+    uint8_t  minor = 0;              // Minor version
+    uint8_t  patch = 0;              // Patch version
+    uint8_t  flags = 0;              // Format flags
+    uint32_t symbol_table_size = 0;  // Size of symbol table
+    uint32_t section_table_size = 0; // Size of section table
+    uint32_t reloc_table_size = 0;   // Size of relocation table
+    uint32_t debug_offset = 0;       // Offset to debug info (0 if none)
+    uint32_t file_size = 0;          // Total file size
 
     // Serialize
     void encode(StreamWriter &writer) const;
 
     // Deserialize
-    Header(StreamReader &reader);
+    void decode(StreamReader &reader);
   
     // Initialize with default values
-    Header();
+    Header() = default;
   };
   struct Symbol {
     uint16_t name_length = 0;   // Length of symbol name
@@ -69,6 +66,7 @@ namespace coil {
     
     // Deserialize
     Symbol(StreamReader &reader);
+    void decode(StreamReader &reader);
   
     // Initialize with default values
     Symbol() = default;
@@ -88,6 +86,7 @@ namespace coil {
     
     // Deserialize
     Section(StreamReader &reader);
+    void decode(StreamReader &reader);
   };
   struct Relocation {
     uint32_t offset;          // Offset within section
@@ -101,65 +100,100 @@ namespace coil {
     
     // Deserialize
     Relocation(StreamReader &reader);
+    void decode(StreamReader &reader);
   };
 
-  class CoilObject {
-  public:
-    CoilObject();
-    CoilObject(StreamReader &reader);
+  struct SymbolTable {
+    std::vector<Symbol> _symbols;
 
-    // Add a symbol to the object
+    // Add a symbol to the table
     uint16_t addSymbol(const Symbol& symbol);
-    
-    // Add a section to the object
-    uint16_t addSection(const Section& section);
-    
-    // Add a relocation to the object
-    uint16_t addRelocation(const Relocation& relocation);
-    
+
     // Get a symbol by index
     const Symbol& getSymbol(uint16_t index) const;
-    
-    // Get a section by index
-    const Section& getSection(uint16_t index) const;
-    
-    // Get a relocation by index
-    const Relocation& getRelocation(uint16_t index) const;
-    
+
     // Update a symbol by index (non-const version for modifying)
     void updateSymbol(uint16_t index, const Symbol& symbol);
-    
-    // Update a section by index (non-const version for modifying)
-    void updateSection(uint16_t index, const Section& section);
-        
-    // Set a section's size
-    void setSectionSize(uint16_t index, uint32_t size);
-    
-    // Update a symbol's section index
-    void setSymbolSectionIndex(uint16_t symbolIndex, uint16_t sectionIndex);
-    
+
     // Get symbol index by name
     uint16_t findSymbol(const std::string& name) const;
     
     // Get symbol count
     uint16_t getSymbolCount() const;
+
+    // Serialize
+    void encode(StreamWriter &writer) const;
+
+    // Deserialize
+    void decode(StreamReader &reader);
+  };
+  struct SectionTable {
+    std::vector<Section> _sections;
+
+    // Add a symbol to the table
+    uint16_t addSection(const Section& section);
+
+    // Get a Section by index
+    const Section& getSection(uint16_t index) const;
+
+    // Update a Section by index (non-const version for modifying)
+    void updateSection(uint16_t index, const Section& section);
+
+    // Get Section index by name
+    uint16_t findSection(const std::string& name) const;
     
-    // Get section count
+    // Get Section count
     uint16_t getSectionCount() const;
+
+    // Set a section's size
+    void setSectionSize(uint16_t index, uint32_t size);
+  
+    // Serialize
+    void encode(StreamWriter &writer) const;
+
+    // Deserialize
+    void decode(StreamReader &reader);
+  };
+  struct RelocationTable {
+    std::vector<Relocation> _relocations;
+
+    // Add a symbol to the table
+    uint16_t addRelocation(const Relocation& relocation);
+
+    // Get a Relocation by index
+    const Relocation& getRelocation(uint16_t index) const;
+
+    // Update a Relocation by index (non-const version for modifying)
+    void updateRelocation(uint16_t index, const Relocation& relocation);
+
+    // Get Relocation index by name
+    uint16_t findRelocation(const std::string& name) const;
     
-    // Get relocation count
+    // Get Relocation count
     uint16_t getRelocationCount() const;
-    
+
+    // Serialize
+    void encode(StreamWriter &writer) const;
+
+    // Deserialize
+    void decode(StreamReader &reader);
+  };
+
+  class CoilObject {
+  public:
+    CoilObject() = default;
+
     // Serialize
     void encode(StreamWriter &writer) const;
       
     // Deserialize
+    void decode(StreamReader &reader);
     CoilObject(StreamReader &reader);
-  private:
-    CoilHeader _header;
-    std::vector<Symbol> _symbols;
-    std::vector<Section> _sections;
-    std::vector<Relocation> _relocations;
+
+    CoilHeader header;
+    SymbolTable symbolTable;
+    SectionTable sectionTable;
+    RelocationTable relocTable;
   };
 };
 

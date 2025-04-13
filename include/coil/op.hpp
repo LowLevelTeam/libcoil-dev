@@ -76,10 +76,10 @@ namespace coil {
     TOP_P_RANGE_START = 0xFA,
     TOP_P_RANGE_END   = 0xFE,
 
-    TOP_PARAM3 = 0xFA
-    TOP_PARAM2 = 0xFC
-    TOP_PARAM1 = 0xFD
-    TOP_PARAM0 = 0xFE
+    TOP_PARAM3 = 0xFA,
+    TOP_PARAM2 = 0xFC,
+    TOP_PARAM1 = 0xFD,
+    TOP_PARAM0 = 0xFE,
 
     // special
     TOP_VOID = 0xFF
@@ -115,136 +115,69 @@ namespace coil {
   int is_void(uint8_t op) { return op == 0xFF; }
 
   // ---------------- Operands ---------------- //
-  struct OpFW {
-    uint8_t op;
+  struct OperandImm {
+    uint8_t top;
     uint8_t ctrl;
-    union {
-      // TCTRL_IMM
-      uint64_t ImmU[2]; // higher and lower for 128 bit integers
-      int64_t ImmI[2]; // higher and lower for 128 bit integers
-      long double ImmF; // hopefully 128 bits
+    void *data;
 
-      // TCTRL_VAR
-      uint64_t VarID;
+    // Deserialize
+    OperandImm(StreamReader& reader, uint8_t top, uint8_t ctrl);
 
-      // TCTRL_SYM
-      uint64_t SymbolTableOffset;
-
-      // TCTRL_EXP
-      uint64_t ExpID;
-
-      // TCTRL_REG
-      uint32_t RegID;
-    } data;
+    // Serialize
+    void encode(std::vector<uint8_t> &section_data);
   };
-
-  struct OpFWVec {
-    uint8_t op;
+  struct OperandVar {
+    uint8_t top;
     uint8_t ctrl;
-    uint8_t eop; // element type opcode
-    // for composite types there will have to be some type data
-    // fixed width vectors will not support vector types
-    // 
-    union {
-      // TCTRL_IMM
-      uint64_t Imm[8]; // 512 bit vector
+    uint64_t VarID;
 
-      // TCTRL_VAR
-      uint64_t VarID;
+    // Deserialize
+    OperandVar(StreamReader& reader, uint8_t top, uint8_t ctrl);
 
-      // TCTRL_SYM
-      uint64_t SymbolTableOffset;
-
-      // TCTRL_EXP
-      uint64_t ExpID;
-
-      // TCTRL_REG
-      uint32_t RegID;
-    } data;
+    // Serialize
+    void encode(std::vector<uint8_t> &section_data);
   };
-
-  // struct OpComp; struct OpAComp; struct OpAlias;
-
-  struct OpPlt {
-    uint8_t op;
+  struct OperandSym {
+    uint8_t top;
     uint8_t ctrl;
-    union {
-      // TCTRL_IMM
-      uint64_t ImmU; // immediate SIZE
-      int64_t ImmI; // immediate SSIZE
-      void *ImmP; // immediate pointer
+    uint64_t SymbolTableOffset;
 
-      // TCTRL_VAR
-      uint64_t VarID;
+    // Deserialize
+    OperandSym(StreamReader& reader, uint8_t top, uint8_t ctrl);
 
-      // TCTRL_SYM
-      uint64_t SymbolTableOffset;
-
-      // TCTRL_EXP
-      uint64_t ExpID;
-
-      // TCTRL_REG
-      uint32_t RegID;
-    } data;
+    // Serialize
+    void encode(std::vector<uint8_t> &section_data);
   };
-
-  struct OpOpt {
-    uint8_t op;
+  struct OperandExp {
+    uint8_t top;
     uint8_t ctrl;
-    union {
-      bool bit;
-    } data;
+    uint64_t ExpID;
+    
+    // Deserialize
+    OperandExp(StreamReader& reader, uint8_t top, uint8_t ctrl);
+
+    // Serialize
+    void encode(std::vector<uint8_t> &section_data);
   };
+  struct OperandReg {
+    uint8_t top;
+    uint8_t ctrl;
+    uint32_t RegID;
   
-  struct OpCOIL {
-    uint8_t op;
-    uint8_t ctrl;
-    // because the value for COIL types is the same no immediate is mentioned
-    // i.e. a value at TCTRL_VAR utilizes the VarID and the immediate value in the case of
-    //      op = [TOP_VAR][TCTRL_IMM] the immediate would also be VarID
-    union {
-      // TCTRL_VAR
-      uint64_t VarID;
+    // Deserialize
+    OperandReg(StreamReader& reader, uint8_t top, uint8_t ctrl);
 
-      // TCTRL_SYM
-      uint64_t SymbolTableOffset;
-
-      // TCTRL_EXP
-      uint64_t ExpID;
-
-      // TCTRL_REG
-      uint32_t RegID;
-    } data;
+    // Serialize
+    void encode(std::vector<uint8_t> &section_data);
   };
-
-  struct OpParam {
-    uint8_t op;
+  struct OperandVoid {
+    uint8_t top;
     uint8_t ctrl;
-    // Used to control execution of instructions
-    enum cond_p {
-      COND_EQ,  // equal
-      COND_NEQ, // not equal
-      COND_GT,  // greater than
-      COND_GTE, // greater than or equal
-      COND_LT,  // less than
-      COND_LTE, // less than or equal
-      COND_O,   // overflow
-      COND_NO,  // no overflow
-      COND_C,   // carry
-      COND_NC,  // no carry
-    };
-    // Used to control arithmetic instructions
-    enum arith_p {
-      ARITH_SAT, // saturate
-    };
-    union {
-      uint8_t Imm;
-      uint64_t ExpID;
-    } data;
-  };
+  
+    // Deserialize
+    OperandVoid(uint8_t top, uint8_t ctrl);
 
-  struct OpVOID {
-    uint8_t op;
-    uint8_t ctrl;
+    // Serialize
+    void encode(std::vector<uint8_t> &section_data);
   };
 };

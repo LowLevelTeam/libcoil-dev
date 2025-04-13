@@ -159,64 +159,19 @@ namespace coil {
   int is_dir(uint8_t op) { return op >= OP_RANGE_DIR_START && op <= OP_RANGE_DIR_END;  }
 
   // ---------------- Instructions ---------------- //
-  struct OperandImm {
-    uint8_t top;
-    uint8_t ctrl;
-    void *data;
-  };
-  struct OperandVar {
-    uint8_t top;
-    uint8_t ctrl;
-    uint64_t VarID;
-  };
-  struct OperandSym {
-    uint8_t top;
-    uint8_t ctrl;
-    uint64_t SymbolTableOffset;
-  };
-  struct OperandExp {
-    size_t _size;
-    uint8_t top;
-    uint8_t ctrl;
-    uint64_t ExpID;
-  };
-  struct OperandReg {
-    size_t _size;
-    uint8_t top;
-    uint8_t ctrl;
-    uint32_t RegID;
-  };
-  struct OperandVoid {
-    size_t _size;
-    uint8_t top;
-    uint8_t ctrl;
-  };
-
   struct Instr {
     uint8_t opcode = 0x00;
     uint8_t operand_count = 0;
 
-    enum __InternalInstrType : uint8_t {
-      InstrBr, // address
-      InstrBrInt, // address, integral value
-      InstrUnary, // ++x
-      InstrUnaryInPlace, // x = ++x
-      InstrArith, // x = x + x
-      InstrArithInPlace, // x += x
-      InstrDef, // set (uint64_t id) to (x)
-      InstrNop, // void
-    };
-
-    uint8_t __InstrType; // internal usage (not encoded) 
-
-    Instr() = default;
     Instr(uint8_t op, uint8_t opcount);
 
     // Serialize
     void encode(std::vector<uint8_t> &sectdata) const;
 
     // Deserialize
-    void decode(const std::vector<uint8_t> &sectdata);
-  };
+    Instr(std::vector<uint8_t> &sectdata);
 
+    // Helper
+    uint8_t GetOpCount() { return this->operand_count; }
+  };
 };
