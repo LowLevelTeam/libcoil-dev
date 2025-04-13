@@ -21,10 +21,10 @@ namespace coil {
     OP_RANGE_MEM_START = 0x20,
     OP_RANGE_MEM_END = 0x3F,
 
-    OP_MOV = 0x20,   // InstrDouble
+    OP_MOV = 0x20,   // InstrDestSrc
     OP_PUSH = 0x21,  // InstrUnary
     OP_POP = 0x22,   // InstrUnary
-    OP_LEA = 0x23,   // InstrDouble
+    OP_LEA = 0x23,   // InstrDestSrc
     OP_SCOPE = 0x24, // InstrVoid
     OP_SCOPL = 0x25, // InstrVoid
     OP_VAR = 0x26,   // InstrDef
@@ -58,8 +58,8 @@ namespace coil {
     OP_RANGE_MD_START = 0x70,
     OP_RANGE_MD_END = 0x7F,
 
-    OP_GETE = 0x70, // InstrDouble
-    OP_SETE = 0x71, // InstrDouble
+    OP_GETE = 0x70, // InstrTriple
+    OP_SETE = 0x71, // InstrTriple
     OP_DOT  = 0x72, // InstrTriple
     OP_CROS = 0x73, // InstrTriple
     OP_NORM = 0x74, // InstrTriple
@@ -92,12 +92,12 @@ namespace coil {
     OP_RANGE_DIR_START = 0xE0
     OP_RANGE_DIR_END = 0xFF
 
-    OP_PPDEF  = 0xE0, // conditional compilation
-    OP_PPUDEF = 0xE1, // conditional compilation
-    OP_PPIF   = 0xE2, // conditional compilation
-    OP_PPELIF = 0xE3, // conditional compilation
-    OP_PPELSE = 0xE4, // conditional compilation
-    OP_PPEIF  = 0xE5, // conditional compilation
+    OP_PPDEF  = 0xE0, // InstrDef (ID, Operand)
+    OP_PPUDEF = 0xE1, // InstrId
+    OP_PPIF   = 0xE2, // InstrIf
+    OP_PPELIF = 0xE3, // InstrIf
+    OP_PPELSE = 0xE4, // InstrVoid
+    OP_PPEIF  = 0xE5, // InstrVoid
     OP_PPINC  = 0xE6, // include
     OP_PPSEC  = 0xE7, // section
     OP_PPDATA = 0xE8, // raw data insertion
@@ -110,16 +110,16 @@ namespace coil {
   } op_t;
 
   enum cpu_op : uint8_t {
-    OP_INT      = 0xC0,
-    OP_IRET    = 0xC1,
-    OP_CLI     = 0xC2,
-    OP_STI     = 0xC3,
-    OP_SYSCALL = 0xC4, // int 0x80 on systems without a direct supervisor interrupt
-    OP_SYSRET  = 0xC5, 
-    OP_RDTSC   = 0xC6,
+    OP_INT     = 0xC0, // InstrBrInt (branch with value) 
+    OP_IRET    = 0xC1, // InstrVoid
+    OP_CLI     = 0xC2, // InstrVoid
+    OP_STI     = 0xC3, // InstrVoid
+    OP_SYSCALL = 0xC4, // InstrBr (int 0x80 on systems without a direct supervisor interrupt)
+    OP_SYSRET  = 0xC5, // InstrVoid
+    OP_RDTSC   = 0xC6, // ...
   };
     enum cpu_x86_op : uint8_t {
-      CPUID = 0xD0,
+      CPUID = 0xD0, // InstrVoid
       RDMSR = 0xD1,
       WRMSR = 0xD2,
       LGDT  = 0xD3,
@@ -129,8 +129,8 @@ namespace coil {
       RDPMC = 0xD7,
     };
     enum cpu_arm_op : uint8_t {
-      SEV = 0xD0,
-      WFE = 0xD1,
+      SEV = 0xD0, // InstrVoid
+      WFE = 0xD1, // InstrVoid
       MRS = 0xD2,
       MSR = 0xD3,
     };
@@ -159,84 +159,64 @@ namespace coil {
   int is_dir(uint8_t op) { return op >= OP_RANGE_DIR_START && op <= OP_RANGE_DIR_END;  }
 
   // ---------------- Instructions ---------------- //
-  // Base instruction. To differentiate the child utilize the opcode
-  typedef op_t Instr;
-
-  // Control Flow
-  struct InstrBr {
-    op_t opcode;
-    uint8_t operand_count;
-
-    union {
-      OpFw fw;
-      OpPlt plt;
-    } target;
-
-    OpParam param0; // cond_p
+  struct OperandImm {
+    uint8_t top;
+    uint8_t ctrl;
+    void *data;
+  };
+  struct OperandVar {
+    uint8_t top;
+    uint8_t ctrl;
+    uint64_t VarID;
+  };
+  struct OperandSym {
+    uint8_t top;
+    uint8_t ctrl;
+    uint64_t SymbolTableOffset;
+  };
+  struct OperandExp {
+    size_t _size;
+    uint8_t top;
+    uint8_t ctrl;
+    uint64_t ExpID;
+  };
+  struct OperandReg {
+    size_t _size;
+    uint8_t top;
+    uint8_t ctrl;
+    uint32_t RegID;
+  };
+  struct OperandVoid {
+    size_t _size;
+    uint8_t top;
+    uint8_t ctrl;
   };
 
-  // Definition
-  struct InstrDef {
-    op_t opcode;
+  struct Instr {
+    uint8_t opcode = 0x00;
+    uint8_t operand_count = 0;
 
-    union ArithOp {
-      OpFw fw;
-      OpPlt plt;
-      OpCOIL coil;
-    } op0;
-
-    OpParam param0;
-    OpParam param1;
-    OpParam param2;
-    OpParam param3;
-  };
-
-  // Default
-  struct InstrUnary {
-    op_t opcode;
-
-    union ArithOp { 
-      OpFw fw;
-      OpPlt plt;
-      OpCOIL coil;
-    } op0;
-
-    OpParam param0;
-    OpParam param1;
-    OpParam param2;
-    OpParam param3;
-  };
-  struct InstrDouble {
-    op_t opcode;
-
-    union ArithOp { 
-      OpFw fw;
-      OpPlt plt;
-      OpCOIL coil;
+    enum __InternalInstrType : uint8_t {
+      InstrBr, // address
+      InstrBrInt, // address, integral value
+      InstrUnary, // ++x
+      InstrUnaryInPlace, // x = ++x
+      InstrArith, // x = x + x
+      InstrArithInPlace, // x += x
+      InstrDef, // set (uint64_t id) to (x)
+      InstrNop, // void
     };
-    ArithOp op0;
-    ArithOp op1;
 
-    OpParam param0;
-    OpParam param1;
-    OpParam param2;
-    OpParam param3;
+    uint8_t __InstrType; // internal usage (not encoded) 
+
+    Instr() = default;
+    Instr(uint8_t op, uint8_t opcount);
+
+    // Serialize
+    void encode(std::vector<uint8_t> &sectdata) const;
+
+    // Deserialize
+    void decode(const std::vector<uint8_t> &sectdata);
   };
-  struct InstrTriple {
-    op_t opcode;
 
-    union ArithOp { 
-      OpFw fw;
-      OpPlt plt;
-      OpCOIL coil;
-    };
-    ArithOp op0;
-    ArithOp op1;
-    ArithOp op2;
-
-    OpParam param0;
-    OpParam param1;
-    OpParam param2;
-    OpParam param3;
-  };
 };

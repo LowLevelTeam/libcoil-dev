@@ -100,6 +100,12 @@ namespace coil {
   // ---------------- Helper Functionality ---------------- //
   int is_runtime(uint8_t ctrl) { return !is_compiletime(); }
   int is_compiletime(uint8_t ctrl) { return ctrl & TCTRL_EXP; }
+  int is_imm(uint8_t ctrl) { return ctrl & TCTRL_IMM; }
+  int is_var(uint8_t ctrl) { return ctrl & TCTRL_VAR; }
+  int is_sym(uint8_t ctrl) { return ctrl & TCTRL_SYM; }
+  int is_exp(uint8_t ctrl) { return ctrl & TCTRL_EXP; }
+  int is_reg(uint8_t ctrl) { return ctrl & TCTRL_REG; }
+  int is_void(uint8_t ctrl) { return !is_imm() && !is_var() && !is_sym() && !is_exp() && !is_reg(); }
 
   int is_fw(uint8_t op) { return op >= TOP_FW_RANGE_START && op <= TOP_FW_RANGE_END; }
   int is_plt(uint8_t op) { return op >= TOP_PLT_RANGE_START && op <= TOP_PLT_RANGE_END; }
