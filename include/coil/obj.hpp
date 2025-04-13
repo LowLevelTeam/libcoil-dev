@@ -1,40 +1,83 @@
 #pragma once
 
+#include <cstdint>
+#include "coil/stream.hpp"
 
 namespace coil {
+  /**
+  * @brief COIL flags for file formatting
+  */
   enum FmtFlags : uint16_t {
-    OBJECT = (1 << 0),            // Contains a single object
-    OPTIMIZED = (1 << 1),         // COIL code has been optimized back into COIL normally for redistubutable purposes
-    DEBUG_INFO = (1 << 2),        // Contains debug information
-    FORMAT_BIG_ENDIAN = (1 << 3), // Big-endian encoding (default is little-endian)
+    FMTF_OBJECT = (1 << 0),     ///< Contains a single object
+    FMTF_OPTIMIZED = (1 << 1),  ///< COIL code has been optimized back into COIL normally for redistubutable purposes
+    FMTF_DEBUG_INFO = (1 << 2), ///< Contains debug information
+    FMTF_BIG_ENDIAN = (1 << 3), ///< Big-endian encoding (default is little-endian)
+    FMTF_MANGLED = (1 << 4),    ///< COIL code has been mangled in attempt to keep the source code private
   };
-  enum SectFlags : uint16_t {
-    SECTF_EXEC = (1 << 0), // Executable section
-    SECTF_READ = (1 << 1), // Readable section
-    SECTF_WRIT = (1 << 2), // Writable section
-    SECTF_INIT = (1 << 3), // Initalized section
-    SECTF_LINK = (1 << 4), // Contains relocations
-  };
-  enum SymFlags : uint16_t {
-    SYMF_GLOB = (1 << 0), // Global symbol (visible outside the file)
-    SYMF_WEAK = (1 << 1), // Weak symbol (can be overridden)
-    SYMF_LOCL = (1 << 2), // Local symbol (file scope only)
-    SYMF_FUNC = (1 << 3), // Function symbol
-    SYMF_DATA = (1 << 4), // Data symbol
-    SYMF_ABS  = (1 << 5), // Absolute symbol (fixed address)
-    SYMF_COMM = (1 << 6), // Common symbol (uninitialized)
-    SYMF_EXPO = (1 << 7), // Exported symbol
-  };
-  enum RelocType : uint16_t {
-    RLCT_ABS  = (1 << 0), // Absolute (fill with symbol value) 
-    RLCT_REL  = (1 << 1), // Relative (symbol value - current location)
-    RLCT_PREL = (1 << 2), // PC-relative (for branch instructions)
-    RLCT_SREL = (1 << 3), // Section-relative
-    RLCT_ADD  = (1 << 4), // Symbol+Addend
+  
+
+  /**
+  * @brief COIL section flags
+  */
+  enum CoilSectFlags : uint16_t {
+    SECTF_WRIT  = (1 << 0), ///< Writable
+    SECTF_ALOC  = (1 << 1), ///< Occupies memory during execution
+    SECTF_EXEC  = (1 << 2), ///< Executable
+    SECTF_MERG  = (1 << 3), ///< Might be merged
+    SECTF_STRS  = (1 << 4), ///< Contains null-terminated strings
+    SECTF_LINO  = (1 << 5), ///< Preserve order after combining
+    SECTF_TLS   = (1 << 6), ///< Section holds thread-local data
+    SECTF_COMPR = (1 << 7)  ///< Section with compressed data
   };
 
+  /**
+  * @brief COIL section types
+  */
+  enum CoilSectType : uint8_t {
+    SECTT_NULL = 0,
+    SECTT_PROG = 1,
+    SECTT_SYMT = 2,
+    SECTT_STRT = 3,
+    SECTT_RELA = 4,
+    SECTT_HASH = 5,
+    SECTT_DYN  = 6,
+    SECTT_REL  = 7,
+    SECTT_DYNS = 8
+  };
+  
+  /**
+  * @brief COIL Symbol Flags
+  */
+  enum SymFlags : uint16_t {
+    SYMF_GLOB = (1 << 0),  ///< Global symbol (visible outside the file)
+    SYMF_WEAK = (1 << 1),  ///< Weak symbol (can be overridden)
+    SYMF_LOCL = (1 << 2),  ///< Local symbol (file scope only)
+    SYMF_FUNC = (1 << 3),  ///< Function symbol
+    SYMF_DATA = (1 << 4),  ///< Data symbol
+    SYMF_ABS  = (1 << 5),  ///< Absolute symbol (fixed address)
+    SYMF_COMM = (1 << 6),  ///< Common symbol (uninitialized)
+    SYMF_EXPO = (1 << 7),  ///< Exported symbol
+    SYMF_SECT = (1 << 8),  ///< Section
+    SYMF_FILE = (1 << 9),  ///< Source file
+    SYMF_TLS  = (1 << 10), ///< TLS object
+  };
+  
+  /**
+  * @brief COIL Symbol Flags
+  */
+  enum RelocType : uint16_t {
+    RLCT_ABS  = (1 << 0), ///< Absolute (fill with symbol value) 
+    RLCT_REL  = (1 << 1), ///< Relative (symbol value - current location)
+    RLCT_PREL = (1 << 2), ///< PC-relative (for branch instructions)
+    RLCT_SREL = (1 << 3), ///< Section-relative
+    RLCT_ADD  = (1 << 4), ///< Symbol+Addend
+  };
+
+  /**
+   * @brief Object file header
+   */
   struct CoilHeader {
-    uint8_t magic[4] = {'C', 'O', 'I', 'L'}; // COIl
+    uint8_t magic[4] = {'C', 'O', 'I', 'L'}; // COIL magic
     uint8_t  major = 1;              // Major version
     uint8_t  minor = 0;              // Minor version
     uint8_t  patch = 0;              // Patch version
@@ -52,11 +95,15 @@ namespace coil {
     void decode(StreamReader &reader);
   
     // Initialize with default values
-    Header() = default;
+    CoilHeader() = default;
   };
+
+  /**
+   * @brief Symbol entry in symbol table
+   */
   struct Symbol {
     uint16_t name_length = 0;   // Length of symbol name
-    std::string name;           // Symbol name
+    char *name;                 // Symbol name
     uint16_t attributes = 0;    // Symbol attributes
     uint16_t section_index = 0; // Section index
     uint8_t  device = 0;        // Target (defined in configuration)
@@ -71,6 +118,10 @@ namespace coil {
     // Initialize with default values
     Symbol() = default;
   };
+
+  /**
+   * @brief Section entry in section table
+   */
   struct Section {
     uint16_t name_index = 0;      // Symbol table index for name
     uint32_t attributes = 0;      // Section attributes
@@ -79,7 +130,7 @@ namespace coil {
     uint32_t address = 0;         // Virtual address
     uint32_t alignment = 0;       // Required alignment
     uint8_t  processor_type = 0;  // Target processor
-    std::vector<uint8_t> data;    // Section data (memory owned by object)
+    uint8_t *data;                // Section data (memory owned by object)
   
     // Serialize
     void encode(StreamWriter &writer) const;
@@ -87,7 +138,14 @@ namespace coil {
     // Deserialize
     Section(StreamReader &reader);
     void decode(StreamReader &reader);
+    
+    // Default constructor
+    Section() = default;
   };
+
+  /**
+   * @brief Relocation entry in relocation table
+   */
   struct Relocation {
     uint32_t offset;          // Offset within section
     uint16_t symbol_index;    // Symbol table index
@@ -101,16 +159,23 @@ namespace coil {
     // Deserialize
     Relocation(StreamReader &reader);
     void decode(StreamReader &reader);
+    
+    // Default constructor
+    Relocation() : offset(0), symbol_index(0), section_index(0), type(0), size(0) {}
   };
 
-  struct SymbolTable {
-    std::vector<Symbol> _symbols;
+  /**
+   * @brief Symbol table container
+   */
+  class SymbolTable {
+  public:
+    void *_symbols;
 
     // Add a symbol to the table
     uint16_t addSymbol(const Symbol& symbol);
 
     // Get a symbol by index
-    const Symbol& getSymbol(uint16_t index) const;
+    Symbol getSymbol(uint16_t index) const; // symbol is deserialized and copied
 
     // Update a symbol by index (non-const version for modifying)
     void updateSymbol(uint16_t index, const Symbol& symbol);
@@ -127,14 +192,19 @@ namespace coil {
     // Deserialize
     void decode(StreamReader &reader);
   };
-  struct SectionTable {
-    std::vector<Section> _sections;
 
-    // Add a symbol to the table
+  /**
+   * @brief Section table container
+   */
+  class SectionTable {
+  public:
+    void *_sections;
+
+    // Add a section to the table
     uint16_t addSection(const Section& section);
 
     // Get a Section by index
-    const Section& getSection(uint16_t index) const;
+    Section getSection(uint16_t index) const;
 
     // Update a Section by index (non-const version for modifying)
     void updateSection(uint16_t index, const Section& section);
@@ -154,14 +224,19 @@ namespace coil {
     // Deserialize
     void decode(StreamReader &reader);
   };
-  struct RelocationTable {
-    std::vector<Relocation> _relocations;
 
-    // Add a symbol to the table
+  /**
+   * @brief Relocation table container
+   */
+  class RelocationTable {
+  public:
+    void *_relocations;
+
+    // Add a relocation to the table
     uint16_t addRelocation(const Relocation& relocation);
 
     // Get a Relocation by index
-    const Relocation& getRelocation(uint16_t index) const;
+    Relocation getRelocation(uint16_t index) const;
 
     // Update a Relocation by index (non-const version for modifying)
     void updateRelocation(uint16_t index, const Relocation& relocation);
@@ -179,21 +254,26 @@ namespace coil {
     void decode(StreamReader &reader);
   };
 
+  /**
+   * @brief Complete object file representation
+   */
   class CoilObject {
   public:
-    CoilObject() = default;
-
-    // Serialize
-    void encode(StreamWriter &writer) const;
-      
-    // Deserialize
-    void decode(StreamReader &reader);
-    CoilObject(StreamReader &reader);
-
     CoilHeader header;
     SymbolTable symbolTable;
     SectionTable sectionTable;
     RelocationTable relocTable;
+
+    // Default constructor
+    CoilObject() = default;
+
+    // Serialize the object to a stream
+    void encode(StreamWriter &writer) const;
+      
+    // Deserialize the object from a stream
+    void decode(StreamReader &reader);
+    
+    // Constructor from stream
+    CoilObject(StreamReader &reader);
   };
 };
-
