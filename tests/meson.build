@@ -4,6 +4,7 @@ test_sources = [
   'test_log.cpp',
   'test_err.cpp',
   'test_stream.cpp',
+  'test_obj.cpp',
 ]
 
 # Include catch2-with-main

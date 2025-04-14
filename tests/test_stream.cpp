@@ -71,7 +71,7 @@ private:
 };
 
 // Create context for testing
-coil::Context createTestContext() {
+coil::Context createStreamTestContext() {
     static CaptureBuffer capture;
     static coil::Logger logger("TEST", capture.getFile(), coil::LogLevel::Info, false);
     static coil::ErrorManager errorMgr(logger);
@@ -79,7 +79,7 @@ coil::Context createTestContext() {
 }
 
 TEST_CASE("FileStream basic operations", "[stream]") {
-    auto ctx = createTestContext();
+    auto ctx = createStreamTestContext();
     
     SECTION("Creating a file stream") {
         // Create a temporary file
@@ -302,7 +302,7 @@ TEST_CASE("FileStream basic operations", "[stream]") {
 }
 
 TEST_CASE("MemoryStream basic operations", "[stream]") {
-    auto ctx = createTestContext();
+    auto ctx = createStreamTestContext();
     
     SECTION("Creating a memory stream with existing buffer") {
         // Prepare a buffer with data

@@ -16,7 +16,8 @@ coil_src = [
   'src/coil.cpp',
   'src/log.cpp',
   'src/err.cpp',
-  'src/stream.cpp'
+  'src/stream.cpp',
+  'src/obj.cpp',
 ]
 
 # Build the library with optimization flags
