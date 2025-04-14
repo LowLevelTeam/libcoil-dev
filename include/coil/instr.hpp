@@ -59,13 +59,14 @@ enum class TypeOpcode : uint8_t {
   COMP_RANGE_START = 0xC0,
   COMP_RANGE_END   = 0xCF,
 
-  STRUCT  = 0xC0, ///< Structure of types
-  ASTRUCT = 0xC1, ///< Anonymous/inline structure of types
-  UNION   = 0xC2, ///< Union of types
-  AUNION  = 0xC3, ///< Anonymous/inline union of types
-  PACK    = 0xC4, ///< Pack of types (structure with no padding)
-  APACK   = 0xC5, ///< Anonymous/inline pack of types
-  ALIAS   = 0xC6, ///< Alias type (real type is stored at type id)
+  // Not Implemented Yet
+  // STRUCT  = 0xC0, ///< Structure of types
+  // ASTRUCT = 0xC1, ///< Anonymous/inline structure of types
+  // UNION   = 0xC2, ///< Union of types
+  // AUNION  = 0xC3, ///< Anonymous/inline union of types
+  // PACK    = 0xC4, ///< Pack of types (structure with no padding)
+  // APACK   = 0xC5, ///< Anonymous/inline pack of types
+  // ALIAS   = 0xC6, ///< Alias type (real type is stored at type id)
 
   // Platform types
   PLT_RANGE_START = 0xD0,
@@ -79,25 +80,27 @@ enum class TypeOpcode : uint8_t {
   OPT_RANGE_START = 0xE0,
   OPT_RANGE_END   = 0xEF,
 
-  BIT   = 0xE0,   ///< Bit field
+  BIT   = 0xE0,   ///< Bit/Bool (to allow processors to create bit maps rather then allocating a byte for each bit)
 
   // COIL specific types
   COIL_RANGE_START = 0xF0,
   COIL_RANGE_END   = 0xF9,
 
-  VAR   = 0xF0,   ///< Variable
-  SYM   = 0xF1,   ///< Symbol
-  EXP   = 0xF2,   ///< Expression
-  REG   = 0xF3,   ///< Register
+  VAR   = 0xF0,   ///< Variable (Value is Variable ID)
+  SYM   = 0xF1,   ///< Symbol (Value is symbol reference)
+  EXP   = 0xF2,   ///< Expression (Value is Expression ID)
+  REG   = 0xF3,   ///< Register (Value is register reference)
 
   // Parameter types
+  // When passing parameter types it is important to note that they have a different encoding
+  // Parameters utilize the following uint8_t control as the parameter value instead and have no data after that
   PARAM_RANGE_START = 0xFA,
   PARAM_RANGE_END   = 0xFE,
 
   PARAM3 = 0xFA,   ///< Parameter placeholder 3
   PARAM2 = 0xFB,   ///< Parameter placeholder 2
   PARAM1 = 0xFC,   ///< Parameter placeholder 1
-  PARAM0 = 0xFD,   ///< Parameter placeholder 0
+  PARAMC = 0xFD,   ///< Parameter Conditional
 
   // Special types
   VOID  = 0xFF     ///< Void type (no data)
@@ -118,6 +121,21 @@ enum TypeControl : uint8_t {
   SYM    = (1 << 6),  ///< Symbol reference
   EXP    = (1 << 7)   ///< Expression reference
 };
+
+/**
+* @brief Conditional Parameter
+*
+* Runtime parameter to check flags at execution to control instructions execution
+*/
+enum TypeParamCond : uint16_t {
+  TPCOND_EQ  = 0x00,
+  TPCOND_NEQ = 0x01,
+  TPCOND_LT  = 0x02,
+  TPCOND_LTE = 0x03,
+  TPCOND_GT  = 0x04,
+  TPCOND_GTE = 0x05,
+};
+
 
 /**
 * @brief Instruction opcodes for the COIL instruction set
@@ -158,7 +176,7 @@ enum class Opcode : uint8_t {
   SCOPL = 0x25,  ///< End scope
   VAR   = 0x26,  ///< Define variable
   XCHG  = 0x27,  ///< Exchange values
-  CAS   = 0x28,  ///< Compare and swap (atomic)
+  CAS   = 0x28,  ///< Compare and swap
 
   // Arithmetic operations
   ARITH_RANGE_START = 0x40,
@@ -310,177 +328,180 @@ enum class GpuAmdOp : uint8_t {
 };
 
 /**
-* @brief Instruction operand
-* 
-* Represents a single operand in a COIL instruction.
-* Each operand has a type, control flags, and associated data.
+* @brief Instruction Set
 */
-struct Operand {
-  TypeOpcode type;     ///< Type opcode
-  uint8_t control;     ///< Type control flags
+namespace Instr {
+  // Immediate will be implemented at a later stage
+  struct Operand {
+    uint8_t top;
+    uint8_t ctrl;
+    union {
+      uint64_t VarID;
+      uint64_t symref;
+      uint64_t ExpID;
+      uint32_t RegID;
+    } data;
+  };
+  struct Param {
+    uint8_t top;
+    uint16_t data;
+  };
+
+  // Void Instruction has just a uint8_t opcode
+  // Encoding: [opcode: uint8_t]
+  struct Void {
+    uint8_t opcode;
+  };
+  typedef Void NOP;
   
-  union {
-      std::vector<uint8_t> immediate;  ///< Immediate data
-      uint64_t variableId;             ///< Variable ID
-      uint64_t symbolId;               ///< Symbol ID
-      uint64_t expressionId;           ///< Expression ID
-      uint32_t registerId;             ///< Register ID
-  } data;
-  
-  /**
-    * @brief Construct a new empty operand
-    */
-  Operand() : type(TypeOpcode::VOID), control(0) {}
-  
-  /**
-    * @brief Construct an immediate operand
-    * 
-    * @param type The type of the immediate
-    * @param value Pointer to the immediate data
-    * @param size Size of the immediate data in bytes
-    */
-  Operand(TypeOpcode type, const void* value, size_t size);
-  
-  /**
-    * @brief Construct a variable operand
-    * 
-    * @param varId Variable ID
-    */
-  Operand(uint64_t varId);
-  
-  /**
-    * @brief Construct a symbol operand
-    * 
-    * @param symId Symbol ID
-    */
-  static Operand createSymbol(uint64_t symId);
-  
-  /**
-    * @brief Construct a register operand
-    * 
-    * @param regId Register ID
-    */
-  static Operand createRegister(uint32_t regId);
-  
-  /**
-    * @brief Destructor to handle vector cleanup
-    */
-  ~Operand();
-  
-  /**
-    * @brief Copy constructor
-    */
-  Operand(const Operand& other);
-  
-  /**
-    * @brief Move constructor
-    */
-  Operand(Operand&& other) noexcept;
-  
-  /**
-    * @brief Copy assignment operator
-    */
-  Operand& operator=(const Operand& other);
-  
-  /**
-    * @brief Move assignment operator
-    */
-  Operand& operator=(Operand&& other) noexcept;
+  struct VoidParam {
+    uint8_t opcode;
+    uint8_t opcount; // 0 or 1
+    Param param;
+  };  
+  typedef VoidParam RET;
+  typedef VoidParam SCOPE;
+  typedef VoidParam SCOPL;
+
+  // Encoding: [opcode: uint8_t][opcount: uint8_t] [[op: {Operand, Param}], opcount...]
+  struct CtxChange {
+    uint8_t opcode;
+    uint8_t opcount; // 0, 1 or 2
+
+    Operand location;
+
+    OpParam condition;
+  };
+  typedef CtxChange BR;
+  typedef CtxChange CALL;
+
+  // Encoding: [opcode: uint8_t][opcount: uint8_t] [[op: {Operand, Param}], opcount...]
+  struct Unary {
+    uint8_t opcode;
+    uint8_t opcount;
+
+    Operand op;
+
+    OpParam condition;
+  };
+  typedef Unary PUSH;
+  typedef Unary POP;
+  typedef Unary INC;
+  typedef Unary DEC;
+  typedef Unary NOT;
+
+  // Encoding: [opcode: uint8_t][opcount: uint8_t] [[op: {Operand, Param}], opcount...]
+  struct Binary {
+    uint8_t opcode;
+    uint8_t opcount;
+
+    Operand opL; // left and dest / dest
+    Operand opR; // right
+
+    OpParam condition;
+  };
+  typedef Binary CMP;
+  typedef Binary TEST;
+  typedef Binary MOV;
+  typedef Binary LEA;
+  typedef Binary VAR;
+  typedef Binary XCHG;
+  typedef Binary POPCNT;
+  typedef Binary LEN;
+  typedef Binary TRANS;
+  typedef Binary INV;
+  typedef Binary NORM; // this may be a tenary
+
+  // Encoding: [opcode: uint8_t][opcount: uint8_t] [[op: {Operand, Param}], opcount...]
+  struct Tenary {
+    uint8_t opcode;
+    uint8_t opcount;
+
+    Operand opD; // destination
+    Operand opL; // left / src 0
+    Operand opR; // right / src 1
+
+    OpParam condition;
+  };
+  typedef Tenary CAS;
+  typedef Tenary ADD;
+  typedef Tenary SUB;
+  typedef Tenary MUL;
+  typedef Tenary DIV;
+  typedef Tenary MOD;
+  typedef Tenary AND;
+  typedef Tenary OR;
+  typedef Tenary XOR;
+  typedef Tenary SHL;
+  typedef Tenary SHR;
+  typedef Tenary SAL;
+  typedef Tenary SAR;
+  typedef Tenary SETE;
+  typedef Tenary GETE;
+  typedef Tenary DOT;
+  typedef Tenary CROSS;
+
+  typedef Binary PPDEF;
+  typedef Unary PPUDEF;
+  typedef Binary PPIF;
+  typedef Binary PPELIF;
+  typedef Void PPEIF;
+  typedef Void PPEIF;
+
+  // Encoding: [opcode: uint8_t][strtableref: uint64_t]
+  struct PPINC {
+    uint8_t opcode;
+    uint64_t file;
+  };
+  // Encoding: [opcode: uint8_t][strtableref: uint64_t]
+  struct PPSEC {
+    uint8_t opcode;
+    uint64_t name;
+  };
+  // Encoding: [opcode: uint8_t][elementcount: uint64_t][elementsize: uint64_t][element: void*]
+  struct PPDATA {
+    uint8_t opcode;
+    uint64_t count; // the amount of times to insert the data
+    uint64_t len; // length of data in bytes.
+    void *data;
+  };
+  // Encoding: [opcode: uint8_t][byteindex: uint64_t]
+  struct PPPADD {
+    uint8_t opcode;
+    uint64_t byteindex;
+  };
+  namespace CPU {
+    // CPU
+    struct CtxChangeInt {
+      uint8_t opcode;
+      uint8_t opcount; // 0, 1 or 2
+      
+      uint8_t interrupt; // maybe more then 8 bits is needed
+
+      Operand location;
+      OpParam condition;
+    };
+    typedef CtxChangeInt INT;
+    typedef VoidParam IRET;
+    typedef VoidParam CLI;
+    typedef VoidParam STI;
+    typedef CtxChangeInt SYSCALL;
+    typedef VoidParam SYSRET;
+    typedef Unary RDTSC;
+
+    // X86
+    typedef VoidParam CPUID;
+    typedef Binary RDMSR;
+    typedef Binary WRMSR;
+    
+    // ARM
+    typedef VoidParam SEV;
+    typedef VoidParam WFE;
+    typedef Binar MRS;
+    typedef Binar MSR;
+  };
 };
 
-/**
-* @brief Base instruction class
-* 
-* Represents a single instruction in the COIL instruction set.
-*/
-class Instruction {
-public:
-  /**
-    * @brief Construct a new instruction
-    * 
-    * @param op Opcode
-    */
-  explicit Instruction(Opcode op);
-  
-  /**
-    * @brief Construct a new instruction with operands
-    * 
-    * @param op Opcode
-    * @param operands Vector of operands
-    */
-  Instruction(Opcode op, std::vector<Operand> operands);
-  
-  /**
-    * @brief Get the opcode
-    * 
-    * @return Opcode
-    */
-  Opcode getOpcode() const { return opcode; }
-  
-  /**
-    * @brief Get the number of operands
-    * 
-    * @return Number of operands
-    */
-  size_t getOperandCount() const { return operands.size(); }
-  
-  /**
-    * @brief Get an operand by index
-    * 
-    * @param index Operand index
-    * @return const Operand& Reference to the operand
-    */
-  const Operand& getOperand(size_t index) const;
-  
-  /**
-    * @brief Add an operand
-    * 
-    * @param operand Operand to add
-    */
-  void addOperand(const Operand& operand);
-  
-  /**
-    * @brief Add an operand (move)
-    * 
-    * @param operand Operand to add
-    */
-  void addOperand(Operand&& operand);
-  
-  /**
-    * @brief Set an operand at a specific index
-    * 
-    * @param index Operand index
-    * @param operand New operand
-    */
-  void setOperand(size_t index, const Operand& operand);
-  
-  /**
-    * @brief Encode the instruction to binary
-    * 
-    * @param output Vector to append encoded instruction to
-    */
-  void encode(std::vector<uint8_t>& output) const;
-  
-  /**
-    * @brief Decode an instruction from binary
-    * 
-    * @param data Pointer to binary data
-    * @param size Size of binary data
-    * @return Decoded instruction
-    */
-  static Instruction decode(const uint8_t* data, size_t size);
-  
-  /**
-    * @brief Convert the instruction to a string representation
-    * 
-    * @return std::string String representation
-    */
-  std::string toString() const;
-  
-private:
-  Opcode opcode;               ///< Instruction opcode
-  std::vector<Operand> operands; ///< Instruction operands
-};
 
 // Helper functions
 
@@ -622,14 +643,6 @@ inline bool isSymbol(uint8_t ctrl) {
 inline bool isRegister(uint8_t ctrl) {
   return (ctrl & TypeControl::REG) != 0;
 }
-
-/**
-* @brief Get the size of a fixed-width type in bytes
-* 
-* @param type Type opcode
-* @return Size in bytes or 0 if not a fixed-width type
-*/
-size_t getTypeSize(TypeOpcode type);
 
 /**
 * @brief Get the name of a type

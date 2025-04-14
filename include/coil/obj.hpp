@@ -449,14 +449,7 @@ public:
     */
     void setRel(uint32_t index, const CoilRelEntry& rel);
     void setRela(uint32_t index, const CoilRelaEntry& rela);
-    
-    /**
-    * @brief Parse COIL instructions from a code section
-    * 
-    * @return std::vector<Instruction> Vector of parsed instructions
-    */
-    std::vector<Instruction> parseInstructions() const;
-    
+
 private:
     CoilObject& parent_;
     CoilSectionHeader header_;
@@ -539,18 +532,6 @@ public:
     */
     CoilSection* addSection(const std::string& name, uint32_t type, uint32_t flags, 
                           const uint8_t* data, uint32_t size, uint16_t entsize = 0);
-    
-    /**
-    * @brief Add a code section with COIL instructions
-    * 
-    * @param name Section name
-    * @param instructions Vector of instructions
-    * @param flags Additional flags (CSF_EXEC is always set)
-    * @return CoilSection* Added section or nullptr on error
-    */
-    CoilSection* addCodeSection(const std::string& name, 
-                               const std::vector<Instruction>& instructions,
-                               uint32_t flags = 0);
     
     /**
     * @brief Save the COIL object to a stream
