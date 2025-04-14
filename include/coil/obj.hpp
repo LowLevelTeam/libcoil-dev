@@ -240,10 +240,7 @@ namespace coil {
 
     // Update a Relocation by index (non-const version for modifying)
     void updateRelocation(uint16_t index, const Relocation& relocation);
-
-    // Get Relocation index by name
-    uint16_t findRelocation(const std::string& name) const;
-    
+  
     // Get Relocation count
     uint16_t getRelocationCount() const;
 
@@ -267,13 +264,13 @@ namespace coil {
     // Default constructor
     CoilObject() = default;
 
+    // Constructor from stream
+    CoilObject(StreamReader &reader);
+
     // Serialize the object to a stream
     void encode(StreamWriter &writer) const;
       
     // Deserialize the object from a stream
     void decode(StreamReader &reader);
-    
-    // Constructor from stream
-    CoilObject(StreamReader &reader);
   };
 };
