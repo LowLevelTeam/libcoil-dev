@@ -1,16 +1,18 @@
 /**
 * @file obj.hpp
-* @brief ELF object format manipulation utilities for the COIL library.
+* @brief COIL object format manipulation utilities for the COIL library.
 * 
-* This header provides utilities for reading, writing, and manipulating ELF
-* (Executable and Linkable Format) object files. It supports both 32-bit and
-* 64-bit ELF formats and provides zero-cost abstractions for manipulating
-* various ELF structures like headers, sections, symbols, and relocations.
+* This header provides utilities for reading, writing, and manipulating COIL
+* object files. COIL object format is based on a modified ELF structure but
+* optimized for the COIL instruction set and future compilation to native code.
+* It supports zero-cost abstractions for manipulating various structures like
+* headers, sections, symbols, and relocations.
 */
 
 #pragma once
 #include "coil/stream.hpp"
 #include "coil/err.hpp"
+#include "coil/instr.hpp"
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -21,98 +23,99 @@
 namespace coil {
 
 /**
-* @brief ELF format constants and flags
+* @brief COIL object format constants and flags
 */
-namespace elf {
+namespace obj {
 
-// ELF file identification
-constexpr size_t EI_NIDENT = 16;  ///< Size of ident array
-constexpr uint8_t ELFMAG0 = 0x7F;  ///< ELF magic byte 0
-constexpr uint8_t ELFMAG1 = 'E';   ///< ELF magic byte 1
-constexpr uint8_t ELFMAG2 = 'L';   ///< ELF magic byte 2
-constexpr uint8_t ELFMAG3 = 'F';   ///< ELF magic byte 3
+// COIL file identification
+constexpr size_t CI_NIDENT = 16;        ///< Size of ident array
+constexpr uint8_t COILMAG0 = 0x7C;      ///< COIL magic byte 0 
+constexpr uint8_t COILMAG1 = 'C';       ///< COIL magic byte 1
+constexpr uint8_t COILMAG2 = 'O';       ///< COIL magic byte 2
+constexpr uint8_t COILMAG3 = 'I';       ///< COIL magic byte 3
+constexpr uint8_t COILMAG4 = 'L';       ///< COIL magic byte 4
 
-// ELF class types (32/64 bit)
-constexpr uint8_t ELFCLASSNONE = 0; ///< Invalid class
-constexpr uint8_t ELFCLASS32 = 1;   ///< 32-bit objects
-constexpr uint8_t ELFCLASS64 = 2;   ///< 64-bit objects
+// COIL data encoding
+constexpr uint8_t COILDATANONE = 0;     ///< Invalid data encoding
+constexpr uint8_t COILDATA2LSB = 1;     ///< Little-endian
+constexpr uint8_t COILDATA2MSB = 2;     ///< Big-endian
 
-// ELF data encoding
-constexpr uint8_t ELFDATANONE = 0; ///< Invalid data encoding
-constexpr uint8_t ELFDATA2LSB = 1; ///< Little-endian
-constexpr uint8_t ELFDATA2MSB = 2; ///< Big-endian
+// COIL version
+constexpr uint8_t COIL_VERSION = 1;     ///< Current COIL format version
 
-// ELF file types
-constexpr uint16_t ET_NONE = 0;    ///< No file type
-constexpr uint16_t ET_REL = 1;     ///< Relocatable file
-constexpr uint16_t ET_EXEC = 2;    ///< Executable file
-constexpr uint16_t ET_DYN = 3;     ///< Shared object file
-constexpr uint16_t ET_CORE = 4;    ///< Core file
-
-// ELF machine types (architectures)
-constexpr uint16_t EM_NONE = 0;    ///< No machine
-constexpr uint16_t EM_386 = 3;     ///< Intel 80386
-constexpr uint16_t EM_ARM = 40;    ///< ARM
-constexpr uint16_t EM_X86_64 = 62; ///< AMD x86-64
-constexpr uint16_t EM_AARCH64 = 183; ///< ARM AARCH64
+// COIL file types
+constexpr uint16_t CT_NONE = 0;         ///< No file type
+constexpr uint16_t CT_REL = 1;          ///< Relocatable file
+constexpr uint16_t CT_EXEC = 2;         ///< Executable file
+constexpr uint16_t CT_DYN = 3;          ///< Shared object file
+constexpr uint16_t CT_LIB = 4;          ///< Library file
 
 // Section types
-constexpr uint32_t SHT_NULL = 0;          ///< Inactive section
-constexpr uint32_t SHT_PROGBITS = 1;      ///< Program defined data
-constexpr uint32_t SHT_SYMTAB = 2;        ///< Symbol table
-constexpr uint32_t SHT_STRTAB = 3;        ///< String table
-constexpr uint32_t SHT_RELA = 4;          ///< Relocation entries with addends
-constexpr uint32_t SHT_HASH = 5;          ///< Symbol hash table
-constexpr uint32_t SHT_DYNAMIC = 6;       ///< Dynamic linking information
-constexpr uint32_t SHT_NOTE = 7;          ///< Notes
-constexpr uint32_t SHT_NOBITS = 8;        ///< Occupies no space (BSS)
-constexpr uint32_t SHT_REL = 9;           ///< Relocation entries, no addends
-constexpr uint32_t SHT_DYNSYM = 11;       ///< Dynamic linker symbol table
+constexpr uint32_t CST_NULL = 0;        ///< Inactive section
+constexpr uint32_t CST_CODE = 1;        ///< COIL code section
+constexpr uint32_t CST_DATA = 2;        ///< Data section
+constexpr uint32_t CST_SYMTAB = 3;      ///< Symbol table
+constexpr uint32_t CST_STRTAB = 4;      ///< String table
+constexpr uint32_t CST_RELA = 5;        ///< Relocation entries with addends
+constexpr uint32_t CST_HASH = 6;        ///< Symbol hash table
+constexpr uint32_t CST_DYNAMIC = 7;     ///< Dynamic linking information
+constexpr uint32_t CST_NOTE = 8;        ///< Notes
+constexpr uint32_t CST_NOBITS = 9;      ///< Occupies no space (BSS)
+constexpr uint32_t CST_REL = 10;        ///< Relocation entries, no addends
+constexpr uint32_t CST_DYNSYM = 11;     ///< Dynamic linker symbol table
+constexpr uint32_t CST_TYPE = 12;       ///< Type definitions
+constexpr uint32_t CST_META = 13;       ///< Metadata
+constexpr uint32_t CST_DEBUG = 14;      ///< Debugging information
 
 // Section flags
-constexpr uint64_t SHF_WRITE = 0x1;       ///< Writable section
-constexpr uint64_t SHF_ALLOC = 0x2;       ///< Occupies memory during execution
-constexpr uint64_t SHF_EXECINSTR = 0x4;   ///< Executable section
-constexpr uint64_t SHF_MERGE = 0x10;      ///< Might be merged
-constexpr uint64_t SHF_STRINGS = 0x20;    ///< Contains null-terminated strings
+constexpr uint32_t CSF_WRITE = 0x1;      ///< Writable section
+constexpr uint32_t CSF_ALLOC = 0x2;      ///< Occupies memory during execution
+constexpr uint32_t CSF_EXEC = 0x4;       ///< Executable section
+constexpr uint32_t CSF_MERGE = 0x10;     ///< Might be merged
+constexpr uint32_t CSF_STRINGS = 0x20;   ///< Contains null-terminated strings
+constexpr uint32_t CSF_CONST = 0x40;     ///< Contains const data
+constexpr uint32_t CSF_COMPRESSED = 0x80; ///< Contains compressed data
 
 // Symbol binding
-constexpr uint8_t STB_LOCAL = 0;          ///< Local symbol
-constexpr uint8_t STB_GLOBAL = 1;         ///< Global symbol
-constexpr uint8_t STB_WEAK = 2;           ///< Weak symbol
+constexpr uint8_t CSB_LOCAL = 0;         ///< Local symbol
+constexpr uint8_t CSB_GLOBAL = 1;        ///< Global symbol
+constexpr uint8_t CSB_WEAK = 2;          ///< Weak symbol
+constexpr uint8_t CSB_EXTERN = 3;        ///< External symbol
 
 // Symbol types
-constexpr uint8_t STT_NOTYPE = 0;         ///< Symbol type is unspecified
-constexpr uint8_t STT_OBJECT = 1;         ///< Symbol is a data object
-constexpr uint8_t STT_FUNC = 2;           ///< Symbol is a code object
-constexpr uint8_t STT_SECTION = 3;        ///< Symbol associated with a section
-constexpr uint8_t STT_FILE = 4;           ///< Symbol's name is file name
+constexpr uint8_t CST_NOTYPE = 0;        ///< Symbol type is unspecified
+constexpr uint8_t CST_OBJECT = 1;        ///< Symbol is a data object
+constexpr uint8_t CST_FUNC = 2;          ///< Symbol is a code object
+constexpr uint8_t CST_SECTION = 3;       ///< Symbol associated with a section
+constexpr uint8_t CST_FILE = 4;          ///< Symbol's name is file name
+constexpr uint8_t CST_COMMON = 5;        ///< Common data object
+constexpr uint8_t CST_TYPE_DEF = 6;      ///< Type definition
+constexpr uint8_t CST_OPERATOR = 7;      ///< Operator symbol
 
-// Relocation types (x86_64 - just a subset for example)
-constexpr uint32_t R_X86_64_NONE = 0;     ///< No relocation
-constexpr uint32_t R_X86_64_64 = 1;       ///< Direct 64 bit
-constexpr uint32_t R_X86_64_PC32 = 2;     ///< PC relative 32 bit signed
-constexpr uint32_t R_X86_64_GOT32 = 3;    ///< 32 bit GOT entry
-constexpr uint32_t R_X86_64_PLT32 = 4;    ///< 32 bit PLT address
-
-// Relocation types (ARM - just a subset for example)
-constexpr uint32_t R_ARM_NONE = 0;        ///< No relocation
-constexpr uint32_t R_ARM_PC24 = 1;        ///< PC relative 24 bit
-constexpr uint32_t R_ARM_ABS32 = 2;       ///< Direct 32 bit
-constexpr uint32_t R_ARM_REL32 = 3;       ///< PC relative 32 bit
+// Relocation types (common)
+constexpr uint32_t CR_NONE = 0;          ///< No relocation
+constexpr uint32_t CR_DIRECT32 = 1;      ///< Direct 32-bit
+constexpr uint32_t CR_DIRECT64 = 2;      ///< Direct 64-bit
+constexpr uint32_t CR_PC32 = 3;          ///< PC-relative 32-bit
+constexpr uint32_t CR_PC64 = 4;          ///< PC-relative 64-bit
+constexpr uint32_t CR_GOT32 = 5;         ///< 32-bit GOT entry
+constexpr uint32_t CR_PLT32 = 6;         ///< 32-bit PLT address
+constexpr uint32_t CR_COPY = 7;          ///< Copy symbol at runtime
+constexpr uint32_t CR_GLOB_DATA = 8;     ///< Create GOT entry
+constexpr uint32_t CR_JMP_SLOT = 9;      ///< Create PLT entry
 
 /**
-* @brief Get the name of an ELF file type
+* @brief Get the name of a COIL file type
 * 
-* @param type ELF file type
+* @param type COIL file type
 * @return const char* String representation of the type
 */
 const char* getFileTypeName(uint16_t type);
 
 /**
-* @brief Get the name of an ELF machine type
+* @brief Get the name of a COIL machine type
 * 
-* @param machine ELF machine type
+* @param machine COIL machine type
 * @return const char* String representation of the machine type
 */
 const char* getMachineTypeName(uint16_t machine);
@@ -131,7 +134,7 @@ const char* getSectionTypeName(uint32_t type);
 * @param flags Section flags
 * @return std::string String representation of the flags
 */
-std::string getSectionFlagsString(uint64_t flags);
+std::string getSectionFlagsString(uint32_t flags);
 
 /**
 * @brief Get the name of a symbol binding
@@ -150,7 +153,7 @@ const char* getSymbolBindingName(uint8_t binding);
 const char* getSymbolTypeName(uint8_t type);
 
 /**
-* @brief Get the name of a relocation type for a specific architecture
+* @brief Get the name of a relocation type
 * 
 * @param machine Machine type
 * @param type Relocation type
@@ -158,191 +161,180 @@ const char* getSymbolTypeName(uint8_t type);
 */
 const char* getRelocationTypeName(uint16_t machine, uint32_t type);
 
-} // namespace elf
+} // namespace obj
 
 // Forward declarations
-class ElfObject;
-class ElfSection;
-class ElfSymbol;
-class ElfRelocation;
+class CoilObject;
+class CoilSection;
+class CoilSymbol;
+class CoilRelocation;
 
 /**
-* @brief Represents an ELF file header
+* @brief Represents a COIL file header
 */
-struct ElfHeader {
-    std::array<uint8_t, elf::EI_NIDENT> ident;  ///< ELF identification bytes
+struct CoilHeader {
+    std::array<uint8_t, obj::CI_NIDENT> ident;  ///< COIL identification bytes
     uint16_t type;         ///< Object file type
-    uint16_t machine;      ///< Machine type
-    uint32_t version;      ///< Object file version
-    uint64_t entry;        ///< Entry point
-    uint64_t phoff;        ///< Program header offset
-    uint64_t shoff;        ///< Section header offset
-    uint32_t flags;        ///< Processor-specific flags
-    uint16_t ehsize;       ///< ELF header size
-    uint16_t phentsize;    ///< Program header entry size
-    uint16_t phnum;        ///< Number of program headers
+    uint8_t version;       ///< Object file version
+    uint8_t reserved1;     ///< Reserved for future use
+    uint32_t entry;        ///< Entry point offset
+    uint32_t shoff;        ///< Section header offset
+    uint16_t flags;        ///< Architecture-specific flags
+    uint16_t ehsize;       ///< Header size
     uint16_t shentsize;    ///< Section header entry size
     uint16_t shnum;        ///< Number of section headers
     uint16_t shstrndx;     ///< Section name string table index
     
     /**
-    * @brief Check if this is a 64-bit ELF file
-    * 
-    * @return true if 64-bit, false if 32-bit
-    */
-    bool is64Bit() const { return ident[4] == elf::ELFCLASS64; }
-    
-    /**
-    * @brief Check if this is a little-endian ELF file
+    * @brief Check if this is a little-endian COIL file
     * 
     * @return true if little-endian, false if big-endian
     */
-    bool isLittleEndian() const { return ident[5] == elf::ELFDATA2LSB; }
+    bool isLittleEndian() const { return ident[5] == obj::COILDATA2LSB; }
 };
 
 /**
-* @brief Represents an ELF section header
+* @brief Represents a COIL section header
 */
-struct ElfSectionHeader {
-    uint32_t name;        ///< Section name (string table index)
-    uint32_t type;        ///< Section type
-    uint64_t flags;       ///< Section flags
-    uint64_t addr;        ///< Section virtual address at execution
-    uint64_t offset;      ///< Section file offset
-    uint64_t size;        ///< Section size in bytes
-    uint32_t link;        ///< Link to another section
-    uint32_t info;        ///< Additional section information
-    uint64_t addralign;   ///< Section alignment
-    uint64_t entsize;     ///< Entry size if section holds table
+struct CoilSectionHeader {
+    uint32_t name;         ///< Section name (string table index)
+    uint32_t type;         ///< Section type
+    uint32_t flags;        ///< Section flags
+    uint32_t offset;       ///< Section file offset
+    uint32_t size;         ///< Section size in bytes
+    uint16_t link;         ///< Link to another section
+    uint16_t info;         ///< Additional section information
+    uint16_t addralign;    ///< Section alignment
+    uint16_t entsize;      ///< Entry size if section holds table
 };
 
 /**
-* @brief Represents an ELF symbol table entry
+* @brief Represents a COIL symbol table entry
 */
-struct ElfSymbolEntry {
-    uint32_t name;        ///< Symbol name (string table index)
-    uint8_t  info;        ///< Symbol type and binding
-    uint8_t  other;       ///< Symbol visibility
-    uint16_t shndx;       ///< Section index
-    uint64_t value;       ///< Symbol value
-    uint64_t size;        ///< Symbol size
+struct CoilSymbolEntry {
+    uint32_t name;         ///< Symbol name (string table index)
+    uint32_t value;        ///< Symbol value (offset or address)
+    uint32_t size;         ///< Symbol size
+    uint8_t info;          ///< Symbol type and binding
+    uint8_t other;         ///< Symbol visibility
+    uint16_t shndx;        ///< Section index
     
     /**
     * @brief Get the binding type of the symbol
     * 
-    * @return uint8_t Binding type (STB_*)
+    * @return uint8_t Binding type (CSB_*)
     */
     uint8_t getBinding() const { return info >> 4; }
     
     /**
     * @brief Get the type of the symbol
     * 
-    * @return uint8_t Symbol type (STT_*)
+    * @return uint8_t Symbol type (CST_*)
     */
     uint8_t getType() const { return info & 0xF; }
     
     /**
     * @brief Set the binding type of the symbol
     * 
-    * @param binding Binding type (STB_*)
+    * @param binding Binding type (CSB_*)
     */
     void setBinding(uint8_t binding) { info = (binding << 4) | getType(); }
     
     /**
     * @brief Set the type of the symbol
     * 
-    * @param type Symbol type (STT_*)
+    * @param type Symbol type (CST_*)
     */
     void setType(uint8_t type) { info = (getBinding() << 4) | type; }
 };
 
 /**
-* @brief Represents an ELF relocation entry without addend
+* @brief Represents a COIL relocation entry without addend
 */
-struct ElfRelEntry {
-    uint64_t offset;     ///< Location to apply the relocation action
-    uint64_t info;       ///< Symbol table index and relocation type
+struct CoilRelEntry {
+    uint32_t offset;     ///< Location to apply the relocation action
+    uint32_t info;       ///< Symbol index and relocation type
     
     /**
     * @brief Get the symbol index of the relocation
     * 
-    * @return uint32_t Symbol index
+    * @return uint16_t Symbol index
     */
-    uint32_t getSymbol() const { return info >> 32; }
+    uint16_t getSymbol() const { return info >> 16; }
     
     /**
     * @brief Get the relocation type
     * 
-    * @return uint32_t Relocation type
+    * @return uint16_t Relocation type
     */
-    uint32_t getType() const { return info & 0xFFFFFFFF; }
+    uint16_t getType() const { return info & 0xFFFF; }
     
     /**
     * @brief Set the symbol index of the relocation
     * 
     * @param symbol Symbol index
     */
-    void setSymbol(uint32_t symbol) { info = (static_cast<uint64_t>(symbol) << 32) | getType(); }
+    void setSymbol(uint16_t symbol) { info = (static_cast<uint32_t>(symbol) << 16) | getType(); }
     
     /**
     * @brief Set the relocation type
     * 
     * @param type Relocation type
     */
-    void setType(uint32_t type) { info = (static_cast<uint64_t>(getSymbol()) << 32) | type; }
+    void setType(uint16_t type) { info = (static_cast<uint32_t>(getSymbol()) << 16) | type; }
 };
 
 /**
-* @brief Represents an ELF relocation entry with addend
+* @brief Represents a COIL relocation entry with addend
 */
-struct ElfRelaEntry {
-    uint64_t offset;     ///< Location to apply the relocation action
-    uint64_t info;       ///< Symbol table index and relocation type
-    int64_t  addend;     ///< Constant addend used to compute value to be stored
+struct CoilRelaEntry {
+    uint32_t offset;     ///< Location to apply the relocation action
+    uint32_t info;       ///< Symbol index and relocation type
+    int32_t  addend;     ///< Constant addend used to compute value to be stored
     
     /**
     * @brief Get the symbol index of the relocation
     * 
-    * @return uint32_t Symbol index
+    * @return uint16_t Symbol index
     */
-    uint32_t getSymbol() const { return info >> 32; }
+    uint16_t getSymbol() const { return info >> 16; }
     
     /**
     * @brief Get the relocation type
     * 
-    * @return uint32_t Relocation type
+    * @return uint16_t Relocation type
     */
-    uint32_t getType() const { return info & 0xFFFFFFFF; }
+    uint16_t getType() const { return info & 0xFFFF; }
     
     /**
     * @brief Set the symbol index of the relocation
     * 
     * @param symbol Symbol index
     */
-    void setSymbol(uint32_t symbol) { info = (static_cast<uint64_t>(symbol) << 32) | getType(); }
+    void setSymbol(uint16_t symbol) { info = (static_cast<uint32_t>(symbol) << 16) | getType(); }
     
     /**
     * @brief Set the relocation type
     * 
     * @param type Relocation type
     */
-    void setType(uint32_t type) { info = (static_cast<uint64_t>(getSymbol()) << 32) | type; }
+    void setType(uint16_t type) { info = (static_cast<uint32_t>(getSymbol()) << 16) | type; }
 };
 
 /**
-* @brief Represents an ELF section
+* @brief Represents a COIL section
 */
-class ElfSection {
+class CoilSection {
 public:
     /**
-    * @brief Construct a new ELF section
+    * @brief Construct a new COIL section
     * 
-    * @param parent Parent ELF object
+    * @param parent Parent COIL object
     * @param header Section header
-    * @param data Section data (can be nullptr for SHT_NOBITS)
+    * @param data Section data (can be nullptr for CST_NOBITS)
     * @param name Section name
     */
-    ElfSection(ElfObject& parent, const ElfSectionHeader& header, const uint8_t* data, std::string name);
+    CoilSection(CoilObject& parent, const CoilSectionHeader& header, const uint8_t* data, std::string name);
     
     /**
     * @brief Get the section name
@@ -354,23 +346,23 @@ public:
     /**
     * @brief Get the section header
     * 
-    * @return const ElfSectionHeader& Section header
+    * @return const CoilSectionHeader& Section header
     */
-    const ElfSectionHeader& getHeader() const { return header_; }
+    const CoilSectionHeader& getHeader() const { return header_; }
     
     /**
     * @brief Get the section data
     * 
-    * @return const uint8_t* Section data (can be nullptr for SHT_NOBITS)
+    * @return const uint8_t* Section data (can be nullptr for CST_NOBITS)
     */
     const uint8_t* getData() const { return data_.get(); }
     
     /**
     * @brief Get the size of the section
     * 
-    * @return uint64_t Section size
+    * @return uint32_t Section size
     */
-    uint64_t getSize() const { return header_.size; }
+    uint32_t getSize() const { return header_.size; }
     
     /**
     * @brief Get the section type
@@ -382,9 +374,9 @@ public:
     /**
     * @brief Get the section flags
     * 
-    * @return uint64_t Section flags
+    * @return uint32_t Section flags
     */
-    uint64_t getFlags() const { return header_.flags; }
+    uint32_t getFlags() const { return header_.flags; }
     
     /**
     * @brief Check if the section has a specific flag
@@ -392,7 +384,7 @@ public:
     * @param flag Flag to check
     * @return true if the flag is set
     */
-    bool hasFlag(uint64_t flag) const { return (header_.flags & flag) != 0; }
+    bool hasFlag(uint32_t flag) const { return (header_.flags & flag) != 0; }
     
     /**
     * @brief Set the section data
@@ -400,7 +392,7 @@ public:
     * @param data New data buffer
     * @param size Size of the data
     */
-    void setData(const uint8_t* data, uint64_t size);
+    void setData(const uint8_t* data, uint32_t size);
     
     /**
     * @brief Get a string from a string table section
@@ -414,18 +406,18 @@ public:
     * @brief Get a symbol from a symbol table section
     * 
     * @param index Symbol index
-    * @return ElfSymbolEntry Symbol at the given index
+    * @return CoilSymbolEntry Symbol at the given index
     */
-    ElfSymbolEntry getSymbol(uint32_t index) const;
+    CoilSymbolEntry getSymbol(uint32_t index) const;
     
     /**
     * @brief Get a relocation from a relocation section
     * 
     * @param index Relocation index
-    * @return ElfRelEntry or ElfRelaEntry depending on section type
+    * @return CoilRelEntry or CoilRelaEntry depending on section type
     */
-    ElfRelEntry getRel(uint32_t index) const;
-    ElfRelaEntry getRela(uint32_t index) const;
+    CoilRelEntry getRel(uint32_t index) const;
+    CoilRelaEntry getRela(uint32_t index) const;
     
     /**
     * @brief Get the number of entries in a table section
@@ -435,11 +427,11 @@ public:
     uint32_t getEntryCount() const;
     
     /**
-    * @brief Get the parent ELF object
+    * @brief Get the parent COIL object
     * 
-    * @return ElfObject& Parent object
+    * @return CoilObject& Parent object
     */
-    ElfObject& getParent() { return parent_; }
+    CoilObject& getParent() { return parent_; }
     
     /**
     * @brief Set a symbol in a symbol table section
@@ -447,7 +439,7 @@ public:
     * @param index Symbol index
     * @param symbol New symbol data
     */
-    void setSymbol(uint32_t index, const ElfSymbolEntry& symbol);
+    void setSymbol(uint32_t index, const CoilSymbolEntry& symbol);
     
     /**
     * @brief Set a relocation in a relocation section
@@ -455,75 +447,87 @@ public:
     * @param index Relocation index
     * @param rel New relocation data
     */
-    void setRel(uint32_t index, const ElfRelEntry& rel);
-    void setRela(uint32_t index, const ElfRelaEntry& rela);
+    void setRel(uint32_t index, const CoilRelEntry& rel);
+    void setRela(uint32_t index, const CoilRelaEntry& rela);
+    
+    /**
+    * @brief Parse COIL instructions from a code section
+    * 
+    * @return std::vector<Instruction> Vector of parsed instructions
+    */
+    std::vector<Instruction> parseInstructions() const;
     
 private:
-    ElfObject& parent_;
-    ElfSectionHeader header_;
+    CoilObject& parent_;
+    CoilSectionHeader header_;
     std::shared_ptr<uint8_t[]> data_;
     std::string name_;
 };
 
 /**
-* @brief Class for manipulating ELF object files
+* @brief Class for manipulating COIL object files
 */
-class ElfObject {
+class CoilObject {
 public:
     /**
-    * @brief Load an ELF object from a stream
+    * @brief Load a COIL object from a stream
     * 
     * @param stream Input stream
     * @param ctx Library context
-    * @return ElfObject* Loaded object or nullptr on error
+    * @return CoilObject* Loaded object or nullptr on error
     */
-    static ElfObject* load(Stream& stream, const Context& ctx);
+    static CoilObject* load(Stream& stream, const Context& ctx);
     
     /**
-    * @brief Create a new ELF object
+    * @brief Create a new COIL object
     * 
-    * @param is64Bit Whether to create a 64-bit ELF file
-    * @param isLittleEndian Whether to create a little-endian ELF file
-    * @param type ELF file type
-    * @param machine Machine type
+    * @param type COIL file type
+    * @param machine Target architecture
     * @param ctx Library context
-    * @return ElfObject* Created object or nullptr on error
+    * @return CoilObject* Created object or nullptr on error
     */
-    static ElfObject* create(bool is64Bit, bool isLittleEndian, uint16_t type, 
-                            uint16_t machine, const Context& ctx);
+    static CoilObject* create(uint16_t type, uint16_t machine, const Context& ctx);
     
     /**
-    * @brief Get the ELF header
+    * @brief Check if a file is a valid COIL object file
     * 
-    * @return const ElfHeader& Header
+    * @param stream Input stream
+    * @return bool True if valid COIL file
     */
-    const ElfHeader& getHeader() const { return header_; }
+    static bool isCoilFile(Stream& stream);
+    
+    /**
+    * @brief Get the COIL header
+    * 
+    * @return const CoilHeader& Header
+    */
+    const CoilHeader& getHeader() const { return header_; }
     
     /**
     * @brief Get a section by index
     * 
     * @param index Section index
-    * @return const ElfSection& Section
+    * @return const CoilSection& Section
     */
-    const ElfSection& getSection(uint16_t index) const;
+    const CoilSection& getSection(uint16_t index) const;
     
     /**
     * @brief Get a section by name
     * 
     * @param name Section name
-    * @return const ElfSection* Section or nullptr if not found
+    * @return const CoilSection* Section or nullptr if not found
     */
-    const ElfSection* getSectionByName(const std::string& name) const;
+    const CoilSection* getSectionByName(const std::string& name) const;
     
     /**
     * @brief Get all sections
     * 
-    * @return const std::vector<ElfSection>& Vector of sections
+    * @return const std::vector<CoilSection>& Vector of sections
     */
-    const std::vector<std::unique_ptr<ElfSection>>& getSections() const { return sections_; }
+    const std::vector<std::unique_ptr<CoilSection>>& getSections() const { return sections_; }
     
     /**
-    * @brief Add a new section to the ELF object
+    * @brief Add a new section to the COIL object
     * 
     * @param name Section name
     * @param type Section type
@@ -531,13 +535,25 @@ public:
     * @param data Section data
     * @param size Data size
     * @param entsize Entry size for table sections
-    * @return ElfSection* Added section or nullptr on error
+    * @return CoilSection* Added section or nullptr on error
     */
-    ElfSection* addSection(const std::string& name, uint32_t type, uint64_t flags, 
-                          const uint8_t* data, uint64_t size, uint64_t entsize = 0);
+    CoilSection* addSection(const std::string& name, uint32_t type, uint32_t flags, 
+                          const uint8_t* data, uint32_t size, uint16_t entsize = 0);
     
     /**
-    * @brief Save the ELF object to a stream
+    * @brief Add a code section with COIL instructions
+    * 
+    * @param name Section name
+    * @param instructions Vector of instructions
+    * @param flags Additional flags (CSF_EXEC is always set)
+    * @return CoilSection* Added section or nullptr on error
+    */
+    CoilSection* addCodeSection(const std::string& name, 
+                               const std::vector<Instruction>& instructions,
+                               uint32_t flags = 0);
+    
+    /**
+    * @brief Save the COIL object to a stream
     * 
     * @param stream Output stream
     * @return bool Success
@@ -545,27 +561,41 @@ public:
     bool save(Stream& stream);
     
     /**
-    * @brief Iterate through all symbols in the ELF file
+    * @brief Iterate through all symbols in the COIL file
     * 
     * @param callback Function to call for each symbol
     */
-    void forEachSymbol(std::function<void(const ElfSection&, const ElfSymbolEntry&, const std::string&)> callback) const;
+    void forEachSymbol(std::function<void(const CoilSection&, const CoilSymbolEntry&, const std::string&)> callback) const;
     
     /**
-    * @brief Iterate through all relocations in the ELF file
+    * @brief Iterate through all relocations in the COIL file
     * 
     * @param callback Function to call for each relocation
     */
-    void forEachRelocation(std::function<void(const ElfSection&, const ElfSection&, const ElfRelEntry&)> relCallback,
-                          std::function<void(const ElfSection&, const ElfSection&, const ElfRelaEntry&)> relaCallback) const;
+    void forEachRelocation(std::function<void(const CoilSection&, const CoilSection&, const CoilRelEntry&)> relCallback,
+                          std::function<void(const CoilSection&, const CoilSection&, const CoilRelaEntry&)> relaCallback) const;
     
     /**
     * @brief Find a symbol by name
     * 
     * @param name Symbol name
-    * @return std::pair<const ElfSection*, const ElfSymbolEntry*> Symbol and containing section, or {nullptr, nullptr} if not found
+    * @return std::pair<const CoilSection*, const CoilSymbolEntry*> Symbol and containing section, or {nullptr, nullptr} if not found
     */
-    std::pair<const ElfSection*, const ElfSymbolEntry*> findSymbol(const std::string& name) const;
+    std::pair<const CoilSection*, const CoilSymbolEntry*> findSymbol(const std::string& name) const;
+    
+    /**
+    * @brief Add a symbol to the symbol table
+    * 
+    * @param name Symbol name
+    * @param value Symbol value
+    * @param size Symbol size
+    * @param type Symbol type
+    * @param binding Symbol binding
+    * @param sectionIndex Section index
+    * @return bool Success
+    */
+    bool addSymbol(const std::string& name, uint32_t value, uint32_t size, 
+                  uint8_t type, uint8_t binding, uint16_t sectionIndex);
     
     /**
     * @brief Get the library context
@@ -577,31 +607,31 @@ public:
     /**
     * @brief Destructor
     */
-    ~ElfObject() = default;
+    ~CoilObject() = default;
     
 private:
-    ElfObject(const Context& ctx);
+    CoilObject(const Context& ctx);
     
     bool loadSections(Stream& stream);
     bool loadSectionData(Stream& stream);
     bool loadSectionNames();
     
-    ElfHeader header_;
-    std::vector<std::unique_ptr<ElfSection>> sections_;
+    CoilHeader header_;
+    std::vector<std::unique_ptr<CoilSection>> sections_;
     const Context& ctx_;
 };
 
 /**
-* @brief Helper for working with ELF string tables
+* @brief Helper for working with COIL string tables
 */
-class ElfStringTable {
+class CoilStringTable {
 public:
     /**
-    * @brief Construct a new string table from an ELF section
+    * @brief Construct a new string table from a COIL section
     * 
     * @param section String table section
     */
-    explicit ElfStringTable(const ElfSection& section);
+    explicit CoilStringTable(const CoilSection& section);
     
     /**
     * @brief Get a string from the table
@@ -636,55 +666,5 @@ public:
 private:
     std::vector<uint8_t> data_;
 };
-
-/**
-* @brief Utility functions for ELF manipulation
-*/
-namespace obj_util {
-
-/**
-* @brief Get a string representation of an ELF type
-* 
-* @param header ELF header
-* @return std::string String representation
-*/
-std::string getElfTypeString(const ElfHeader& header);
-
-/**
-* @brief Dump basic information about an ELF file
-* 
-* @param obj ELF object
-* @param logger Logger to use
-*/
-void dumpElfInfo(const ElfObject& obj, Logger& logger);
-
-/**
-* @brief Disassemble a section containing code
-* 
-* @param section Code section
-* @param machine Machine type
-* @return std::string Disassembly output
-*/
-std::string disassembleSection(const ElfSection& section, uint16_t machine);
-
-/**
-* @brief Check if an ELF file is compatible with the current platform
-* 
-* @param obj ELF object
-* @return bool True if compatible
-*/
-bool isCompatible(const ElfObject& obj);
-
-/**
-* @brief Apply relocations to a section
-* 
-* @param obj ELF object
-* @param targetSection Section to apply relocations to
-* @param relocationSection Relocation section
-* @return bool Success
-*/
-bool applyRelocations(ElfObject& obj, ElfSection& targetSection, const ElfSection& relocationSection);
-
-} // namespace obj_util
 
 } // namespace coil
