@@ -50,6 +50,7 @@ void testErrorHandler(
     const std::string& message,
     void* userData
 ) {
+    (void)userData;
     lastErrorCode = code;
     lastErrorSeverity = severity;
     lastErrorMessage = message;

@@ -28,7 +28,7 @@ enum ErrorCode {
     Internal,       // Internal error
     Unsupported,    // Unsupported operation
     Custom          // Custom error
-} err_t;
+};
 
 /**
  * @brief Error severity
