@@ -216,19 +216,7 @@ size_t FileStream::fileWrite(Stream* stream, const void* buffer, size_t size) {
   if (!fs->fp || !(fs->flags & StreamFlags::Write)) {
       return 0;
   }
-  
-  // Optimize: only seek if we're not already at the right position
-  long currentPos = ftell(fs->fp);
-  if (currentPos != static_cast<long>(fs->writeOffset)) {
-      if (fseek(fs->fp, fs->writeOffset, SEEK_SET) != 0) {
-          if (fs->ctx && fs->ctx->errorManager) {
-              fs->ctx->errorManager->addError(ErrorCode::IO, fs->writePosition, 
-                                          strerror(errno));
-          }
-          return 0;
-      }
-  }
-  
+    
   size_t bytesWritten = fwrite(buffer, 1, size, fs->fp);
   
   if (bytesWritten < size) {
