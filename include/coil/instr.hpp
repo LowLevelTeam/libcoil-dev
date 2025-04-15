@@ -331,11 +331,35 @@ enum class GpuAmdOp : uint8_t {
 * @brief Instruction Set
 */
 namespace Instr {
-  // Immediate will be implemented at a later stage
+  union ImmediateValue {
+    int8_t i8;
+    int16_t i16;
+    int32_t i32;
+    int64_t i64;
+    int64_t i128[2];
+
+    uint8_t u8;
+    uint8_t u16;
+    uint32_t u32;
+    uint64_t u64;
+    uint64_t u128[2];
+
+    float f32; // f16 and f8s can just be stored in f32 since there are no native types
+    double f64;
+    double f128[2];
+
+    char vec128[16];
+    char vec256[32];
+    char vec512[64];
+  };
   struct Operand {
     uint8_t top;
     uint8_t ctrl;
+
+    void *typedata; // for future composite and complex types which require extra information
+
     union {
+      ImmediateValue Imm;
       uint64_t VarID;
       uint64_t symref;
       uint64_t ExpID;
@@ -366,7 +390,7 @@ namespace Instr {
   // Encoding: [opcode: uint8_t][opcount: uint8_t] [[op: {Operand, Param}], opcount...]
   struct CtxChange {
     uint8_t opcode;
-    uint8_t opcount; // 0, 1 or 2
+    uint8_t opcount;
 
     Operand location;
 
