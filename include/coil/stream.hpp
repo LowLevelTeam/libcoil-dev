@@ -499,7 +499,7 @@ public:
      * @param ctx Library context
      * @return FileStream* Newly created stream (caller takes ownership) or nullptr on error
      */
-    static FileStream* create(
+    static FileStream create(
         const std::string& filename,
         const std::string& mode,
         const Context& ctx);
@@ -575,7 +575,7 @@ public:
      * @param ctx Library context
      * @return MemoryStream* Newly created stream (caller takes ownership) or nullptr on error
      */
-    static MemoryStream* create(
+    static MemoryStream create(
         void* buffer,
         size_t size,
         uint32_t flags,

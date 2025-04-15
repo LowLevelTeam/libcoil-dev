@@ -87,7 +87,7 @@ FileStream::FileStream(
     , writeOffset_(0) {
 }
 
-FileStream* FileStream::create(
+FileStream FileStream::create(
     const std::string& filename,
     const std::string& mode,
     const Context& ctx) {
@@ -118,7 +118,7 @@ FileStream* FileStream::create(
         flags |= StreamFlags::Write;
     }
     
-    return new FileStream(filename, fp, flags, ctx);
+    return FileStream(filename, fp, flags, ctx);
 }
 
 size_t FileStream::readImpl(void* buffer, size_t size) {
@@ -242,7 +242,7 @@ MemoryStream::MemoryStream(
     , ownsBuffer_(ownsBuffer) {
 }
 
-MemoryStream* MemoryStream::create(
+MemoryStream MemoryStream::create(
     void* buffer,
     size_t size,
     uint32_t flags,
@@ -263,7 +263,7 @@ MemoryStream* MemoryStream::create(
         ownsBuffer = true;
     }
     
-    return new MemoryStream(buffer, size, ownsBuffer, flags, ctx);
+    return MemoryStream(buffer, size, ownsBuffer, flags, ctx);
 }
 
 size_t MemoryStream::readImpl(void* buffer, size_t size) {

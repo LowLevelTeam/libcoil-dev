@@ -469,7 +469,7 @@ public:
     * @param ctx Library context
     * @return CoilObject* Loaded object or nullptr on error
     */
-    static CoilObject* load(Stream& stream, const Context& ctx);
+    static CoilObject load(Stream& stream, const Context& ctx);
     
     /**
     * @brief Create a new COIL object
@@ -479,7 +479,7 @@ public:
     * @param ctx Library context
     * @return CoilObject* Created object or nullptr on error
     */
-    static CoilObject* create(uint16_t type, uint16_t machine, const Context& ctx);
+    static CoilObject create(uint16_t type, uint16_t machine, const Context& ctx);
     
     /**
     * @brief Check if a file is a valid COIL object file
