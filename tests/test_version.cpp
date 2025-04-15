@@ -17,9 +17,11 @@ TEST_CASE("Version information is correct", "[version]") {
     }
     
     SECTION("Version string is correctly formatted") {
-        REQUIRE(version.string == "1.0.0");
-        REQUIRE(version.string == std::to_string(version.major) + "." + 
-                                  std::to_string(version.minor) + "." + 
-                                  std::to_string(version.patch));
+        REQUIRE(strcmp(version.string, "1.0.0") == 0);
+        
+        // Verify that version string matches the numeric components
+        char expectedVersion[32];
+        sprintf(expectedVersion, "%d.%d.%d", version.major, version.minor, version.patch);
+        REQUIRE(strcmp(version.string, expectedVersion) == 0);
     }
 }

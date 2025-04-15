@@ -15,10 +15,8 @@
 #include "coil/instr.hpp"
 #include <cstdint>
 #include <string>
-#include <vector>
 #include <array>
 #include <functional>
-#include <memory>
 
 namespace coil {
 
@@ -132,9 +130,11 @@ const char* getSectionTypeName(uint32_t type);
 * @brief Get a string representation of section flags
 * 
 * @param flags Section flags
-* @return std::string String representation of the flags
+* @param buffer Output buffer
+* @param size Buffer size
+* @return void
 */
-std::string getSectionFlagsString(uint32_t flags);
+void getSectionFlagsString(uint32_t flags, char* buffer, size_t size);
 
 /**
 * @brief Get the name of a symbol binding
@@ -163,489 +163,352 @@ const char* getRelocationTypeName(uint16_t machine, uint32_t type);
 
 } // namespace obj
 
-// Forward declarations
-class CoilObject;
-class CoilSection;
-class CoilSymbol;
-class CoilRelocation;
-
 /**
 * @brief Represents a COIL file header
 */
 struct CoilHeader {
-    std::array<uint8_t, obj::CI_NIDENT> ident;  ///< COIL identification bytes
-    uint16_t type;         ///< Object file type
-    uint8_t version;       ///< Object file version
-    uint8_t reserved1;     ///< Reserved for future use
-    uint32_t entry;        ///< Entry point offset
-    uint32_t shoff;        ///< Section header offset
-    uint16_t flags;        ///< Architecture-specific flags
-    uint16_t ehsize;       ///< Header size
-    uint16_t shentsize;    ///< Section header entry size
-    uint16_t shnum;        ///< Number of section headers
-    uint16_t shstrndx;     ///< Section name string table index
-    
-    /**
-    * @brief Check if this is a little-endian COIL file
-    * 
-    * @return true if little-endian, false if big-endian
-    */
-    bool isLittleEndian() const { return ident[5] == obj::COILDATA2LSB; }
+  std::array<uint8_t, obj::CI_NIDENT> ident;  ///< COIL identification bytes
+  uint16_t type;         ///< Object file type
+  uint8_t version;       ///< Object file version
+  uint8_t reserved1;     ///< Reserved for future use
+  uint32_t entry;        ///< Entry point offset
+  uint32_t shoff;        ///< Section header offset
+  uint16_t flags;        ///< Architecture-specific flags
+  uint16_t ehsize;       ///< Header size
+  uint16_t shentsize;    ///< Section header entry size
+  uint16_t shnum;        ///< Number of section headers
+  uint16_t shstrndx;     ///< Section name string table index
+  
+  /**
+  * @brief Check if this is a little-endian COIL file
+  * 
+  * @return true if little-endian, false if big-endian
+  */
+  bool isLittleEndian() const { return ident[5] == obj::COILDATA2LSB; }
+  
+  /**
+  * @brief Initialize a header with default values
+  * 
+  * @param fileType Object file type
+  * @param machine Machine type
+  * @return CoilHeader Initialized header
+  */
+  static CoilHeader initialize(uint16_t fileType, uint16_t machine);
 };
 
 /**
 * @brief Represents a COIL section header
 */
 struct CoilSectionHeader {
-    uint32_t name;         ///< Section name (string table index)
-    uint32_t type;         ///< Section type
-    uint32_t flags;        ///< Section flags
-    uint32_t offset;       ///< Section file offset
-    uint32_t size;         ///< Section size in bytes
-    uint16_t link;         ///< Link to another section
-    uint16_t info;         ///< Additional section information
-    uint16_t addralign;    ///< Section alignment
-    uint16_t entsize;      ///< Entry size if section holds table
+  uint32_t name;         ///< Section name (string table index)
+  uint32_t type;         ///< Section type
+  uint32_t flags;        ///< Section flags
+  uint32_t offset;       ///< Section file offset
+  uint32_t size;         ///< Section size in bytes
+  uint16_t link;         ///< Link to another section
+  uint16_t info;         ///< Additional section information
+  uint16_t addralign;    ///< Section alignment
+  uint16_t entsize;      ///< Entry size if section holds table
 };
 
 /**
 * @brief Represents a COIL symbol table entry
 */
 struct CoilSymbolEntry {
-    uint32_t name;         ///< Symbol name (string table index)
-    uint32_t value;        ///< Symbol value (offset or address)
-    uint32_t size;         ///< Symbol size
-    uint8_t info;          ///< Symbol type and binding
-    uint8_t other;         ///< Symbol visibility
-    uint16_t shndx;        ///< Section index
-    
-    /**
-    * @brief Get the binding type of the symbol
-    * 
-    * @return uint8_t Binding type (CSB_*)
-    */
-    uint8_t getBinding() const { return info >> 4; }
-    
-    /**
-    * @brief Get the type of the symbol
-    * 
-    * @return uint8_t Symbol type (CST_*)
-    */
-    uint8_t getType() const { return info & 0xF; }
-    
-    /**
-    * @brief Set the binding type of the symbol
-    * 
-    * @param binding Binding type (CSB_*)
-    */
-    void setBinding(uint8_t binding) { info = (binding << 4) | getType(); }
-    
-    /**
-    * @brief Set the type of the symbol
-    * 
-    * @param type Symbol type (CST_*)
-    */
-    void setType(uint8_t type) { info = (getBinding() << 4) | type; }
+  uint32_t name;         ///< Symbol name (string table index)
+  uint32_t value;        ///< Symbol value (offset or address)
+  uint32_t size;         ///< Symbol size
+  uint8_t info;          ///< Symbol type and binding
+  uint8_t other;         ///< Symbol visibility
+  uint16_t shndx;        ///< Section index
+  
+  /**
+  * @brief Get the binding type of the symbol
+  * 
+  * @return uint8_t Binding type (CSB_*)
+  */
+  uint8_t getBinding() const { return info >> 4; }
+  
+  /**
+  * @brief Get the type of the symbol
+  * 
+  * @return uint8_t Symbol type (CST_*)
+  */
+  uint8_t getType() const { return info & 0xF; }
+  
+  /**
+  * @brief Set the binding type of the symbol
+  * 
+  * @param binding Binding type (CSB_*)
+  */
+  void setBinding(uint8_t binding) { info = (binding << 4) | getType(); }
+  
+  /**
+  * @brief Set the type of the symbol
+  * 
+  * @param type Symbol type (CST_*)
+  */
+  void setType(uint8_t type) { info = (getBinding() << 4) | type; }
 };
 
 /**
 * @brief Represents a COIL relocation entry without addend
 */
 struct CoilRelEntry {
-    uint32_t offset;     ///< Location to apply the relocation action
-    uint32_t info;       ///< Symbol index and relocation type
-    
-    /**
-    * @brief Get the symbol index of the relocation
-    * 
-    * @return uint16_t Symbol index
-    */
-    uint16_t getSymbol() const { return info >> 16; }
-    
-    /**
-    * @brief Get the relocation type
-    * 
-    * @return uint16_t Relocation type
-    */
-    uint16_t getType() const { return info & 0xFFFF; }
-    
-    /**
-    * @brief Set the symbol index of the relocation
-    * 
-    * @param symbol Symbol index
-    */
-    void setSymbol(uint16_t symbol) { info = (static_cast<uint32_t>(symbol) << 16) | getType(); }
-    
-    /**
-    * @brief Set the relocation type
-    * 
-    * @param type Relocation type
-    */
-    void setType(uint16_t type) { info = (static_cast<uint32_t>(getSymbol()) << 16) | type; }
+  uint32_t offset;     ///< Location to apply the relocation action
+  uint32_t info;       ///< Symbol index and relocation type
+  
+  /**
+  * @brief Get the symbol index of the relocation
+  * 
+  * @return uint16_t Symbol index
+  */
+  uint16_t getSymbol() const { return info >> 16; }
+  
+  /**
+  * @brief Get the relocation type
+  * 
+  * @return uint16_t Relocation type
+  */
+  uint16_t getType() const { return info & 0xFFFF; }
+  
+  /**
+  * @brief Set the symbol index of the relocation
+  * 
+  * @param symbol Symbol index
+  */
+  void setSymbol(uint16_t symbol) { info = (static_cast<uint32_t>(symbol) << 16) | getType(); }
+  
+  /**
+  * @brief Set the relocation type
+  * 
+  * @param type Relocation type
+  */
+  void setType(uint16_t type) { info = (static_cast<uint32_t>(getSymbol()) << 16) | type; }
 };
 
 /**
 * @brief Represents a COIL relocation entry with addend
 */
 struct CoilRelaEntry {
-    uint32_t offset;     ///< Location to apply the relocation action
-    uint32_t info;       ///< Symbol index and relocation type
-    int32_t  addend;     ///< Constant addend used to compute value to be stored
-    
-    /**
-    * @brief Get the symbol index of the relocation
-    * 
-    * @return uint16_t Symbol index
-    */
-    uint16_t getSymbol() const { return info >> 16; }
-    
-    /**
-    * @brief Get the relocation type
-    * 
-    * @return uint16_t Relocation type
-    */
-    uint16_t getType() const { return info & 0xFFFF; }
-    
-    /**
-    * @brief Set the symbol index of the relocation
-    * 
-    * @param symbol Symbol index
-    */
-    void setSymbol(uint16_t symbol) { info = (static_cast<uint32_t>(symbol) << 16) | getType(); }
-    
-    /**
-    * @brief Set the relocation type
-    * 
-    * @param type Relocation type
-    */
-    void setType(uint16_t type) { info = (static_cast<uint32_t>(getSymbol()) << 16) | type; }
+  uint32_t offset;     ///< Location to apply the relocation action
+  uint32_t info;       ///< Symbol index and relocation type
+  int32_t  addend;     ///< Constant addend used to compute value to be stored
+  
+  /**
+  * @brief Get the symbol index of the relocation
+  * 
+  * @return uint16_t Symbol index
+  */
+  uint16_t getSymbol() const { return info >> 16; }
+  
+  /**
+  * @brief Get the relocation type
+  * 
+  * @return uint16_t Relocation type
+  */
+  uint16_t getType() const { return info & 0xFFFF; }
+  
+  /**
+  * @brief Set the symbol index of the relocation
+  * 
+  * @param symbol Symbol index
+  */
+  void setSymbol(uint16_t symbol) { info = (static_cast<uint32_t>(symbol) << 16) | getType(); }
+  
+  /**
+  * @brief Set the relocation type
+  * 
+  * @param type Relocation type
+  */
+  void setType(uint16_t type) { info = (static_cast<uint32_t>(getSymbol()) << 16) | type; }
 };
 
 /**
-* @brief Represents a COIL section
+* @brief Section data structure with fixed-size name
 */
-class CoilSection {
-public:
-    /**
-    * @brief Construct a new COIL section
-    * 
-    * @param parent Parent COIL object
-    * @param header Section header
-    * @param data Section data (can be nullptr for CST_NOBITS)
-    * @param name Section name
-    */
-    CoilSection(CoilObject& parent, const CoilSectionHeader& header, const uint8_t* data, std::string name);
-    
-    /**
-    * @brief Get the section name
-    * 
-    * @return const std::string& Section name
-    */
-    const std::string& getName() const { return name_; }
-    
-    /**
-    * @brief Get the section header
-    * 
-    * @return const CoilSectionHeader& Section header
-    */
-    const CoilSectionHeader& getHeader() const { return header_; }
-    
-    /**
-    * @brief Get the section data
-    * 
-    * @return const uint8_t* Section data (can be nullptr for CST_NOBITS)
-    */
-    const uint8_t* getData() const { return data_.get(); }
-    
-    /**
-    * @brief Get the size of the section
-    * 
-    * @return uint32_t Section size
-    */
-    uint32_t getSize() const { return header_.size; }
-    
-    /**
-    * @brief Get the section type
-    * 
-    * @return uint32_t Section type
-    */
-    uint32_t getType() const { return header_.type; }
-    
-    /**
-    * @brief Get the section flags
-    * 
-    * @return uint32_t Section flags
-    */
-    uint32_t getFlags() const { return header_.flags; }
-    
-    /**
-    * @brief Check if the section has a specific flag
-    * 
-    * @param flag Flag to check
-    * @return true if the flag is set
-    */
-    bool hasFlag(uint32_t flag) const { return (header_.flags & flag) != 0; }
-    
-    /**
-    * @brief Set the section data
-    * 
-    * @param data New data buffer
-    * @param size Size of the data
-    */
-    void setData(const uint8_t* data, uint32_t size);
-    
-    /**
-    * @brief Get a string from a string table section
-    * 
-    * @param offset Offset into the string table
-    * @return std::string String at the given offset
-    */
-    std::string getString(uint32_t offset) const;
-    
-    /**
-    * @brief Get a symbol from a symbol table section
-    * 
-    * @param index Symbol index
-    * @return CoilSymbolEntry Symbol at the given index
-    */
-    CoilSymbolEntry getSymbol(uint32_t index) const;
-    
-    /**
-    * @brief Get a relocation from a relocation section
-    * 
-    * @param index Relocation index
-    * @return CoilRelEntry or CoilRelaEntry depending on section type
-    */
-    CoilRelEntry getRel(uint32_t index) const;
-    CoilRelaEntry getRela(uint32_t index) const;
-    
-    /**
-    * @brief Get the number of entries in a table section
-    * 
-    * @return uint32_t Number of entries
-    */
-    uint32_t getEntryCount() const;
-    
-    /**
-    * @brief Get the parent COIL object
-    * 
-    * @return CoilObject& Parent object
-    */
-    CoilObject& getParent() { return parent_; }
-    
-    /**
-    * @brief Set a symbol in a symbol table section
-    * 
-    * @param index Symbol index
-    * @param symbol New symbol data
-    */
-    void setSymbol(uint32_t index, const CoilSymbolEntry& symbol);
-    
-    /**
-    * @brief Set a relocation in a relocation section
-    * 
-    * @param index Relocation index
-    * @param rel New relocation data
-    */
-    void setRel(uint32_t index, const CoilRelEntry& rel);
-    void setRela(uint32_t index, const CoilRelaEntry& rela);
-
-private:
-    CoilObject& parent_;
-    CoilSectionHeader header_;
-    std::shared_ptr<uint8_t[]> data_;
-    std::string name_;
+struct SectionData {
+  char name[64];           // Fixed-size name buffer (no heap allocation)
+  CoilSectionHeader header;
+  uint8_t* data;           // Owned externally or allocated as needed
+  bool ownsData;           // Whether this section owns its data buffer
+  
+  // Initialize a new section data structure
+  static SectionData create(const char* sectionName, 
+                            uint32_t type, 
+                            uint32_t flags,
+                            const uint8_t* sectionData, 
+                            uint32_t size, 
+                            uint16_t entrySize = 0);
+                            
+  // Free allocated data if owned
+  void freeData();
+  
+  // Helper method to get a string from a string table section
+  const char* getString(uint32_t offset) const;
+  
+  // Helper methods for symbol table sections
+  CoilSymbolEntry getSymbol(uint32_t index) const;
+  void setSymbol(uint32_t index, const CoilSymbolEntry& symbol);
+  
+  // Helper methods for relocation sections
+  CoilRelEntry getRel(uint32_t index) const;
+  CoilRelaEntry getRela(uint32_t index) const;
+  void setRel(uint32_t index, const CoilRelEntry& rel);
+  void setRela(uint32_t index, const CoilRelaEntry& rela);
+  
+  // Get the number of entries in a table section
+  uint32_t getEntryCount() const;
 };
 
 /**
-* @brief Class for manipulating COIL object files
+* @brief Maximum number of sections in a COIL object
 */
-class CoilObject {
-public:
-    /**
-    * @brief Load a COIL object from a stream
-    * 
-    * @param stream Input stream
-    * @param ctx Library context
-    * @return CoilObject* Loaded object or nullptr on error
-    */
-    static CoilObject load(Stream& stream, const Context& ctx);
-    
-    /**
-    * @brief Create a new COIL object
-    * 
-    * @param type COIL file type
-    * @param machine Target architecture
-    * @param ctx Library context
-    * @return CoilObject* Created object or nullptr on error
-    */
-    static CoilObject create(uint16_t type, uint16_t machine, const Context& ctx);
-    
-    /**
-    * @brief Check if a file is a valid COIL object file
-    * 
-    * @param stream Input stream
-    * @return bool True if valid COIL file
-    */
-    static bool isCoilFile(Stream& stream);
-    
-    /**
-    * @brief Get the COIL header
-    * 
-    * @return const CoilHeader& Header
-    */
-    const CoilHeader& getHeader() const { return header_; }
-    
-    /**
-    * @brief Get a section by index
-    * 
-    * @param index Section index
-    * @return const CoilSection& Section
-    */
-    const CoilSection& getSection(uint16_t index) const;
-    
-    /**
-    * @brief Get a section by name
-    * 
-    * @param name Section name
-    * @return const CoilSection* Section or nullptr if not found
-    */
-    const CoilSection* getSectionByName(const std::string& name) const;
-    
-    /**
-    * @brief Get all sections
-    * 
-    * @return const std::vector<CoilSection>& Vector of sections
-    */
-    const std::vector<std::unique_ptr<CoilSection>>& getSections() const { return sections_; }
-    
-    /**
-    * @brief Add a new section to the COIL object
-    * 
-    * @param name Section name
-    * @param type Section type
-    * @param flags Section flags
-    * @param data Section data
-    * @param size Data size
-    * @param entsize Entry size for table sections
-    * @return CoilSection* Added section or nullptr on error
-    */
-    CoilSection* addSection(const std::string& name, uint32_t type, uint32_t flags, 
-                          const uint8_t* data, uint32_t size, uint16_t entsize = 0);
-    
-    /**
-    * @brief Save the COIL object to a stream
-    * 
-    * @param stream Output stream
-    * @return bool Success
-    */
-    bool save(Stream& stream);
-    
-    /**
-    * @brief Iterate through all symbols in the COIL file
-    * 
-    * @param callback Function to call for each symbol
-    */
-    void forEachSymbol(std::function<void(const CoilSection&, const CoilSymbolEntry&, const std::string&)> callback) const;
-    
-    /**
-    * @brief Iterate through all relocations in the COIL file
-    * 
-    * @param callback Function to call for each relocation
-    */
-    void forEachRelocation(std::function<void(const CoilSection&, const CoilSection&, const CoilRelEntry&)> relCallback,
-                          std::function<void(const CoilSection&, const CoilSection&, const CoilRelaEntry&)> relaCallback) const;
-    
-    /**
-    * @brief Find a symbol by name
-    * 
-    * @param name Symbol name
-    * @return std::pair<const CoilSection*, const CoilSymbolEntry*> Symbol and containing section, or {nullptr, nullptr} if not found
-    */
-    std::pair<const CoilSection*, const CoilSymbolEntry*> findSymbol(const std::string& name) const;
-    
-    /**
-    * @brief Add a symbol to the symbol table
-    * 
-    * @param name Symbol name
-    * @param value Symbol value
-    * @param size Symbol size
-    * @param type Symbol type
-    * @param binding Symbol binding
-    * @param sectionIndex Section index
-    * @return bool Success
-    */
-    bool addSymbol(const std::string& name, uint32_t value, uint32_t size, 
-                  uint8_t type, uint8_t binding, uint16_t sectionIndex);
-    
-    /**
-    * @brief Get the library context
-    * 
-    * @return const Context& Context
-    */
-    const Context& getContext() const { return ctx_; }
-    
-    /**
-    * @brief Destructor
-    */
-    ~CoilObject() = default;
-    
-private:
-    CoilObject(const Context& ctx);
-    
-    bool loadSections(Stream& stream);
-    bool loadSectionData(Stream& stream);
-    bool loadSectionNames();
-    
-    CoilHeader header_;
-    std::vector<std::unique_ptr<CoilSection>> sections_;
-    const Context& ctx_;
+constexpr size_t MAX_SECTIONS = 32;
+
+/**
+* @brief COIL object file structure
+*/
+struct CoilObject {
+  CoilHeader header;
+  SectionData sections[MAX_SECTIONS];
+  size_t sectionCount;
+  const Context* ctx;
+  
+  /**
+  * @brief Load a COIL object from a stream
+  * 
+  * @param stream Input stream
+  * @param context Library context
+  * @return CoilObject Loaded object or empty object on error
+  */
+  static CoilObject load(Stream* stream, const Context* context);
+  
+  /**
+  * @brief Create a new COIL object
+  * 
+  * @param type COIL file type
+  * @param machine Target architecture
+  * @param context Library context
+  * @return CoilObject Created object
+  */
+  static CoilObject create(uint16_t type, uint16_t machine, const Context* context);
+  
+  /**
+  * @brief Check if a file is a valid COIL object file
+  * 
+  * @param stream Input stream
+  * @return bool True if valid COIL file
+  */
+  static bool isCoilFile(Stream* stream);
+  
+  /**
+  * @brief Get a section by index
+  * 
+  * @param index Section index
+  * @return const SectionData* Section pointer or nullptr if invalid
+  */
+  const SectionData* getSection(uint16_t index) const;
+  
+  /**
+  * @brief Get a section by name
+  * 
+  * @param name Section name
+  * @return const SectionData* Section pointer or nullptr if not found
+  */
+  const SectionData* getSectionByName(const char* name) const;
+  
+  /**
+  * @brief Add a new section to the COIL object
+  * 
+  * @param name Section name
+  * @param type Section type
+  * @param flags Section flags
+  * @param data Section data
+  * @param size Data size
+  * @param entsize Entry size for table sections
+  * @return SectionData* Added section or nullptr on error
+  */
+  SectionData* addSection(const char* name, uint32_t type, uint32_t flags, 
+                        const uint8_t* data, uint32_t size, uint16_t entsize = 0);
+  
+  /**
+  * @brief Save the COIL object to a stream
+  * 
+  * @param stream Output stream
+  * @return bool Success
+  */
+  bool save(Stream* stream);
+  
+  /**
+  * @brief Find a symbol by name
+  * 
+  * @param name Symbol name
+  * @return std::pair<const SectionData*, const CoilSymbolEntry*> Section/symbol pair
+  */
+  std::pair<const SectionData*, const CoilSymbolEntry*> findSymbol(const char* name) const;
+  
+  /**
+  * @brief Add a symbol to the symbol table
+  * 
+  * @param name Symbol name
+  * @param value Symbol value
+  * @param size Symbol size
+  * @param type Symbol type
+  * @param binding Symbol binding
+  * @param sectionIndex Section index
+  * @return bool Success
+  */
+  bool addSymbol(const char* name, uint32_t value, uint32_t size, 
+                uint8_t type, uint8_t binding, uint16_t sectionIndex);
+  
+  /**
+  * @brief Cleanup any owned resources
+  */
+  void cleanup();
 };
 
 /**
 * @brief Helper for working with COIL string tables
 */
-class CoilStringTable {
-public:
-    /**
-    * @brief Construct a new string table from a COIL section
-    * 
-    * @param section String table section
-    */
-    explicit CoilStringTable(const CoilSection& section);
-    
-    /**
-    * @brief Get a string from the table
-    * 
-    * @param offset Offset into the string table
-    * @return std::string String at the given offset
-    */
-    std::string getString(uint32_t offset) const;
-    
-    /**
-    * @brief Add a string to the table
-    * 
-    * @param str String to add
-    * @return uint32_t Offset of the added string
-    */
-    uint32_t addString(const std::string& str);
-    
-    /**
-    * @brief Get the current size of the string table
-    * 
-    * @return uint32_t Size in bytes
-    */
-    uint32_t getSize() const { return static_cast<uint32_t>(data_.size()); }
-    
-    /**
-    * @brief Get the data buffer
-    * 
-    * @return const uint8_t* String table data
-    */
-    const uint8_t* getData() const { return data_.data(); }
-    
-private:
-    std::vector<uint8_t> data_;
+struct StringTable {
+  // Maximum size of the string table
+  static constexpr size_t MAX_SIZE = 65536;
+  
+  // String table data
+  uint8_t data[MAX_SIZE];
+  size_t size;
+  
+  /**
+  * @brief Initialize from section data
+  * 
+  * @param section String table section
+  * @return StringTable Initialized string table
+  */
+  static StringTable fromSection(const SectionData& section);
+  
+  /**
+  * @brief Create a new string table
+  * 
+  * @return StringTable New string table
+  */
+  static StringTable create();
+  
+  /**
+  * @brief Get a string from the table
+  * 
+  * @param offset Offset into the string table
+  * @return const char* String at the given offset
+  */
+  const char* getString(uint32_t offset) const;
+  
+  /**
+  * @brief Add a string to the table
+  * 
+  * @param str String to add
+  * @return uint32_t Offset of the added string
+  */
+  uint32_t addString(const char* str);
 };
 
 } // namespace coil

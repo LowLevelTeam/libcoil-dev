@@ -5,358 +5,400 @@
 
 namespace coil {
 
-// StreamReader implementation for readLine
-std::string StreamReader::readLine(size_t maxSize) {
-    std::string line;
-    line.reserve(128); // Initial capacity
-    
-    char ch;
-    size_t count = 0;
-    
-    while (count < maxSize) {
-        if (read(&ch, 1) != 1) {
-            break;
-        }
-        
-        count++;
-        
-        if (ch == '\n') {
-            break;
-        } else if (ch != '\r') { // Skip CR
-            line.push_back(ch);
-        }
-    }
-    
-    return line;
+// Initialize VTable static structures for file and memory streams
+const Stream::VTable FileStream::FILE_VTABLE = {
+  &FileStream::fileEof,
+  &FileStream::closeFile,
+  &FileStream::fileRead,
+  &FileStream::fileWrite,
+  &FileStream::fileResetReadPos,
+  &FileStream::fileResetWritePos
+};
+
+const Stream::VTable MemoryStream::MEMORY_VTABLE = {
+  &MemoryStream::memoryEof,
+  &MemoryStream::closeMemory,
+  &MemoryStream::memoryRead,
+  &MemoryStream::memoryWrite,
+  &MemoryStream::memoryResetReadPos,
+  &MemoryStream::memoryResetWritePos
+};
+
+// Stream implementation for readLine and position updating
+std::string Stream::readLine(size_t maxSize) {
+  std::string line;
+  line.reserve(128); // Initial capacity
+  
+  char ch;
+  size_t count = 0;
+  
+  while (count < maxSize) {
+      if (read(&ch, 1) != 1) {
+          break;
+      }
+      
+      count++;
+      
+      if (ch == '\n') {
+          break;
+      } else if (ch != '\r') { // Skip CR
+          line.push_back(ch);
+      }
+  }
+  
+  return line;
 }
 
-// BaseStream implementation
-BaseStream::BaseStream(const std::string& name, uint32_t flags, const Context& ctx)
-    : name_(name)
-    , flags_(flags)
-    , ctx_(ctx) {
-    
-    // Initialize both positions
-    readPosition_.fileName = name;
-    readPosition_.line = 1;
-    readPosition_.column = 1;
-    readPosition_.offset = 0;
-    
-    writePosition_.fileName = name;
-    writePosition_.line = 1;
-    writePosition_.column = 1;
-    writePosition_.offset = 0;
-}
-
-uint32_t BaseStream::getFlags() const {
-    return flags_;
-}
-
-StreamPosition BaseStream::getReadPosition() const {
-    return readPosition_;
-}
-
-StreamPosition BaseStream::getWritePosition() const {
-    return writePosition_;
-}
-
-void BaseStream::updatePosition(const char* buffer, size_t size, PositionType type) {
-    StreamPosition& position = (type == PositionType::Read) ? readPosition_ : writePosition_;
-    
-    for (size_t i = 0; i < size; i++) {
-        if (buffer[i] == '\n') {
-            position.line++;
-            position.column = 1;
-        } else {
-            position.column++;
-        }
-    }
-    
-    position.offset += size;
+void Stream::updatePosition(const char* buffer, size_t size, bool isRead) {
+  StreamPosition& position = isRead ? readPosition : writePosition;
+  
+  for (size_t i = 0; i < size; i++) {
+      if (buffer[i] == '\n') {
+          position.line++;
+          position.column = 1;
+      } else {
+          position.column++;
+      }
+  }
+  
+  position.offset += size;
 }
 
 // FileStream implementation
-FileStream::FileStream(
-    const std::string& filename,
-    FILE* fp,
-    uint32_t flags,
-    const Context& ctx)
-    : BaseStream(filename, flags, ctx)
-    , fp_(fp)
-    , readOffset_(0)
-    , writeOffset_(0) {
+FileStream FileStream::open(
+  const char* filename,
+  const char* mode,
+  const Context* context) {
+  
+  FileStream stream;
+  
+  if (!filename || !mode || !context) {
+      if (context && context->errorManager) {
+          StreamPosition pos;
+          context->errorManager->addError(ErrorCode::Argument, pos, 
+                                    "Invalid arguments for file stream");
+      }
+      return stream;
+  }
+  
+  FILE* fp = fopen(filename, mode);
+  if (!fp) {
+      StreamPosition pos;
+      strncpy(pos.fileName, filename, sizeof(pos.fileName) - 1);
+      pos.fileName[sizeof(pos.fileName) - 1] = '\0';
+      
+      if (context && context->errorManager) {
+          context->errorManager->addError(ErrorCode::IO, pos, 
+                                    strerror(errno));
+      }
+      return stream;
+  }
+  
+  uint32_t flags = 0;
+  
+  if (strchr(mode, 'r') != nullptr) {
+      flags |= StreamFlags::Read;
+  }
+  
+  if (strchr(mode, 'w') != nullptr || strchr(mode, 'a') != nullptr || 
+      strchr(mode, '+') != nullptr) {
+      flags |= StreamFlags::Write;
+  }
+  
+  // Initialize the stream
+  stream.fp = fp;
+  stream.flags = flags;
+  stream.readOffset = 0;
+  stream.writeOffset = 0;
+  stream.ctx = context;
+  stream.vtable = &FILE_VTABLE;
+  
+  // Set up file position tracking
+  strncpy(stream.readPosition.fileName, filename, sizeof(stream.readPosition.fileName) - 1);
+  stream.readPosition.fileName[sizeof(stream.readPosition.fileName) - 1] = '\0';
+  stream.readPosition.line = 1;
+  stream.readPosition.column = 1;
+  stream.readPosition.offset = 0;
+  
+  strncpy(stream.writePosition.fileName, filename, sizeof(stream.writePosition.fileName) - 1);
+  stream.writePosition.fileName[sizeof(stream.writePosition.fileName) - 1] = '\0';
+  stream.writePosition.line = 1;
+  stream.writePosition.column = 1;
+  stream.writePosition.offset = 0;
+  
+  return stream;
 }
 
-FileStream FileStream::create(
-    const std::string& filename,
-    const std::string& mode,
-    const Context& ctx) {
-    
-    if (filename.empty() || mode.empty()) {
-        ctx.errorManager.addError(ErrorCode::Argument, StreamPosition(), 
-                               "Invalid filename or mode for file stream");
-        return nullptr;
-    }
-    
-    FILE* fp = fopen(filename.c_str(), mode.c_str());
-    if (!fp) {
-        StreamPosition pos;
-        pos.fileName = filename;
-        ctx.errorManager.addError(ErrorCode::IO, pos, 
-                               "Failed to open file: " + std::string(strerror(errno)));
-        return nullptr;
-    }
-    
-    uint32_t flags = 0;
-    
-    if (mode.find('r') != std::string::npos) {
-        flags |= StreamFlags::Read;
-    }
-    
-    if (mode.find('w') != std::string::npos || mode.find('a') != std::string::npos || 
-        mode.find('+') != std::string::npos) {
-        flags |= StreamFlags::Write;
-    }
-    
-    return FileStream(filename, fp, flags, ctx);
+void FileStream::closeFile(Stream* stream) {
+  if (!stream) return;
+  
+  FileStream* fs = static_cast<FileStream*>(stream);
+  if (fs->fp) {
+      fclose(fs->fp);
+      fs->fp = nullptr;
+  }
 }
 
-size_t FileStream::readImpl(void* buffer, size_t size) {
-    if (!buffer || size == 0 || !fp_ || !(flags_ & StreamFlags::Read)) {
-        return 0;
-    }
-    
-    // Position the file pointer at the read offset
-    if (fseek(fp_, readOffset_, SEEK_SET) != 0) {
-        ctx_.errorManager.addError(ErrorCode::IO, readPosition_, 
-                                "Error positioning file pointer for reading: " + 
-                                std::string(strerror(errno)));
-        return 0;
-    }
-    
-    size_t bytesRead = fread(buffer, 1, size, fp_);
-    
-    if (bytesRead < size && ferror(fp_)) {
-        ctx_.errorManager.addError(ErrorCode::IO, readPosition_, 
-                                "Error reading from file stream: " + 
-                                std::string(strerror(ferror(fp_))));
-    }
-    
-    if (bytesRead > 0) {
-        updatePosition(static_cast<const char*>(buffer), bytesRead, PositionType::Read);
-        readOffset_ += bytesRead;
-    }
-    
-    if (feof(fp_)) {
-        flags_ |= StreamFlags::Eof;
-    }
-    
-    return bytesRead;
+bool FileStream::fileEof(const Stream* stream) {
+  if (!stream) return true;
+  
+  const FileStream* fs = static_cast<const FileStream*>(stream);
+  if (!fs->fp) {
+      return true;
+  }
+  
+  // Save current position
+  long currentPos = ftell(fs->fp);
+  
+  // Seek to end of file
+  fseek(fs->fp, 0, SEEK_END);
+  long endPos = ftell(fs->fp);
+  
+  // Restore position
+  fseek(fs->fp, currentPos, SEEK_SET);
+  
+  // EOF if read position is at or past the end of the file
+  return fs->readOffset >= static_cast<size_t>(endPos) || ((fs->flags & StreamFlags::Eof) != 0);
 }
 
-size_t FileStream::writeImpl(const void* buffer, size_t size) {
-    if (!buffer || size == 0 || !fp_ || !(flags_ & StreamFlags::Write)) {
-        return 0;
-    }
-    
-    // Position the file pointer at the write offset
-    if (fseek(fp_, writeOffset_, SEEK_SET) != 0) {
-        ctx_.errorManager.addError(ErrorCode::IO, writePosition_, 
-                                "Error positioning file pointer for writing: " + 
-                                std::string(strerror(errno)));
-        return 0;
-    }
-    
-    size_t bytesWritten = fwrite(buffer, 1, size, fp_);
-    
-    if (bytesWritten < size) {
-        ctx_.errorManager.addError(ErrorCode::IO, writePosition_, 
-                                "Error writing to file stream: " + 
-                                std::string(strerror(ferror(fp_))));
-    }
-    
-    if (bytesWritten > 0) {
-        updatePosition(static_cast<const char*>(buffer), bytesWritten, PositionType::Write);
-        writeOffset_ += bytesWritten;
-    }
-    
-    return bytesWritten;
+size_t FileStream::fileRead(Stream* stream, void* buffer, size_t size) {
+  if (!stream || !buffer || size == 0) return 0;
+  
+  FileStream* fs = static_cast<FileStream*>(stream);
+  if (!fs->fp || !(fs->flags & StreamFlags::Read)) {
+      return 0;
+  }
+  
+  // Position the file pointer at the read offset
+  if (fseek(fs->fp, fs->readOffset, SEEK_SET) != 0) {
+      if (fs->ctx && fs->ctx->errorManager) {
+          fs->ctx->errorManager->addError(ErrorCode::IO, fs->readPosition, 
+                                      strerror(errno));
+      }
+      return 0;
+  }
+  
+  size_t bytesRead = fread(buffer, 1, size, fs->fp);
+  
+  if (bytesRead < size && ferror(fs->fp)) {
+      if (fs->ctx && fs->ctx->errorManager) {
+          fs->ctx->errorManager->addError(ErrorCode::IO, fs->readPosition, 
+                                      strerror(errno));
+      }
+  }
+  
+  if (bytesRead > 0) {
+      fs->updatePosition(static_cast<const char*>(buffer), bytesRead, true);
+      fs->readOffset += bytesRead;
+  }
+  
+  if (feof(fs->fp)) {
+      fs->flags |= StreamFlags::Eof;
+  }
+  
+  return bytesRead;
 }
 
-bool FileStream::eof() const {
-    if (!fp_) {
-        return true;
-    }
-    
-    // Save current position
-    long currentPos = ftell(fp_);
-    
-    // Seek to end of file
-    fseek(fp_, 0, SEEK_END);
-    long endPos = ftell(fp_);
-    
-    // Restore position
-    fseek(fp_, currentPos, SEEK_SET);
-    
-    // EOF if read position is at or past the end of the file
-    return readOffset_ >= static_cast<size_t>(endPos) || ((flags_ & StreamFlags::Eof) != 0);
+size_t FileStream::fileWrite(Stream* stream, const void* buffer, size_t size) {
+  if (!stream || !buffer || size == 0) return 0;
+  
+  FileStream* fs = static_cast<FileStream*>(stream);
+  if (!fs->fp || !(fs->flags & StreamFlags::Write)) {
+      return 0;
+  }
+  
+  // Position the file pointer at the write offset
+  if (fseek(fs->fp, fs->writeOffset, SEEK_SET) != 0) {
+      if (fs->ctx && fs->ctx->errorManager) {
+          fs->ctx->errorManager->addError(ErrorCode::IO, fs->writePosition, 
+                                      strerror(errno));
+      }
+      return 0;
+  }
+  
+  size_t bytesWritten = fwrite(buffer, 1, size, fs->fp);
+  
+  if (bytesWritten < size) {
+      if (fs->ctx && fs->ctx->errorManager) {
+          fs->ctx->errorManager->addError(ErrorCode::IO, fs->writePosition, 
+                                      strerror(errno));
+      }
+  }
+  
+  if (bytesWritten > 0) {
+      fs->updatePosition(static_cast<const char*>(buffer), bytesWritten, false);
+      fs->writeOffset += bytesWritten;
+  }
+  
+  return bytesWritten;
 }
 
-void FileStream::resetReadPosition() {
-    readOffset_ = 0;
-    readPosition_.line = 1;
-    readPosition_.column = 1;
-    readPosition_.offset = 0;
+void FileStream::fileResetReadPos(Stream* stream) {
+  if (!stream) return;
+  
+  FileStream* fs = static_cast<FileStream*>(stream);
+  fs->readOffset = 0;
+  fs->readPosition.line = 1;
+  fs->readPosition.column = 1;
+  fs->readPosition.offset = 0;
 }
 
-void FileStream::resetWritePosition() {
-    writeOffset_ = 0;
-    writePosition_.line = 1;
-    writePosition_.column = 1;
-    writePosition_.offset = 0;
-}
-
-void FileStream::close() {
-    if (fp_) {
-        fclose(fp_);
-        fp_ = nullptr;
-    }
-}
-
-FileStream::~FileStream() {
-    close();
+void FileStream::fileResetWritePos(Stream* stream) {
+  if (!stream) return;
+  
+  FileStream* fs = static_cast<FileStream*>(stream);
+  fs->writeOffset = 0;
+  fs->writePosition.line = 1;
+  fs->writePosition.column = 1;
+  fs->writePosition.offset = 0;
 }
 
 // MemoryStream implementation
-MemoryStream::MemoryStream(
-    void* buffer,
-    size_t size,
-    bool ownsBuffer,
-    uint32_t flags,
-    const Context& ctx)
-    : BaseStream("memory", flags, ctx)
-    , buffer_(static_cast<uint8_t*>(buffer))
-    , size_(size)
-    , readOffset_(0)
-    , writeOffset_(0)
-    , ownsBuffer_(ownsBuffer) {
-}
-
 MemoryStream MemoryStream::create(
-    void* buffer,
-    size_t size,
-    uint32_t flags,
-    const Context& ctx) {
-    
-    bool ownsBuffer = false;
-    
-    if (!buffer && size > 0) {
-        // Allocate our own buffer
-        buffer = malloc(size);
-        if (!buffer) {
-            StreamPosition pos;
-            pos.fileName = "memory";
-            ctx.errorManager.addError(ErrorCode::Memory, pos, 
-                                    "Failed to allocate memory for memory stream");
-            return nullptr;
-        }
-        ownsBuffer = true;
-    }
-    
-    return MemoryStream(buffer, size, ownsBuffer, flags, ctx);
+  void* buffer,
+  size_t size,
+  uint32_t streamFlags,
+  const Context* context) {
+  
+  MemoryStream stream;
+  stream.vtable = &MEMORY_VTABLE;
+  stream.flags = streamFlags;
+  stream.size = size;
+  stream.ctx = context;
+  stream.readOffset = 0;
+  stream.writeOffset = 0;
+  
+  // Set up position tracking
+  strcpy(stream.readPosition.fileName, "memory");
+  stream.readPosition.line = 1;
+  stream.readPosition.column = 1;
+  stream.readPosition.offset = 0;
+  
+  strcpy(stream.writePosition.fileName, "memory");
+  stream.writePosition.line = 1;
+  stream.writePosition.column = 1;
+  stream.writePosition.offset = 0;
+  
+  // Handle buffer creation if needed
+  if (!buffer && size > 0) {
+      // Allocate our own buffer
+      buffer = malloc(size);
+      if (!buffer) {
+          StreamPosition pos;
+          strcpy(pos.fileName, "memory");
+          
+          if (context && context->errorManager) {
+              context->errorManager->addError(ErrorCode::Memory, pos, 
+                                        "Failed to allocate memory for memory stream");
+          }
+          return stream;
+      }
+      stream.ownsBuffer = true;
+  } else {
+      stream.ownsBuffer = false;
+  }
+  
+  stream.buffer = static_cast<uint8_t*>(buffer);
+  return stream;
 }
 
-size_t MemoryStream::readImpl(void* buffer, size_t size) {
-    if (!buffer || size == 0 || !buffer_ || !(flags_ & StreamFlags::Read)) {
-        return 0;
-    }
-    
-    size_t available = size_ - readOffset_;
-    size_t bytesToRead = std::min(size, available);
-    
-    if (bytesToRead == 0) {
-        flags_ |= StreamFlags::Eof;
-        return 0;
-    }
-    
-    memcpy(buffer, buffer_ + readOffset_, bytesToRead);
-    
-    if (bytesToRead > 0) {
-        updatePosition(reinterpret_cast<const char*>(buffer_ + readOffset_), bytesToRead, PositionType::Read);
-        readOffset_ += bytesToRead;
-    }
-    
-    if (readOffset_ >= size_) {
-        flags_ |= StreamFlags::Eof;
-    }
-    
-    return bytesToRead;
+void MemoryStream::closeMemory(Stream* stream) {
+  if (!stream) return;
+  
+  MemoryStream* ms = static_cast<MemoryStream*>(stream);
+  if (ms->ownsBuffer && ms->buffer) {
+      free(ms->buffer);
+      ms->buffer = nullptr;
+      ms->size = 0;
+      ms->readOffset = 0;
+      ms->writeOffset = 0;
+  }
 }
 
-size_t MemoryStream::writeImpl(const void* buffer, size_t size) {
-    if (!buffer || size == 0 || !buffer_ || !(flags_ & StreamFlags::Write)) {
-        return 0;
-    }
-    
-    size_t available = size_ - writeOffset_;
-    size_t bytesToWrite = std::min(size, available);
-    
-    if (bytesToWrite == 0) {
-        return 0;
-    }
-    
-    memcpy(buffer_ + writeOffset_, buffer, bytesToWrite);
-    
-    if (bytesToWrite > 0) {
-        updatePosition(static_cast<const char*>(buffer), bytesToWrite, PositionType::Write);
-        writeOffset_ += bytesToWrite;
-    }
-    
-    return bytesToWrite;
+bool MemoryStream::memoryEof(const Stream* stream) {
+  if (!stream) return true;
+  
+  const MemoryStream* ms = static_cast<const MemoryStream*>(stream);
+  if (!ms->buffer) {
+      return true;
+  }
+  
+  return ms->readOffset >= ms->size || ((ms->flags & StreamFlags::Eof) != 0);
 }
 
-bool MemoryStream::eof() const {
-    if (!buffer_) {
-        return true;
-    }
-    
-    return readOffset_ >= size_ || ((flags_ & StreamFlags::Eof) != 0);
+size_t MemoryStream::memoryRead(Stream* stream, void* buffer, size_t size) {
+  if (!stream || !buffer || size == 0) return 0;
+  
+  MemoryStream* ms = static_cast<MemoryStream*>(stream);
+  if (!ms->buffer || !(ms->flags & StreamFlags::Read)) {
+      return 0;
+  }
+  
+  size_t available = ms->size - ms->readOffset;
+  size_t bytesToRead = std::min(size, available);
+  
+  if (bytesToRead == 0) {
+      ms->flags |= StreamFlags::Eof;
+      return 0;
+  }
+  
+  memcpy(buffer, ms->buffer + ms->readOffset, bytesToRead);
+  
+  if (bytesToRead > 0) {
+      ms->updatePosition(reinterpret_cast<const char*>(ms->buffer + ms->readOffset), bytesToRead, true);
+      ms->readOffset += bytesToRead;
+  }
+  
+  if (ms->readOffset >= ms->size) {
+      ms->flags |= StreamFlags::Eof;
+  }
+  
+  return bytesToRead;
 }
 
-void MemoryStream::resetReadPosition() {
-    readOffset_ = 0;
-    readPosition_.line = 1;
-    readPosition_.column = 1;
-    readPosition_.offset = 0;
+size_t MemoryStream::memoryWrite(Stream* stream, const void* buffer, size_t size) {
+  if (!stream || !buffer || size == 0) return 0;
+  
+  MemoryStream* ms = static_cast<MemoryStream*>(stream);
+  if (!ms->buffer || !(ms->flags & StreamFlags::Write)) {
+      return 0;
+  }
+  
+  size_t available = ms->size - ms->writeOffset;
+  size_t bytesToWrite = std::min(size, available);
+  
+  if (bytesToWrite == 0) {
+      return 0;
+  }
+  
+  memcpy(ms->buffer + ms->writeOffset, buffer, bytesToWrite);
+  
+  if (bytesToWrite > 0) {
+      ms->updatePosition(static_cast<const char*>(buffer), bytesToWrite, false);
+      ms->writeOffset += bytesToWrite;
+  }
+  
+  return bytesToWrite;
 }
 
-void MemoryStream::resetWritePosition() {
-    writeOffset_ = 0;
-    writePosition_.line = 1;
-    writePosition_.column = 1;
-    writePosition_.offset = 0;
+void MemoryStream::memoryResetReadPos(Stream* stream) {
+  if (!stream) return;
+  
+  MemoryStream* ms = static_cast<MemoryStream*>(stream);
+  ms->readOffset = 0;
+  ms->readPosition.line = 1;
+  ms->readPosition.column = 1;
+  ms->readPosition.offset = 0;
 }
 
-void MemoryStream::close() {
-    if (ownsBuffer_ && buffer_) {
-        free(buffer_);
-        buffer_ = nullptr;
-        size_ = 0;
-        readOffset_ = 0;
-        writeOffset_ = 0;
-    }
-}
-
-void* MemoryStream::getBuffer() const {
-    return buffer_;
-}
-
-size_t MemoryStream::getSize() const {
-    return size_;
-}
-
-MemoryStream::~MemoryStream() {
-    close();
+void MemoryStream::memoryResetWritePos(Stream* stream) {
+  if (!stream) return;
+  
+  MemoryStream* ms = static_cast<MemoryStream*>(stream);
+  ms->writeOffset = 0;
+  ms->writePosition.line = 1;
+  ms->writePosition.column = 1;
+  ms->writePosition.offset = 0;
 }
 
 } // namespace coil

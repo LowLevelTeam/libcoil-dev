@@ -2,7 +2,17 @@
 
 ## Overview
 
-The COIL library includes a robust error handling system that provides detailed error information and flexible error management. This system is designed for zero-cost abstractions when no errors occur, while offering comprehensive feedback when errors are encountered.
+The COIL library includes a robust error handling system that provides detailed error information with minimal overhead. This system is designed for zero-cost abstractions when no errors occur, while offering comprehensive feedback when errors are encountered.
+
+## Design Philosophy
+
+The error handling system follows these principles:
+
+1. **Minimal Allocations**: Fixed-size buffers instead of dynamic allocations
+2. **Clear Ownership**: No hidden RAII or smart pointers
+3. **Direct Interface**: Simple C-style API with struct-based design
+4. **Position Tracking**: Precise source location tracking for errors
+5. **Integration with Logging**: Automatic logging on error reporting
 
 ## Error Codes
 
@@ -47,56 +57,56 @@ COIL provides source location tracking for comprehensive error reporting:
 
 ```cpp
 struct StreamPosition {
-    std::string fileName;  // Source file name
-    size_t line;           // Line number
-    size_t column;         // Column number
-    size_t offset;         // Byte offset from start
+    char fileName[256] = {0};  // Source file name 
+    size_t line = 0;           // Line number
+    size_t column = 0;         // Column number
+    size_t offset = 0;         // Byte offset from start
 };
 ```
 
 ## Error Entry
 
-Each error is represented by an `ErrorEntry` object:
+Each error is represented by an `ErrorEntry` struct:
 
 ```cpp
-class ErrorEntry {
-public:
-    ErrorEntry(ErrorCode code, 
-              ErrorSeverity severity, 
-              const StreamPosition& position,
-              const std::string& message);
+struct ErrorEntry {
+    ErrorCode code;
+    ErrorSeverity severity;
+    StreamPosition position;
+    char message[512];  // Fixed size to avoid allocations
     
-    inline ErrorCode getCode() const { return code_; }
-    inline ErrorSeverity getSeverity() const { return severity_; }
-    inline const StreamPosition& getPosition() const { return position_; }
-    inline const std::string& getMessage() const { return message_; }
-    
-private:
-    ErrorCode code_;
-    ErrorSeverity severity_;
-    StreamPosition position_;
-    std::string message_;
+    // Methods to access the error information
+    ErrorCode getCode() const;
+    ErrorSeverity getSeverity() const;
+    const StreamPosition& getPosition() const;
+    const char* getMessage() const;
 };
 ```
 
 ## Error Manager
 
-The `ErrorManager` class centralizes error handling:
+The `ErrorManager` struct centralizes error handling:
 
 ```cpp
-class ErrorManager {
-public:
-    explicit ErrorManager(Logger& logger);
+struct ErrorManager {
+    // Fixed-size array of errors (no dynamic allocations)
+    static constexpr size_t MAX_ERRORS = 64;
+    ErrorEntry errors[MAX_ERRORS];
+    size_t errorCount;
     
-    // Add errors with different severities
+    Logger* logger;
+    ErrorHandlerFunction errorHandler;
+    void* userData;
+    
+    // Error handling methods
     void addError(ErrorCode code, ErrorSeverity severity, 
-                 const StreamPosition& position, const std::string& message);
-    void addInfo(ErrorCode code, const StreamPosition& position, const std::string& message);
-    void addWarning(ErrorCode code, const StreamPosition& position, const std::string& message);
-    void addError(ErrorCode code, const StreamPosition& position, const std::string& message);
-    void addFatal(ErrorCode code, const StreamPosition& position, const std::string& message);
+                 const StreamPosition& position, const char* message);
+    void addInfo(ErrorCode code, const StreamPosition& position, const char* message);
+    void addWarning(ErrorCode code, const StreamPosition& position, const char* message);
+    void addError(ErrorCode code, const StreamPosition& position, const char* message);
+    void addFatal(ErrorCode code, const StreamPosition& position, const char* message);
     
-    // Error information
+    // Error information methods
     bool hasErrors(ErrorSeverity minSeverity = ErrorSeverity::Error) const;
     void dumpErrors() const;
     void clearErrors();
@@ -117,7 +127,7 @@ using ErrorHandlerFunction = void (*)(
     ErrorCode code,
     ErrorSeverity severity,
     const StreamPosition& position,
-    const std::string& message,
+    const char* message,
     void* userData
 );
 ```
@@ -129,14 +139,13 @@ void myErrorHandler(
     coil::ErrorCode code,
     coil::ErrorSeverity severity,
     const coil::StreamPosition& position,
-    const std::string& message,
+    const char* message,
     void* userData
 ) {
-    // Custom error handling logic
     fprintf(stderr, "Error %d: %s at %s:%zu:%zu\n",
         static_cast<int>(code),
-        message.c_str(),
-        position.fileName.c_str(),
+        message,
+        position.fileName,
         position.line,
         position.column
     );
@@ -175,7 +184,7 @@ The error manager is integrated with COIL's logging system:
 
 ```cpp
 coil::Logger logger("COIL", stdout, coil::LogLevel::Info);
-coil::ErrorManager errorMgr(logger);
+coil::ErrorManager errorMgr(&logger);
 
 // When reporting an error
 errorMgr.addError(coil::ErrorCode::Syntax, position, "Invalid syntax");
@@ -189,14 +198,14 @@ COIL uses a Context structure to pass around the error manager and logger:
 
 ```cpp
 struct Context {
-    Logger& logger;
-    ErrorManager& errorManager;
+    Logger* logger;
+    ErrorManager* errorManager;
 };
 
 // Usage example
-void processFile(const std::string& filename, const Context& ctx) {
-    if (filename.empty()) {
-        ctx.errorManager.addError(ErrorCode::Argument, StreamPosition(), 
+void processFile(const char* filename, const Context* ctx) {
+    if (!filename) {
+        ctx->errorManager->addError(ErrorCode::Argument, StreamPosition(), 
                                "Invalid filename");
         return;
     }

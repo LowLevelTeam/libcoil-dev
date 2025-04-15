@@ -3,44 +3,44 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdint>
-#include <vector>
 #include <fstream>
 #include "coil/stream.hpp"
 #include "coil/log.hpp"
 #include "coil/err.hpp"
 
 // Helper class for temporary test files
-class TempFile {
-public:
-    TempFile(const std::string& content = "") {
+struct TempFile {
+    char filename[256];
+    
+    TempFile(const char* content = nullptr) {
         // Create a temporary filename
-        filename = "coil_test_" + std::to_string(reinterpret_cast<uintptr_t>(this)) + ".tmp";
+        snprintf(filename, sizeof(filename), "coil_test_%p.tmp", (void*)this);
         
         // Write content if provided
-        if (!content.empty()) {
-            std::ofstream file(filename);
-            file << content;
-            file.close();
+        if (content) {
+            FILE* fp = fopen(filename, "w");
+            if (fp) {
+                fputs(content, fp);
+                fclose(fp);
+            }
         }
     }
     
     ~TempFile() {
         // Remove the file
-        std::remove(filename.c_str());
+        std::remove(filename);
     }
     
-    const std::string& getFilename() const {
+    const char* getFilename() const {
         return filename;
     }
-    
-private:
-    std::string filename;
 };
 
 // CaptureBuffer for logging output
-class CaptureBuffer {
-public:
+struct CaptureBuffer {
     static constexpr size_t BUFFER_SIZE = 4096;
+    char buffer[BUFFER_SIZE];
+    FILE* fp;
     
     CaptureBuffer() {
         memset(buffer, 0, BUFFER_SIZE);
@@ -51,31 +51,31 @@ public:
         if (fp) fclose(fp);
     }
     
-    FILE* getFile() const { return fp; }
+    FILE* getFile() const {
+        return fp;
+    }
     
-    const char* getBuffer() const { return buffer; }
+    const char* getBuffer() const {
+        return buffer;
+    }
     
     void clear() {
-        fclose(fp);
+        if (fp) fclose(fp);
         memset(buffer, 0, BUFFER_SIZE);
         fp = fmemopen(buffer, BUFFER_SIZE, "w+");
     }
     
-    bool contains(const std::string& str) const {
-        return strstr(buffer, str.c_str()) != nullptr;
+    bool contains(const char* str) const {
+        return strstr(buffer, str) != nullptr;
     }
-    
-private:
-    char buffer[BUFFER_SIZE];
-    FILE* fp;
 };
 
 // Create context for testing
 coil::Context createStreamTestContext() {
     static CaptureBuffer capture;
     static coil::Logger logger("TEST", capture.getFile(), coil::LogLevel::Info, false);
-    static coil::ErrorManager errorMgr(logger);
-    return {logger, errorMgr};
+    static coil::ErrorManager errorMgr(&logger);
+    return {&logger, &errorMgr};
 }
 
 TEST_CASE("FileStream basic operations", "[stream]") {
@@ -86,27 +86,25 @@ TEST_CASE("FileStream basic operations", "[stream]") {
         TempFile tempFile("Hello, world!\nThis is a test file.");
         
         // Open the file for reading
-        coil::FileStream* stream = coil::FileStream::create(
-            tempFile.getFilename(), "r", ctx);
+        coil::FileStream stream = coil::FileStream::open(
+            tempFile.getFilename(), "r", &ctx);
         
-        REQUIRE(stream != nullptr);
-        REQUIRE(stream->isReadable());
-        REQUIRE_FALSE(stream->isWritable());
-        REQUIRE_FALSE(stream->eof());
-        
-        // Get a reader
-        coil::StreamReader reader = stream->reader();
+        REQUIRE(stream.fp != nullptr);
+        REQUIRE(stream.isReadable());
+        REQUIRE_FALSE(stream.isWritable());
+        REQUIRE_FALSE(stream.eof());
         
         // Read the contents
-        std::string content = reader.readString(100);
-        REQUIRE(content == "Hello, world!\nThis is a test file.");
+        char buffer[100] = {0};
+        size_t bytesRead = stream.read(buffer, sizeof(buffer) - 1);
+        REQUIRE(bytesRead == 33); // Length of the test string
+        REQUIRE(strcmp(buffer, "Hello, world!\nThis is a test file.") == 0);
         
         // Now we should be at EOF
-        REQUIRE(stream->eof());
+        REQUIRE(stream.eof());
         
-        // Close and cleanup
-        stream->close();
-        delete stream;
+        // Close
+        stream.close();
     }
     
     SECTION("Reading line by line") {
@@ -114,30 +112,27 @@ TEST_CASE("FileStream basic operations", "[stream]") {
         TempFile tempFile("Line 1\nLine 2\r\nLine 3\n");
         
         // Open the file
-        coil::FileStream* stream = coil::FileStream::create(
-            tempFile.getFilename(), "r", ctx);
+        coil::FileStream stream = coil::FileStream::open(
+            tempFile.getFilename(), "r", &ctx);
         
-        REQUIRE(stream != nullptr);
-        
-        // Get a reader
-        coil::StreamReader reader = stream->reader();
+        REQUIRE(stream.fp != nullptr);
         
         // Read lines
-        std::string line1 = reader.readLine();
-        std::string line2 = reader.readLine();
-        std::string line3 = reader.readLine();
-        std::string line4 = reader.readLine(); // to read into eof
+        std::string line1 = stream.readLine();
+        std::string line2 = stream.readLine();
+        std::string line3 = stream.readLine();
+        std::string line4 = stream.readLine(); // to read into eof
         
         REQUIRE(line1 == "Line 1");
         REQUIRE(line2 == "Line 2");
         REQUIRE(line3 == "Line 3");
+        REQUIRE(line4.empty());
         
         // Now we should be at EOF
-        REQUIRE(stream->eof());
+        REQUIRE(stream.eof());
         
-        // Close and cleanup
-        stream->close();
-        delete stream;
+        // Close
+        stream.close();
     }
     
     SECTION("Writing to a file") {
@@ -145,23 +140,19 @@ TEST_CASE("FileStream basic operations", "[stream]") {
         TempFile tempFile;
         
         // Open the file for writing
-        coil::FileStream* stream = coil::FileStream::create(
-            tempFile.getFilename(), "w", ctx);
+        coil::FileStream stream = coil::FileStream::open(
+            tempFile.getFilename(), "w", &ctx);
         
-        REQUIRE(stream != nullptr);
-        REQUIRE_FALSE(stream->isReadable());
-        REQUIRE(stream->isWritable());
-        
-        // Get a writer
-        coil::StreamWriter writer = stream->writer();
+        REQUIRE(stream.fp != nullptr);
+        REQUIRE_FALSE(stream.isReadable());
+        REQUIRE(stream.isWritable());
         
         // Write some data
-        REQUIRE(writer.writeString("Test data 1\n") == 12);
-        REQUIRE(writer.writeString("Test data 2\n") == 12);
+        REQUIRE(stream.writeString("Test data 1\n") == 12);
+        REQUIRE(stream.writeString("Test data 2\n") == 12);
         
         // Close the stream
-        stream->close();
-        delete stream;
+        stream.close();
         
         // Verify the file contents
         std::ifstream file(tempFile.getFilename());
@@ -177,40 +168,38 @@ TEST_CASE("FileStream basic operations", "[stream]") {
         TempFile tempFile("Line 1\nSecond line\nThird line");
         
         // Open the file
-        coil::FileStream* stream = coil::FileStream::create(
-            tempFile.getFilename(), "r", ctx);
+        coil::FileStream stream = coil::FileStream::open(
+            tempFile.getFilename(), "r", &ctx);
         
-        REQUIRE(stream != nullptr);
+        REQUIRE(stream.fp != nullptr);
         
         // Initial position
-        auto pos = stream->getPosition();
-        REQUIRE(pos.fileName == tempFile.getFilename());
+        auto pos = stream.getPosition();
+        REQUIRE(strcmp(pos.fileName, tempFile.getFilename()) == 0);
         REQUIRE(pos.line == 1);
         REQUIRE(pos.column == 1);
         REQUIRE(pos.offset == 0);
         
         // Read the first line
-        coil::StreamReader reader = stream->reader();
-        std::string line1 = reader.readLine();
+        std::string line1 = stream.readLine();
         
         // Check position after reading first line
-        pos = stream->getPosition();
+        pos = stream.getPosition();
         REQUIRE(pos.line == 2);  // Now on line 2
         REQUIRE(pos.column == 1);  // At the beginning of the line
         REQUIRE(pos.offset == 7);  // "Line 1\n" is 7 bytes
         
         // Read another line
-        std::string line2 = reader.readLine();
+        std::string line2 = stream.readLine();
         
         // Check position again
-        pos = stream->getPosition();
+        pos = stream.getPosition();
         REQUIRE(pos.line == 3);  // Now on line 3
         REQUIRE(pos.column == 1);  // At the beginning of the line
         REQUIRE(pos.offset == 19);  // Previous 7 plus "Second line\n" (12 bytes)
         
-        // Close and cleanup
-        stream->close();
-        delete stream;
+        // Close
+        stream.close();
     }
     
     SECTION("Read/write of basic types") {
@@ -218,12 +207,10 @@ TEST_CASE("FileStream basic operations", "[stream]") {
         TempFile tempFile;
         
         // Open for writing
-        coil::FileStream* writeStream = coil::FileStream::create(
-            tempFile.getFilename(), "wb", ctx);
+        coil::FileStream writeStream = coil::FileStream::open(
+            tempFile.getFilename(), "wb", &ctx);
         
-        REQUIRE(writeStream != nullptr);
-        
-        coil::StreamWriter writer = writeStream->writer();
+        REQUIRE(writeStream.fp != nullptr);
         
         // Write various types
         uint8_t u8 = 42;
@@ -237,28 +224,25 @@ TEST_CASE("FileStream basic operations", "[stream]") {
         float f32 = 3.14159f;
         double f64 = 2.71828182845904;
         
-        REQUIRE(writer.writeUint8(u8));
-        REQUIRE(writer.writeInt8(i8));
-        REQUIRE(writer.writeUint16(u16));
-        REQUIRE(writer.writeInt16(i16));
-        REQUIRE(writer.writeUint32(u32));
-        REQUIRE(writer.writeInt32(i32));
-        REQUIRE(writer.writeUint64(u64));
-        REQUIRE(writer.writeInt64(i64));
-        REQUIRE(writer.writeFloat(f32));
-        REQUIRE(writer.writeDouble(f64));
+        REQUIRE(writeStream.writeType(u8));
+        REQUIRE(writeStream.writeType(i8));
+        REQUIRE(writeStream.writeType(u16));
+        REQUIRE(writeStream.writeType(i16));
+        REQUIRE(writeStream.writeType(u32));
+        REQUIRE(writeStream.writeType(i32));
+        REQUIRE(writeStream.writeType(u64));
+        REQUIRE(writeStream.writeType(i64));
+        REQUIRE(writeStream.writeType(f32));
+        REQUIRE(writeStream.writeType(f64));
         
         // Close the write stream
-        writeStream->close();
-        delete writeStream;
+        writeStream.close();
         
         // Open for reading
-        coil::FileStream* readStream = coil::FileStream::create(
-            tempFile.getFilename(), "rb", ctx);
+        coil::FileStream readStream = coil::FileStream::open(
+            tempFile.getFilename(), "rb", &ctx);
         
-        REQUIRE(readStream != nullptr);
-        
-        coil::StreamReader reader = readStream->reader();
+        REQUIRE(readStream.fp != nullptr);
         
         // Read back the values
         uint8_t read_u8;
@@ -272,16 +256,16 @@ TEST_CASE("FileStream basic operations", "[stream]") {
         float read_f32;
         double read_f64;
         
-        REQUIRE(reader.readUint8(&read_u8));
-        REQUIRE(reader.readInt8(&read_i8));
-        REQUIRE(reader.readUint16(&read_u16));
-        REQUIRE(reader.readInt16(&read_i16));
-        REQUIRE(reader.readUint32(&read_u32));
-        REQUIRE(reader.readInt32(&read_i32));
-        REQUIRE(reader.readUint64(&read_u64));
-        REQUIRE(reader.readInt64(&read_i64));
-        REQUIRE(reader.readFloat(&read_f32));
-        REQUIRE(reader.readDouble(&read_f64));
+        REQUIRE(readStream.readType(&read_u8));
+        REQUIRE(readStream.readType(&read_i8));
+        REQUIRE(readStream.readType(&read_u16));
+        REQUIRE(readStream.readType(&read_i16));
+        REQUIRE(readStream.readType(&read_u32));
+        REQUIRE(readStream.readType(&read_i32));
+        REQUIRE(readStream.readType(&read_u64));
+        REQUIRE(readStream.readType(&read_i64));
+        REQUIRE(readStream.readType(&read_f32));
+        REQUIRE(readStream.readType(&read_f64));
         
         // Verify the values
         REQUIRE(read_u8 == u8);
@@ -295,9 +279,8 @@ TEST_CASE("FileStream basic operations", "[stream]") {
         REQUIRE(read_f32 == Catch::Approx(f32));
         REQUIRE(read_f64 == Catch::Approx(f64));
         
-        // Close and cleanup
-        readStream->close();
-        delete readStream;
+        // Close
+        readStream.close();
     }
 }
 
@@ -314,27 +297,25 @@ TEST_CASE("MemoryStream basic operations", "[stream]") {
         memcpy(buffer, testData, dataSize);
         
         // Create memory stream - read-only
-        coil::MemoryStream* stream = coil::MemoryStream::create(
-            buffer, dataSize, coil::StreamFlags::Read, ctx);
+        coil::MemoryStream stream = coil::MemoryStream::create(
+            buffer, dataSize, coil::StreamFlags::Read, &ctx);
         
-        REQUIRE(stream != nullptr);
-        REQUIRE(stream->isReadable());
-        REQUIRE_FALSE(stream->isWritable());
-        REQUIRE_FALSE(stream->eof());
-        
-        // Get a reader
-        coil::StreamReader reader = stream->reader();
+        REQUIRE(stream.buffer != nullptr);
+        REQUIRE(stream.isReadable());
+        REQUIRE_FALSE(stream.isWritable());
+        REQUIRE_FALSE(stream.eof());
         
         // Read the contents
-        std::string content = reader.readString(100);
-        REQUIRE(content == testData);
+        char readBuffer[100] = {0};
+        size_t bytesRead = stream.read(readBuffer, sizeof(readBuffer) - 1);
+        REQUIRE(bytesRead == dataSize);
+        REQUIRE(strcmp(readBuffer, testData) == 0);
         
         // Now we should be at EOF
-        REQUIRE(stream->eof());
+        REQUIRE(stream.eof());
         
-        // Close and cleanup
-        stream->close();
-        delete stream;
+        // Close
+        stream.close();
         
         // The buffer is owned by us in this case, so we need to free it
         delete[] buffer;
@@ -342,116 +323,98 @@ TEST_CASE("MemoryStream basic operations", "[stream]") {
     
     SECTION("Creating a memory stream with internal buffer") {
         // Create memory stream with internal buffer allocation
-        coil::MemoryStream* stream = coil::MemoryStream::create(
-            nullptr, 1024, coil::StreamFlags::Read | coil::StreamFlags::Write, ctx);
+        coil::MemoryStream stream = coil::MemoryStream::create(
+            nullptr, 1024, coil::StreamFlags::Read | coil::StreamFlags::Write, &ctx);
         
-        REQUIRE(stream != nullptr);
-        REQUIRE(stream->isReadable());
-        REQUIRE(stream->isWritable());
-        REQUIRE_FALSE(stream->eof());
+        REQUIRE(stream.buffer != nullptr);
+        REQUIRE(stream.isReadable());
+        REQUIRE(stream.isWritable());
+        REQUIRE_FALSE(stream.eof());
         
         // Get buffer info
-        REQUIRE(stream->getBuffer() != nullptr);
-        REQUIRE(stream->getSize() == 1024);
+        REQUIRE(stream.getBuffer() != nullptr);
+        REQUIRE(stream.getSize() == 1024);
         
         // Write to the stream
-        coil::StreamWriter writer = stream->writer();
         const char* testData = "Test data for memory stream";
         size_t dataSize = strlen(testData);
-        REQUIRE(writer.writeString(testData) == dataSize);
+        REQUIRE(stream.writeString(testData) == dataSize);
         
         // Reset position and read back
-        // In a real implementation, we would need a method to reset the position,
-        // but for this test we'll create a new stream with the same buffer
-        void* buffer = stream->getBuffer();
-        coil::MemoryStream* readStream = coil::MemoryStream::create(
-            buffer, dataSize, coil::StreamFlags::Read, ctx);
+        stream.resetReadPosition();
         
-        coil::StreamReader reader = readStream->reader();
-        std::string content = reader.readString(100);
-        REQUIRE(content == testData);
+        char readBuffer[100] = {0};
+        size_t bytesRead = stream.read(readBuffer, sizeof(readBuffer) - 1);
+        REQUIRE(bytesRead == dataSize);
+        REQUIRE(strcmp(readBuffer, testData) == 0);
         
-        // Close and cleanup both streams
-        readStream->close();
-        delete readStream;
-        
-        stream->close();
-        delete stream;
+        // Close and cleanup
+        stream.close();
     }
     
     SECTION("Reading and writing specific data types") {
         // Create memory stream
-        coil::MemoryStream* stream = coil::MemoryStream::create(
-            nullptr, 100, coil::StreamFlags::Read | coil::StreamFlags::Write, ctx);
+        coil::MemoryStream stream = coil::MemoryStream::create(
+            nullptr, 100, coil::StreamFlags::Read | coil::StreamFlags::Write, &ctx);
         
-        REQUIRE(stream != nullptr);
-        
-        coil::StreamWriter writer = stream->writer();
+        REQUIRE(stream.buffer != nullptr);
         
         // Write types
-        REQUIRE(writer.writeUint8(123));
-        REQUIRE(writer.writeInt16(-12345));
-        REQUIRE(writer.writeUint32(0xDEADBEEF));
-        REQUIRE(writer.writeFloat(3.14159f));
+        uint8_t u8 = 123;
+        int16_t i16 = -12345;
+        uint32_t u32 = 0xDEADBEEF;
+        float f32 = 3.14159f;
         
-        // Get the buffer and create a new stream for reading
-        void* buffer = stream->getBuffer();
-        size_t size = stream->getSize();
+        REQUIRE(stream.writeType(u8));
+        REQUIRE(stream.writeType(i16));
+        REQUIRE(stream.writeType(u32));
+        REQUIRE(stream.writeType(f32));
         
-        coil::MemoryStream* readStream = coil::MemoryStream::create(
-            buffer, size, coil::StreamFlags::Read, ctx);
-        
-        coil::StreamReader reader = readStream->reader();
+        // Reset position for reading
+        stream.resetReadPosition();
         
         // Read back
-        uint8_t u8;
-        int16_t i16;
-        uint32_t u32;
-        float f32;
+        uint8_t read_u8;
+        int16_t read_i16;
+        uint32_t read_u32;
+        float read_f32;
         
-        REQUIRE(reader.readUint8(&u8));
-        REQUIRE(reader.readInt16(&i16));
-        REQUIRE(reader.readUint32(&u32));
-        REQUIRE(reader.readFloat(&f32));
+        REQUIRE(stream.readType(&read_u8));
+        REQUIRE(stream.readType(&read_i16));
+        REQUIRE(stream.readType(&read_u32));
+        REQUIRE(stream.readType(&read_f32));
         
         // Verify
-        REQUIRE(u8 == 123);
-        REQUIRE(i16 == -12345);
-        REQUIRE(u32 == 0xDEADBEEF);
-        REQUIRE(f32 == Catch::Approx(3.14159f));
+        REQUIRE(read_u8 == u8);
+        REQUIRE(read_i16 == i16);
+        REQUIRE(read_u32 == u32);
+        REQUIRE(read_f32 == Catch::Approx(f32));
         
-        // Cleanup
-        readStream->close();
-        delete readStream;
-        
-        stream->close();
-        delete stream;
+        // Close
+        stream.close();
     }
     
     SECTION("Stream bounds checking") {
         // Create a small memory stream
-        coil::MemoryStream* stream = coil::MemoryStream::create(
-            nullptr, 10, coil::StreamFlags::Read | coil::StreamFlags::Write, ctx);
+        coil::MemoryStream stream = coil::MemoryStream::create(
+            nullptr, 10, coil::StreamFlags::Read | coil::StreamFlags::Write, &ctx);
         
-        REQUIRE(stream != nullptr);
-        
-        coil::StreamWriter writer = stream->writer();
+        REQUIRE(stream.buffer != nullptr);
         
         // Write exactly 10 bytes
         const char* data = "0123456789";
-        REQUIRE(writer.writeString(data) == 10);
+        REQUIRE(stream.writeString(data) == 10);
         
         // Try to write more - should be truncated
-        REQUIRE(writer.writeString("overflow") == 0);
+        REQUIRE(stream.writeString("overflow") == 0);
         
-        // Create a reader and try to read more than available
-        coil::StreamReader reader = stream->reader();
+        // Reset and try to read more than available
+        stream.resetReadPosition();
         char buffer[20] = {0};
-        REQUIRE(reader.read(buffer, 20) == 10);  // Only 10 bytes available
-        REQUIRE(std::string(buffer) == "0123456789");
+        REQUIRE(stream.read(buffer, 20) == 10);  // Only 10 bytes available
+        REQUIRE(strcmp(buffer, "0123456789") == 0);
         
-        // Cleanup
-        stream->close();
-        delete stream;
+        // Close
+        stream.close();
     }
 }

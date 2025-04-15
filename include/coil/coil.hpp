@@ -8,7 +8,6 @@
 
 #pragma once
 #include <string>
-#include <string_view>
 
 namespace coil {
 
@@ -16,10 +15,10 @@ namespace coil {
  * @brief Library version information
  */
 struct Version {
-    int major;           ///< Major version
-    int minor;           ///< Minor version
-    int patch;           ///< Patch version
-    std::string string;  ///< Version as string
+  int major;           ///< Major version
+  int minor;           ///< Minor version
+  int patch;           ///< Patch version
+  const char* string;  ///< Version as string (static lifetime)
 };
 
 /**

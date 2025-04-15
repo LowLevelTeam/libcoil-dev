@@ -2,7 +2,15 @@
 
 ## Overview
 
-The COIL Object Format is a binary format designed for representing compiled COIL code. It draws inspiration from the ELF (Executable and Linkable Format) but is optimized specifically for COIL's instruction set and requirements.
+The COIL Object Format is a binary format designed for representing compiled COIL code. It draws inspiration from the ELF (Executable and Linkable Format) but is optimized specifically for COIL's instruction set and requirements, with a focus on simplicity and performance.
+
+## Design Principles
+
+- **Minimal Allocations**: Fixed-size structures where possible
+- **Predictable Memory Usage**: Explicit management of all resources
+- **Simple Interface**: C-compatible APIs with consistent patterns
+- **Efficient Serialization**: Direct memory layout mapping to files
+- **Flexible Embedding**: Easy to embed in other formats or memory regions
 
 ## File Structure
 
@@ -103,6 +111,23 @@ struct CoilSectionHeader {
 | 0x40 | CSF_CONST | Contains const data |
 | 0x80 | CSF_COMPRESSED | Contains compressed data |
 
+## Section Data
+
+In the updated COIL library, sections are represented by the `SectionData` structure:
+
+```cpp
+struct SectionData {
+    char name[64];           // Fixed-size name buffer (no heap allocation)
+    CoilSectionHeader header;
+    uint8_t* data;           // Owned externally or allocated as needed
+    bool ownsData;           // Whether this section owns its data buffer
+    
+    // Helper methods for data access...
+};
+```
+
+This design eliminates heap allocations for section names and clarifies data ownership.
+
 ## Symbol Table
 
 Symbol tables (`CST_SYMTAB` and `CST_DYNSYM`) contain entries describing symbols:
@@ -182,6 +207,23 @@ struct CoilRelaEntry {
 
 String tables (`CST_STRTAB`) contain null-terminated strings referenced by other sections. The first byte of a string table is always null to ensure that index 0 represents an empty string.
 
+In the updated COIL library, string tables are represented by the `StringTable` structure:
+
+```cpp
+struct StringTable {
+    // Maximum size of the string table
+    static constexpr size_t MAX_SIZE = 65536;
+    
+    // String table data
+    uint8_t data[MAX_SIZE];
+    size_t size;
+    
+    // Methods for string operations...
+};
+```
+
+This fixed-size design prevents unpredictable heap allocations.
+
 ## Special Sections
 
 COIL defines several special sections:
@@ -200,26 +242,60 @@ COIL defines several special sections:
 | .meta | CST_META | Metadata |
 | .debug | CST_DEBUG | Debugging information |
 
+## COIL Object Structure
+
+The main `CoilObject` structure represents a complete object file:
+
+```cpp
+struct CoilObject {
+    CoilHeader header;
+    SectionData sections[MAX_SECTIONS];  // Fixed-size array (no dynamic allocation)
+    size_t sectionCount;
+    const Context* ctx;
+    
+    // Methods for object manipulation...
+};
+```
+
 ## Programming Interface
 
-The COIL library provides a comprehensive API for working with object files:
+The COIL library provides a streamlined API for working with object files:
 
 ```cpp
 // Create a new object file
-CoilObject* obj = CoilObject::create(obj::CT_REL, 0, ctx);
+CoilObject obj = CoilObject::create(coil::obj::CT_REL, 0, &ctx);
 
 // Add a section
-uint8_t* codeData = ...;
-size_t codeSize = ...;
-obj->addSection(".text", obj::CST_CODE, obj::CSF_EXEC, codeData, codeSize);
+const char* code = "Example code data";
+obj.addSection(".text", obj::CST_CODE, obj::CSF_EXEC, 
+              (const uint8_t*)code, strlen(code), 0);
 
 // Add a symbol
-obj->addSymbol("main", 0, 64, obj::CST_FUNC, obj::CSB_GLOBAL, 1);
+obj.addSymbol("main", 0, 64, obj::CST_FUNC, obj::CSB_GLOBAL, 1);
 
 // Save to file
-Stream* stream = FileStream::create("output.obj", "wb", ctx);
-obj->save(*stream);
+FileStream stream = FileStream::open("output.obj", "wb", &ctx);
+obj.save(&stream);
 ```
+
+## Serialization Format
+
+When stored on disk, a COIL object file has the following format:
+
+1. File header (fixed size)
+2. Section headers (array of fixed-size headers)
+3. Section data (variable size, at offsets specified in headers)
+
+The serialization is designed to be simple and efficient, making it easy to read and write COIL objects with minimal overhead.
+
+## Memory Efficiency
+
+The COIL object format is designed to be memory-efficient:
+
+1. Fixed-size arrays for sections instead of dynamic containers
+2. Fixed-size buffers for common strings like section names
+3. Clear ownership semantics for section data
+4. Explicit buffer management with no hidden allocations
 
 ## Future Enhancements
 

@@ -4,9 +4,11 @@
 #include <string>
 #include "coil/log.hpp"
 
-class CaptureBuffer {
-public:
+// Helper class for capturing log output
+struct CaptureBuffer {
     static constexpr size_t BUFFER_SIZE = 4096;
+    char buffer[BUFFER_SIZE];
+    FILE* fp;
     
     CaptureBuffer() {
         memset(buffer, 0, BUFFER_SIZE);
@@ -17,23 +19,23 @@ public:
         if (fp) fclose(fp);
     }
     
-    FILE* getFile() const { return fp; }
+    FILE* getFile() const {
+        return fp;
+    }
     
-    const char* getBuffer() const { return buffer; }
+    const char* getBuffer() const {
+        return buffer;
+    }
     
     void clear() {
-        fclose(fp);
+        if (fp) fclose(fp);
         memset(buffer, 0, BUFFER_SIZE);
         fp = fmemopen(buffer, BUFFER_SIZE, "w+");
     }
     
-    bool contains(const std::string& str) const {
-        return strstr(buffer, str.c_str()) != nullptr;
+    bool contains(const char* str) const {
+        return strstr(buffer, str) != nullptr;
     }
-    
-private:
-    char buffer[BUFFER_SIZE];
-    FILE* fp;
 };
 
 TEST_CASE("Logger configuration and levels", "[log]") {
@@ -121,46 +123,46 @@ TEST_CASE("Logger convenience macros", "[log]") {
     coil::Logger logger("TEST", capture.getFile(), coil::LogLevel::Trace, false);
     
     SECTION("COIL_INFO macro") {
-        COIL_INFO(logger, "Info message via macro");
+        COIL_INFO(&logger, "Info message via macro");
         REQUIRE(capture.contains("[INFO]"));
         REQUIRE(capture.contains("Info message via macro"));
     }
     
     SECTION("COIL_WARNING macro") {
-        COIL_WARNING(logger, "Warning message via macro");
+        COIL_WARNING(&logger, "Warning message via macro");
         REQUIRE(capture.contains("[WARNING]"));
         REQUIRE(capture.contains("Warning message via macro"));
     }
     
     SECTION("COIL_ERROR macro") {
-        COIL_ERROR(logger, "Error message via macro");
+        COIL_ERROR(&logger, "Error message via macro");
         REQUIRE(capture.contains("[ERROR]"));
         REQUIRE(capture.contains("Error message via macro"));
     }
     
     SECTION("COIL_FATAL macro") {
-        COIL_FATAL(logger, "Fatal message via macro");
+        COIL_FATAL(&logger, "Fatal message via macro");
         REQUIRE(capture.contains("[FATAL]"));
         REQUIRE(capture.contains("Fatal message via macro"));
     }
     
 #ifndef NDEBUG
     SECTION("Debug macros in debug mode") {
-        COIL_DEBUG(logger, "Debug message via macro");
+        COIL_DEBUG(&logger, "Debug message via macro");
         REQUIRE(capture.contains("[DEBUG]"));
         REQUIRE(capture.contains("Debug message via macro"));
         
         capture.clear();
-        COIL_TRACE(logger, "Trace message via macro");
+        COIL_TRACE(&logger, "Trace message via macro");
         REQUIRE(capture.contains("[TRACE]"));
         REQUIRE(capture.contains("Trace message via macro"));
     }
 #else
     SECTION("Debug macros in release mode") {
-        COIL_DEBUG(logger, "Debug message via macro");
+        COIL_DEBUG(&logger, "Debug message via macro");
         REQUIRE_FALSE(capture.contains("[DEBUG]"));
         
-        COIL_TRACE(logger, "Trace message via macro");
+        COIL_TRACE(&logger, "Trace message via macro");
         REQUIRE_FALSE(capture.contains("[TRACE]"));
     }
 #endif
