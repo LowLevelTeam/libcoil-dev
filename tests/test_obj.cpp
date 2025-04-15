@@ -616,6 +616,7 @@ TEST_CASE("CoilObject operations", "[object]") {
         REQUIRE(obj.addSymbol("main", 0, 16, coil::obj::CST_FUNC, coil::obj::CSB_GLOBAL, 1));
         REQUIRE(obj.addSymbol("printf", 0, 0, coil::obj::CST_FUNC, coil::obj::CSB_EXTERN, 0));
         REQUIRE(obj.addSymbol("data", 0, 4, coil::obj::CST_OBJECT, coil::obj::CSB_LOCAL, 1));
+
         
         // Verify symbol table and string table were created
         const coil::SectionData* symTab = obj.getSectionByName(".symtab");
@@ -623,7 +624,7 @@ TEST_CASE("CoilObject operations", "[object]") {
         REQUIRE(symTab->header.type == coil::obj::CST_SYMTAB);
         REQUIRE(symTab->getEntryCount() == 3);
         
-        const coil::SectionData* strTab = obj.getSectionByName(".strtab");
+        const coil::SectionData* strTab = obj.getSectionByName(".shstrtab"); // default string table
         REQUIRE(strTab != nullptr);
         REQUIRE(strTab->header.type == coil::obj::CST_STRTAB);
         

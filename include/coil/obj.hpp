@@ -166,7 +166,7 @@ const char* getRelocationTypeName(uint16_t machine, uint32_t type);
 * @brief Represents a COIL file header
 */
 struct CoilHeader {
-  std::array<uint8_t, obj::CI_NIDENT> ident;  ///< COIL identification bytes
+  uint8_t ident[obj::CI_NIDENT];
   uint16_t type;         ///< Object file type
   uint8_t version;       ///< Object file version
   uint8_t reserved1;     ///< Reserved for future use

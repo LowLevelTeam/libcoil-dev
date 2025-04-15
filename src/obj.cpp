@@ -602,11 +602,10 @@ bool CoilObject::isCoilFile(Stream* stream) {
     if (!stream || !stream->isReadable()) {
         return false;
     }
-    
-    // Save the current stream position
-    StreamPosition pos = stream->getReadPosition();
-    
-    // Completely reset the reading position to the start
+
+    printf("Stream is valid\n");
+
+    // Reset to beginning of stream
     stream->resetReadPosition();
     
     // Read magic bytes
@@ -619,21 +618,9 @@ bool CoilObject::isCoilFile(Stream* stream) {
                   magic[2] == obj::COILMAG2 && 
                   magic[3] == obj::COILMAG3 && 
                   magic[4] == obj::COILMAG4);
+        printf("COIL Magic caused result %s\n", result ? "true" : "false");
     }
-    
-    // Restore the stream position
-    stream->resetReadPosition();
-    
-    // Skip to original position
-    uint8_t skipBuf[1024];
-    size_t toSkip = pos.offset;
-    while (toSkip > 0) {
-        size_t chunk = std::min(toSkip, sizeof(skipBuf));
-        size_t read = stream->read(skipBuf, chunk);
-        if (read == 0) break;
-        toSkip -= read;
-    }
-    
+
     return result;
 }
 
@@ -866,11 +853,10 @@ bool CoilObject::save(Stream* stream) {
         }
     }
     
-    // Flush the stream to ensure all data is written
-    stream->close();
-    
+    // Don't close the stream - that's the caller's responsibility
     return true;
 }
+
 
 std::pair<const SectionData*, const CoilSymbolEntry*> CoilObject::findSymbol(const char* name) const {
     if (!name) {
