@@ -303,21 +303,19 @@ TEST_CASE("MemoryStream basic operations", "[stream]") {
         char* buffer = new char[dataSize];
         memcpy(buffer, testData, dataSize);
         
-        // Create memory stream - read-only
+        // Create a read-only memory stream with pre-filled buffer
+        // The writeOffset will be initialized to size by the implementation
         coil::MemoryStream stream = coil::MemoryStream::create(
             buffer, dataSize, coil::StreamFlags::Read, &ctx);
         
         REQUIRE(stream.buffer != nullptr);
         REQUIRE(stream.isReadable());
         REQUIRE_FALSE(stream.isWritable());
-        REQUIRE_FALSE(!stream.eof());
+        REQUIRE_FALSE(stream.eof());
         
-        // Write the contents
-        size_t bytesWritten = stream.write(testData, dataSize);
-        REQUIRE(bytesWritten == dataSize);
+        // Verify the writeOffset was properly initialized
         REQUIRE(stream.getWriteOffset() == dataSize);
-        REQUIRE(stream.getReadOffset() == 0);
-
+        
         // Read the contents
         char readBuffer[100] = {0};
         size_t bytesRead = stream.read(readBuffer, sizeof(readBuffer) - 1);
@@ -438,6 +436,9 @@ TEST_CASE("MemoryStream basic operations", "[stream]") {
         coil::MemoryStream stream = coil::MemoryStream::create(
             nullptr, 20, coil::StreamFlags::Read | coil::StreamFlags::Write, &ctx);
             
+        // A newly created empty stream should not report EOF
+        REQUIRE_FALSE(stream.eof());
+            
         // Write 10 bytes
         const char* data = "0123456789";
         REQUIRE(stream.writeString(data) == 10);
@@ -459,8 +460,12 @@ TEST_CASE("MemoryStream basic operations", "[stream]") {
         stream.resetReadPosition();
         stream.resetWritePosition();
         
-        // Should not be at EOF anymore
+        // Should not be at EOF anymore because both offsets are 0
         REQUIRE_FALSE(stream.eof());
+        
+        // No data available, so reading should return 0 and set EOF
+        REQUIRE(stream.read(buffer, 1) == 0);
+        REQUIRE(stream.eof());
         
         // Close
         stream.close();

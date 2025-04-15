@@ -282,6 +282,11 @@ MemoryStream MemoryStream::create(
   stream.readOffset = 0;
   stream.writeOffset = 0;
   
+  // If the buffer is pre-filled and readable, initialize writeOffset to match
+  if (buffer && (streamFlags & StreamFlags::Read)) {
+      stream.writeOffset = size;  // Mark existing data as valid for reading
+  }
+
   // Set up position tracking
   strcpy(stream.readPosition.fileName, "memory");
   stream.readPosition.line = 1;
@@ -337,8 +342,12 @@ bool MemoryStream::memoryEof(const Stream* stream) {
       return true;
   }
   
-  // Check if the read offset has reached the write offset (the amount of data actually written)
-  return ms->readOffset >= ms->writeOffset || ((ms->flags & StreamFlags::Eof) != 0);
+  // Only report EOF if:
+  // 1. The EOF flag is explicitly set, or
+  // 2. The read offset has reached the write offset AND the write offset is not 0
+  //    (to avoid reporting EOF on newly created or reset streams)
+  return ((ms->flags & StreamFlags::Eof) != 0) || 
+         (ms->readOffset >= ms->writeOffset && ms->writeOffset > 0);
 }
 
 size_t MemoryStream::memoryRead(Stream* stream, void* buffer, size_t size) {
@@ -346,6 +355,12 @@ size_t MemoryStream::memoryRead(Stream* stream, void* buffer, size_t size) {
   
   MemoryStream* ms = static_cast<MemoryStream*>(stream);
   if (!ms->buffer || !(ms->flags & StreamFlags::Read)) {
+      return 0;
+  }
+  
+  // If the write offset is 0, it means no data has been written yet
+  if (ms->writeOffset == 0) {
+      ms->flags |= StreamFlags::Eof;
       return 0;
   }
   
