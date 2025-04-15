@@ -12,7 +12,6 @@
 #pragma once
 #include "coil/stream.hpp"
 #include "coil/err.hpp"
-#include "coil/instr.hpp"
 #include <cstdint>
 #include <string>
 #include <array>

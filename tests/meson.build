@@ -4,7 +4,7 @@ test_sources = [
   'test_log.cpp',
   'test_err.cpp',
   'test_stream.cpp',
-#  'test_obj.cpp',
+  'test_obj.cpp',
 #  'test_instr.cpp',
 ]
 

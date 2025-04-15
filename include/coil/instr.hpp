@@ -1,6 +1,5 @@
 #pragma once
 
-#include "coil/op.hpp"
 #include <cstdint>
 #include <vector>
 #include <string>
