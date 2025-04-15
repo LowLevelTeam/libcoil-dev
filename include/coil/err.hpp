@@ -100,17 +100,20 @@ struct ErrorManager {
   /**
     * @brief Construct an error manager
     * 
-    * @param loggerPtr Logger for errors
+    * @param loggerPtr Logger for errors (must not be null)
     */
   explicit ErrorManager(Logger* loggerPtr);
   
   /**
     * @brief Add an error
     * 
+    * If the error buffer is full, the oldest error is replaced with this new one
+    * using a circular buffer approach. This prevents silently dropping errors.
+    * 
     * @param code Error code
     * @param severity Error severity
     * @param position Stream position
-    * @param message Error message
+    * @param message Error message (must not be null)
     */
   void addError(ErrorCode code, 
               ErrorSeverity severity, 
@@ -122,7 +125,7 @@ struct ErrorManager {
     * 
     * @param code Error code
     * @param position Stream position
-    * @param message Message
+    * @param message Message (must not be null)
     */
   void addInfo(ErrorCode code, const StreamPosition& position, const char* message);
   
@@ -131,7 +134,7 @@ struct ErrorManager {
     * 
     * @param code Error code
     * @param position Stream position
-    * @param message Warning message
+    * @param message Warning message (must not be null)
     */
   void addWarning(ErrorCode code, const StreamPosition& position, const char* message);
   
@@ -140,7 +143,7 @@ struct ErrorManager {
     * 
     * @param code Error code
     * @param position Stream position
-    * @param message Error message
+    * @param message Error message (must not be null)
     */
   void addError(ErrorCode code, const StreamPosition& position, const char* message);
   
@@ -149,7 +152,7 @@ struct ErrorManager {
     * 
     * @param code Error code
     * @param position Stream position
-    * @param message Fatal error message
+    * @param message Fatal error message (must not be null)
     */
   void addFatal(ErrorCode code, const StreamPosition& position, const char* message);
   
@@ -181,7 +184,7 @@ struct ErrorManager {
   /**
     * @brief Get all errors
     * 
-    * @param count Output parameter to receive error count
+    * @param count Output parameter to receive error count (can be null)
     * @return const ErrorEntry* Pointer to the first error or nullptr if none
     */
   const ErrorEntry* getAllErrors(size_t* count = nullptr) const;
@@ -189,7 +192,7 @@ struct ErrorManager {
   /**
     * @brief Set an error handler
     * 
-    * @param handler Handler function
+    * @param handler Handler function (can be null to remove handler)
     * @param data User data for the handler
     */
   void setErrorHandler(ErrorHandlerFunction handler, void* data);
@@ -203,8 +206,8 @@ struct ErrorManager {
 * separate contexts in different threads.
 */
 struct Context {
-  Logger* logger;           // Pointer to logger
-  ErrorManager* errorManager; // Pointer to error manager
+  Logger* logger;           // Pointer to logger (not owned)
+  ErrorManager* errorManager; // Pointer to error manager (not owned)
 };
 
 // Helper functions for error management

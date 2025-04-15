@@ -59,13 +59,27 @@ void ErrorManager::addError(
   const StreamPosition& position,
   const char* message) {
   
-  if (errorCount >= MAX_ERRORS) {
-      // Cannot add more errors, log this fact if possible
+  if (!message) {
+      // Invalid parameter, don't add the error
       if (logger) {
           logger->log(LogLevel::Error, __FILE__, __LINE__, __func__,
-                    "Error buffer overflow, cannot add more errors");
+                    "Attempted to add error with null message");
       }
       return;
+  }
+  
+  if (errorCount >= MAX_ERRORS) {
+      // Use circular buffer approach: shift all errors to make room for the new one
+      for (size_t i = 0; i < MAX_ERRORS - 1; i++) {
+          errors[i] = errors[i + 1];
+      }
+      errorCount = MAX_ERRORS - 1; // Keep count at maximum minus one
+      
+      // Log a warning about error buffer overflow
+      if (logger) {
+          logger->log(LogLevel::Warning, __FILE__, __LINE__, __func__,
+                    "Error buffer overflow, oldest error discarded");
+      }
   }
   
   // Create a new error entry
@@ -154,10 +168,30 @@ void ErrorManager::dumpErrors() const {
           const auto& error = errors[i];
           
           const auto& pos = error.getPosition();
+          const char* severityStr = "";
+          
+          switch (error.getSeverity()) {
+              case ErrorSeverity::Info:
+                  severityStr = "INFO";
+                  break;
+              case ErrorSeverity::Warning:
+                  severityStr = "WARNING";
+                  break;
+              case ErrorSeverity::Error:
+                  severityStr = "ERROR";
+                  break;
+              case ErrorSeverity::Fatal:
+                  severityStr = "FATAL";
+                  break;
+              default:
+                  severityStr = "UNKNOWN";
+                  break;
+          }
           
           if (pos.fileName[0] != '\0') {
-              COIL_INFO(logger, "[%zu] %s: %s (at %s line %zu, column %zu, offset %zu)",
+              COIL_INFO(logger, "[%zu] %s - %s: %s (at %s line %zu, column %zu, offset %zu)",
                       i,
+                      severityStr,
                       getErrorMessage(error.getCode()),
                       error.getMessage(),
                       pos.fileName,
@@ -165,8 +199,9 @@ void ErrorManager::dumpErrors() const {
                       pos.column,
                       pos.offset);
           } else {
-              COIL_INFO(logger, "[%zu] %s: %s",
+              COIL_INFO(logger, "[%zu] %s - %s: %s",
                       i,
+                      severityStr,
                       getErrorMessage(error.getCode()),
                       error.getMessage());
           }

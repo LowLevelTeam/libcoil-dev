@@ -50,6 +50,8 @@ std::string Stream::readLine(size_t maxSize) {
 }
 
 void Stream::updatePosition(const char* buffer, size_t size, bool isRead) {
+  if (!buffer) return; // Early return on null buffer
+  
   StreamPosition& position = isRead ? readPosition : writePosition;
   
   for (size_t i = 0; i < size; i++) {
@@ -147,6 +149,11 @@ bool FileStream::fileEof(const Stream* stream) {
       return true;
   }
   
+  // Check if the EOF flag is already set
+  if ((fs->flags & StreamFlags::Eof) != 0) {
+      return true;
+  }
+  
   // Save current position
   long currentPos = ftell(fs->fp);
   
@@ -158,7 +165,7 @@ bool FileStream::fileEof(const Stream* stream) {
   fseek(fs->fp, currentPos, SEEK_SET);
   
   // EOF if read position is at or past the end of the file
-  return fs->readOffset >= static_cast<size_t>(endPos) || ((fs->flags & StreamFlags::Eof) != 0);
+  return fs->readOffset >= static_cast<size_t>(endPos);
 }
 
 size_t FileStream::fileRead(Stream* stream, void* buffer, size_t size) {
@@ -169,13 +176,16 @@ size_t FileStream::fileRead(Stream* stream, void* buffer, size_t size) {
       return 0;
   }
   
-  // Position the file pointer at the read offset
-  if (fseek(fs->fp, fs->readOffset, SEEK_SET) != 0) {
-      if (fs->ctx && fs->ctx->errorManager) {
-          fs->ctx->errorManager->addError(ErrorCode::IO, fs->readPosition, 
-                                      strerror(errno));
+  // Optimize: only seek if we're not already at the right position
+  long currentPos = ftell(fs->fp);
+  if (currentPos != static_cast<long>(fs->readOffset)) {
+      if (fseek(fs->fp, fs->readOffset, SEEK_SET) != 0) {
+          if (fs->ctx && fs->ctx->errorManager) {
+              fs->ctx->errorManager->addError(ErrorCode::IO, fs->readPosition, 
+                                          strerror(errno));
+          }
+          return 0;
       }
-      return 0;
   }
   
   size_t bytesRead = fread(buffer, 1, size, fs->fp);
@@ -207,13 +217,16 @@ size_t FileStream::fileWrite(Stream* stream, const void* buffer, size_t size) {
       return 0;
   }
   
-  // Position the file pointer at the write offset
-  if (fseek(fs->fp, fs->writeOffset, SEEK_SET) != 0) {
-      if (fs->ctx && fs->ctx->errorManager) {
-          fs->ctx->errorManager->addError(ErrorCode::IO, fs->writePosition, 
-                                      strerror(errno));
+  // Optimize: only seek if we're not already at the right position
+  long currentPos = ftell(fs->fp);
+  if (currentPos != static_cast<long>(fs->writeOffset)) {
+      if (fseek(fs->fp, fs->writeOffset, SEEK_SET) != 0) {
+          if (fs->ctx && fs->ctx->errorManager) {
+              fs->ctx->errorManager->addError(ErrorCode::IO, fs->writePosition, 
+                                          strerror(errno));
+          }
+          return 0;
       }
-      return 0;
   }
   
   size_t bytesWritten = fwrite(buffer, 1, size, fs->fp);
@@ -241,6 +254,7 @@ void FileStream::fileResetReadPos(Stream* stream) {
   fs->readPosition.line = 1;
   fs->readPosition.column = 1;
   fs->readPosition.offset = 0;
+  fs->flags &= ~StreamFlags::Eof; // Clear EOF flag
 }
 
 void FileStream::fileResetWritePos(Stream* stream) {
@@ -323,7 +337,8 @@ bool MemoryStream::memoryEof(const Stream* stream) {
       return true;
   }
   
-  return ms->readOffset >= ms->size || ((ms->flags & StreamFlags::Eof) != 0);
+  // Check if the read offset has reached the write offset (the amount of data actually written)
+  return ms->readOffset >= ms->writeOffset || ((ms->flags & StreamFlags::Eof) != 0);
 }
 
 size_t MemoryStream::memoryRead(Stream* stream, void* buffer, size_t size) {
@@ -334,7 +349,8 @@ size_t MemoryStream::memoryRead(Stream* stream, void* buffer, size_t size) {
       return 0;
   }
   
-  size_t available = ms->size - ms->readOffset;
+  // FIX: Only read up to the amount of data actually written
+  size_t available = ms->writeOffset - ms->readOffset;
   size_t bytesToRead = std::min(size, available);
   
   if (bytesToRead == 0) {
@@ -349,7 +365,7 @@ size_t MemoryStream::memoryRead(Stream* stream, void* buffer, size_t size) {
       ms->readOffset += bytesToRead;
   }
   
-  if (ms->readOffset >= ms->size) {
+  if (ms->readOffset >= ms->writeOffset) {
       ms->flags |= StreamFlags::Eof;
   }
   
@@ -389,6 +405,7 @@ void MemoryStream::memoryResetReadPos(Stream* stream) {
   ms->readPosition.line = 1;
   ms->readPosition.column = 1;
   ms->readPosition.offset = 0;
+  ms->flags &= ~StreamFlags::Eof; // Clear EOF flag
 }
 
 void MemoryStream::memoryResetWritePos(Stream* stream) {

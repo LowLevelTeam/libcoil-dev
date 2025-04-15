@@ -20,7 +20,10 @@ enum StreamFlags : uint32_t {
 /**
 * @brief Stream base structure
 * 
-* This is the common interface for all streams
+* This is the common interface for all streams.
+* Note: Streams must be explicitly closed before destruction via close().
+* This class does not use RAII for resource management to maintain C-like
+* explicit resource handling.
 */
 struct Stream {
   // Position tracking for read/write operations
@@ -49,7 +52,10 @@ struct Stream {
   bool eof() const { return vtable->eof(this); }
   
   /**
-    * @brief Close the stream
+    * @brief Close the stream and free resources
+    * 
+    * This method must be called before destruction to properly clean up
+    * resources. The stream is not usable after calling close().
     */
   void close() { vtable->close(this); }
   
@@ -83,6 +89,8 @@ struct Stream {
   
   /**
     * @brief Reset the read position to the beginning of the stream
+    * 
+    * This also clears the EOF flag.
     */
   void resetReadPosition() { vtable->resetReadPosition(this); }
   
@@ -108,9 +116,9 @@ struct Stream {
   /**
     * @brief Read data from the stream
     * 
-    * @param buffer Buffer to read into
-    * @param size Size to read
-    * @return size_t Bytes read
+    * @param buffer Buffer to read into (must not be null)
+    * @param size Size to read (must be > 0)
+    * @return size_t Bytes read (0 on EOF or error)
     */
   size_t read(void* buffer, size_t size) { 
       return vtable->read(this, buffer, size); 
@@ -119,9 +127,9 @@ struct Stream {
   /**
     * @brief Write data to the stream
     * 
-    * @param buffer Buffer to write from
-    * @param size Size to write
-    * @return size_t Bytes written
+    * @param buffer Buffer to write from (must not be null)
+    * @param size Size to write (must be > 0)
+    * @return size_t Bytes written (0 on error)
     */
   size_t write(const void* buffer, size_t size) { 
       return vtable->write(this, buffer, size); 
@@ -131,7 +139,7 @@ struct Stream {
     * @brief Read data of type T from the stream
     * 
     * @tparam T Type to read
-    * @param value Reference to store the value
+    * @param value Reference to store the value (must not be null)
     * @return true if read successfully
     */
   template<typename T>
@@ -155,15 +163,15 @@ struct Stream {
     * @brief Read a line of text from the stream
     * 
     * @param maxSize Maximum size to read
-    * @return std::string The line read
+    * @return std::string The line read (empty string on EOF)
     */
   std::string readLine(size_t maxSize = 1024);
   
   /**
     * @brief Write a string to the stream
     * 
-    * @param str String to write
-    * @return size_t Bytes written
+    * @param str String to write (must not be null)
+    * @return size_t Bytes written (0 on error)
     */
   size_t writeString(const char* str) {
       if (!str) return 0;
@@ -173,8 +181,8 @@ struct Stream {
   /**
     * @brief Helper to update position information after read/write
     * 
-    * @param buffer Buffer that was read or written
-    * @param size Size of data
+    * @param buffer Buffer that was read or written (must not be null)
+    * @param size Size of data (must be > 0)
     * @param isRead Whether this was a read (true) or write (false) operation
     */
   void updatePosition(const char* buffer, size_t size, bool isRead);
@@ -184,18 +192,20 @@ struct Stream {
 * @brief File-based stream
 */
 struct FileStream : public Stream {
-  FILE* fp = nullptr;        // File pointer
+  FILE* fp = nullptr;        // File pointer (not owned)
   size_t readOffset = 0;     // Current read offset
   size_t writeOffset = 0;    // Current write offset
-  const Context* ctx = nullptr;  // Library context
+  const Context* ctx = nullptr;  // Library context (not owned)
   
   /**
     * @brief Open a file stream
     * 
-    * @param filename Filename
-    * @param mode Mode ("r", "w", "a", "r+", "w+", "a+")
-    * @param context Library context
+    * @param filename Filename (must not be null)
+    * @param mode Mode ("r", "w", "a", "r+", "w+", "a+") (must not be null)
+    * @param context Library context (must not be null)
     * @return FileStream The opened stream
+    * 
+    * For exact byte control, use binary mode ("rb", "wb", etc.)
     */
   static FileStream open(
       const char* filename,
@@ -204,6 +214,8 @@ struct FileStream : public Stream {
   
   /**
     * @brief Close the file
+    * 
+    * @param stream Stream to close (must not be null)
     */
   static void closeFile(Stream* stream);
   
@@ -241,20 +253,23 @@ struct FileStream : public Stream {
 */
 struct MemoryStream : public Stream {
   uint8_t* buffer = nullptr;  // Memory buffer (not owned by default)
-  size_t size = 0;            // Buffer size
+  size_t size = 0;            // Buffer capacity
   size_t readOffset = 0;      // Current read offset
-  size_t writeOffset = 0;     // Current write offset
+  size_t writeOffset = 0;     // Current write offset (also represents valid data size)
   bool ownsBuffer = false;    // Whether the buffer is owned by this stream
-  const Context* ctx = nullptr;    // Library context
+  const Context* ctx = nullptr;    // Library context (not owned)
   
   /**
     * @brief Create a memory stream
     * 
-    * @param buffer Buffer (if null, a new buffer is allocated)
-    * @param size Size
-    * @param streamFlags Flags
-    * @param context Library context
+    * @param buffer Buffer (if null, a new buffer is allocated and owned)
+    * @param size Buffer capacity
+    * @param streamFlags Flags (Read, Write, etc.)
+    * @param context Library context (must not be null)
     * @return MemoryStream The created stream
+    * 
+    * If buffer is provided, it must remain valid for the lifetime of the stream
+    * or until close() is called.
     */
   static MemoryStream create(
       void* buffer,
@@ -264,6 +279,10 @@ struct MemoryStream : public Stream {
   
   /**
     * @brief Close the memory stream
+    * 
+    * @param stream Stream to close (must not be null)
+    * 
+    * If the stream owns the buffer, it will be freed.
     */
   static void closeMemory(Stream* stream);
   
@@ -295,28 +314,28 @@ struct MemoryStream : public Stream {
   /**
     * @brief Get the buffer
     * 
-    * @return void* Buffer
+    * @return void* Buffer pointer or nullptr if not initialized
     */
   void* getBuffer() const { return buffer; }
   
   /**
-    * @brief Get the buffer size
+    * @brief Get the buffer capacity
     * 
-    * @return size_t Size
+    * @return size_t Total capacity in bytes
     */
   size_t getSize() const { return size; }
   
   /**
-    * @brief Get the current write offset
+    * @brief Get the current write offset (also represents valid data size)
     * 
-    * @return size_t Current write offset
+    * @return size_t Current number of valid bytes in the buffer
     */
   size_t getWriteOffset() const { return writeOffset; }
   
   /**
     * @brief Get the current read offset
     * 
-    * @return size_t Current read offset
+    * @return size_t Current read position in bytes
     */
   size_t getReadOffset() const { return readOffset; }
   

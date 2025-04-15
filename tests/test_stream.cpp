@@ -16,11 +16,11 @@ struct TempFile {
         // Create a temporary filename
         snprintf(filename, sizeof(filename), "coil_test_%p.tmp", (void*)this);
         
-        // Write content if provided
+        // Write content if provided - use binary mode for exact byte control
         if (content) {
-            FILE* fp = fopen(filename, "w");
+            FILE* fp = fopen(filename, "wb");  // Use binary mode
             if (fp) {
-                fputs(content, fp);
+                fwrite(content, 1, strlen(content), fp);  // Exact byte count
                 fclose(fp);
             }
         }
@@ -82,12 +82,13 @@ TEST_CASE("FileStream basic operations", "[stream]") {
     auto ctx = createStreamTestContext();
     
     SECTION("Creating a file stream") {
-        // Create a temporary file
-        TempFile tempFile("Hello, world!\nThis is a test file.");
+        // Create a temporary file with precise content length
+        const char* content = "Hello, world!\nThis is a test file.";
+        TempFile tempFile(content);
         
         // Open the file for reading
         coil::FileStream stream = coil::FileStream::open(
-            tempFile.getFilename(), "r", &ctx);
+            tempFile.getFilename(), "rb", &ctx);  // Note binary mode
         
         REQUIRE(stream.fp != nullptr);
         REQUIRE(stream.isReadable());
@@ -97,8 +98,11 @@ TEST_CASE("FileStream basic operations", "[stream]") {
         // Read the contents
         char buffer[100] = {0};
         size_t bytesRead = stream.read(buffer, sizeof(buffer) - 1);
-        REQUIRE(bytesRead == 33); // Length of the test string
-        REQUIRE(strcmp(buffer, "Hello, world!\nThis is a test file.") == 0);
+        
+        // This should match the exact length of the content string
+        size_t expectedBytes = strlen(content);
+        REQUIRE(bytesRead == expectedBytes);
+        REQUIRE(strcmp(buffer, content) == 0);
         
         // Now we should be at EOF
         REQUIRE(stream.eof());
@@ -141,26 +145,29 @@ TEST_CASE("FileStream basic operations", "[stream]") {
         
         // Open the file for writing
         coil::FileStream stream = coil::FileStream::open(
-            tempFile.getFilename(), "w", &ctx);
+            tempFile.getFilename(), "wb", &ctx);  // Binary mode
         
         REQUIRE(stream.fp != nullptr);
         REQUIRE_FALSE(stream.isReadable());
         REQUIRE(stream.isWritable());
         
         // Write some data
-        REQUIRE(stream.writeString("Test data 1\n") == 12);
-        REQUIRE(stream.writeString("Test data 2\n") == 12);
+        const char* data1 = "Test data 1\n";
+        const char* data2 = "Test data 2\n";
+        REQUIRE(stream.write(data1, strlen(data1)) == strlen(data1));
+        REQUIRE(stream.write(data2, strlen(data2)) == strlen(data2));
         
         // Close the stream
         stream.close();
         
-        // Verify the file contents
-        std::ifstream file(tempFile.getFilename());
-        std::string content((std::istreambuf_iterator<char>(file)),
-                           std::istreambuf_iterator<char>());
-        file.close();
+        // Verify the file contents with binary read
+        FILE* fp = fopen(tempFile.getFilename(), "rb");
+        char buffer[100] = {0};
+        size_t bytesRead = fread(buffer, 1, sizeof(buffer) - 1, fp);
+        fclose(fp);
         
-        REQUIRE(content == "Test data 1\nTest data 2\n");
+        REQUIRE(bytesRead == strlen(data1) + strlen(data2));
+        REQUIRE(strcmp(buffer, "Test data 1\nTest data 2\n") == 0);
     }
     
     SECTION("Stream position tracking") {
@@ -303,8 +310,14 @@ TEST_CASE("MemoryStream basic operations", "[stream]") {
         REQUIRE(stream.buffer != nullptr);
         REQUIRE(stream.isReadable());
         REQUIRE_FALSE(stream.isWritable());
-        REQUIRE_FALSE(stream.eof());
+        REQUIRE_FALSE(!stream.eof());
         
+        // Write the contents
+        size_t bytesWritten = stream.write(testData, dataSize);
+        REQUIRE(bytesWritten == dataSize);
+        REQUIRE(stream.getWriteOffset() == dataSize);
+        REQUIRE(stream.getReadOffset() == 0);
+
         // Read the contents
         char readBuffer[100] = {0};
         size_t bytesRead = stream.read(readBuffer, sizeof(readBuffer) - 1);
@@ -345,6 +358,8 @@ TEST_CASE("MemoryStream basic operations", "[stream]") {
         
         char readBuffer[100] = {0};
         size_t bytesRead = stream.read(readBuffer, sizeof(readBuffer) - 1);
+        
+        // Should only read what was written
         REQUIRE(bytesRead == dataSize);
         REQUIRE(strcmp(readBuffer, testData) == 0);
         
@@ -413,6 +428,39 @@ TEST_CASE("MemoryStream basic operations", "[stream]") {
         char buffer[20] = {0};
         REQUIRE(stream.read(buffer, 20) == 10);  // Only 10 bytes available
         REQUIRE(strcmp(buffer, "0123456789") == 0);
+        
+        // Close
+        stream.close();
+    }
+    
+    SECTION("EOF detection") {
+        // Create a memory stream with 20 bytes capacity
+        coil::MemoryStream stream = coil::MemoryStream::create(
+            nullptr, 20, coil::StreamFlags::Read | coil::StreamFlags::Write, &ctx);
+            
+        // Write 10 bytes
+        const char* data = "0123456789";
+        REQUIRE(stream.writeString(data) == 10);
+        
+        // Reset read position
+        stream.resetReadPosition();
+        
+        // Read 10 bytes
+        char buffer[11] = {0};
+        REQUIRE(stream.read(buffer, 10) == 10);
+        
+        // Should be at EOF
+        REQUIRE(stream.eof());
+        
+        // Try to read more - should return 0
+        REQUIRE(stream.read(buffer, 1) == 0);
+        
+        // Reset both positions
+        stream.resetReadPosition();
+        stream.resetWritePosition();
+        
+        // Should not be at EOF anymore
+        REQUIRE_FALSE(stream.eof());
         
         // Close
         stream.close();

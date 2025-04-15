@@ -130,8 +130,8 @@ const char* getSectionTypeName(uint32_t type);
 * @brief Get a string representation of section flags
 * 
 * @param flags Section flags
-* @param buffer Output buffer
-* @param size Buffer size
+* @param buffer Output buffer (must not be null)
+* @param size Buffer size (must be large enough to hold the result)
 * @return void
 */
 void getSectionFlagsString(uint32_t flags, char* buffer, size_t size);
@@ -189,7 +189,7 @@ struct CoilHeader {
   /**
   * @brief Initialize a header with default values
   * 
-  * @param fileType Object file type
+  * @param fileType Object file type (from obj::CT_* constants)
   * @param machine Machine type
   * @return CoilHeader Initialized header
   */
@@ -225,28 +225,28 @@ struct CoilSymbolEntry {
   /**
   * @brief Get the binding type of the symbol
   * 
-  * @return uint8_t Binding type (CSB_*)
+  * @return uint8_t Binding type (obj::CSB_*)
   */
   uint8_t getBinding() const { return info >> 4; }
   
   /**
   * @brief Get the type of the symbol
   * 
-  * @return uint8_t Symbol type (CST_*)
+  * @return uint8_t Symbol type (obj::CST_*)
   */
   uint8_t getType() const { return info & 0xF; }
   
   /**
   * @brief Set the binding type of the symbol
   * 
-  * @param binding Binding type (CSB_*)
+  * @param binding Binding type (obj::CSB_*)
   */
   void setBinding(uint8_t binding) { info = (binding << 4) | getType(); }
   
   /**
   * @brief Set the type of the symbol
   * 
-  * @param type Symbol type (CST_*)
+  * @param type Symbol type (obj::CST_*)
   */
   void setType(uint8_t type) { info = (getBinding() << 4) | type; }
 };
@@ -333,31 +333,90 @@ struct SectionData {
   uint8_t* data;           // Owned externally or allocated as needed
   bool ownsData;           // Whether this section owns its data buffer
   
-  // Initialize a new section data structure
+  /**
+  * @brief Initialize a new section data structure
+  *
+  * @param sectionName Section name (must not be null)
+  * @param type Section type
+  * @param flags Section flags
+  * @param sectionData Section data (can be null for size=0)
+  * @param size Data size
+  * @param entrySize Entry size for table sections
+  * @return SectionData Initialized section data
+  */
   static SectionData create(const char* sectionName, 
-                            uint32_t type, 
-                            uint32_t flags,
-                            const uint8_t* sectionData, 
-                            uint32_t size, 
-                            uint16_t entrySize = 0);
+                          uint32_t type, 
+                          uint32_t flags,
+                          const uint8_t* sectionData, 
+                          uint32_t size, 
+                          uint16_t entrySize = 0);
                             
-  // Free allocated data if owned
+  /**
+  * @brief Free allocated data if owned
+  */
   void freeData();
   
-  // Helper method to get a string from a string table section
+  /**
+  * @brief Get a string from a string table section
+  *
+  * @param offset Offset into the string table
+  * @return const char* String at the given offset, or nullptr if invalid
+  */
   const char* getString(uint32_t offset) const;
   
-  // Helper methods for symbol table sections
+  /**
+  * @brief Get a symbol entry from a symbol table section
+  *
+  * @param index Symbol index
+  * @return CoilSymbolEntry Symbol entry
+  */
   CoilSymbolEntry getSymbol(uint32_t index) const;
+  
+  /**
+  * @brief Set a symbol entry in a symbol table section
+  *
+  * @param index Symbol index
+  * @param symbol Symbol entry to set
+  */
   void setSymbol(uint32_t index, const CoilSymbolEntry& symbol);
   
-  // Helper methods for relocation sections
+  /**
+  * @brief Get a relocation entry from a relocation section
+  *
+  * @param index Relocation index
+  * @return CoilRelEntry Relocation entry
+  */
   CoilRelEntry getRel(uint32_t index) const;
+  
+  /**
+  * @brief Get a relocation entry with addend from a relocation section
+  *
+  * @param index Relocation index
+  * @return CoilRelaEntry Relocation entry with addend
+  */
   CoilRelaEntry getRela(uint32_t index) const;
+  
+  /**
+  * @brief Set a relocation entry in a relocation section
+  *
+  * @param index Relocation index
+  * @param rel Relocation entry to set
+  */
   void setRel(uint32_t index, const CoilRelEntry& rel);
+  
+  /**
+  * @brief Set a relocation entry with addend in a relocation section
+  *
+  * @param index Relocation index
+  * @param rela Relocation entry with addend to set
+  */
   void setRela(uint32_t index, const CoilRelaEntry& rela);
   
-  // Get the number of entries in a table section
+  /**
+  * @brief Get the number of entries in a table section
+  *
+  * @return uint32_t Number of entries (0 if not a table section)
+  */
   uint32_t getEntryCount() const;
 };
 
@@ -378,8 +437,8 @@ struct CoilObject {
   /**
   * @brief Load a COIL object from a stream
   * 
-  * @param stream Input stream
-  * @param context Library context
+  * @param stream Input stream (must not be null)
+  * @param context Library context (must not be null)
   * @return CoilObject Loaded object or empty object on error
   */
   static CoilObject load(Stream* stream, const Context* context);
@@ -389,7 +448,7 @@ struct CoilObject {
   * 
   * @param type COIL file type
   * @param machine Target architecture
-  * @param context Library context
+  * @param context Library context (must not be null)
   * @return CoilObject Created object
   */
   static CoilObject create(uint16_t type, uint16_t machine, const Context* context);
@@ -397,7 +456,7 @@ struct CoilObject {
   /**
   * @brief Check if a file is a valid COIL object file
   * 
-  * @param stream Input stream
+  * @param stream Input stream (must not be null)
   * @return bool True if valid COIL file
   */
   static bool isCoilFile(Stream* stream);
@@ -413,7 +472,7 @@ struct CoilObject {
   /**
   * @brief Get a section by name
   * 
-  * @param name Section name
+  * @param name Section name (must not be null)
   * @return const SectionData* Section pointer or nullptr if not found
   */
   const SectionData* getSectionByName(const char* name) const;
@@ -421,10 +480,10 @@ struct CoilObject {
   /**
   * @brief Add a new section to the COIL object
   * 
-  * @param name Section name
+  * @param name Section name (must not be null)
   * @param type Section type
   * @param flags Section flags
-  * @param data Section data
+  * @param data Section data (can be null for size=0)
   * @param size Data size
   * @param entsize Entry size for table sections
   * @return SectionData* Added section or nullptr on error
@@ -435,7 +494,7 @@ struct CoilObject {
   /**
   * @brief Save the COIL object to a stream
   * 
-  * @param stream Output stream
+  * @param stream Output stream (must not be null)
   * @return bool Success
   */
   bool save(Stream* stream);
@@ -443,15 +502,16 @@ struct CoilObject {
   /**
   * @brief Find a symbol by name
   * 
-  * @param name Symbol name
+  * @param name Symbol name (must not be null)
   * @return std::pair<const SectionData*, const CoilSymbolEntry*> Section/symbol pair
+  *         If the symbol is not found, both pointers will be nullptr.
   */
   std::pair<const SectionData*, const CoilSymbolEntry*> findSymbol(const char* name) const;
   
   /**
   * @brief Add a symbol to the symbol table
   * 
-  * @param name Symbol name
+  * @param name Symbol name (must not be null)
   * @param value Symbol value
   * @param size Symbol size
   * @param type Symbol type
@@ -464,6 +524,8 @@ struct CoilObject {
   
   /**
   * @brief Cleanup any owned resources
+  * 
+  * This releases any memory owned by the object's sections.
   */
   void cleanup();
 };
@@ -482,7 +544,7 @@ struct StringTable {
   /**
   * @brief Initialize from section data
   * 
-  * @param section String table section
+  * @param section String table section (must be a valid STRTAB section)
   * @return StringTable Initialized string table
   */
   static StringTable fromSection(const SectionData& section);
@@ -498,15 +560,15 @@ struct StringTable {
   * @brief Get a string from the table
   * 
   * @param offset Offset into the string table
-  * @return const char* String at the given offset
+  * @return const char* String at the given offset, or nullptr if invalid
   */
   const char* getString(uint32_t offset) const;
   
   /**
   * @brief Add a string to the table
   * 
-  * @param str String to add
-  * @return uint32_t Offset of the added string
+  * @param str String to add (must not be null)
+  * @return uint32_t Offset of the added string, or 0 if the string table is full
   */
   uint32_t addString(const char* str);
 };
