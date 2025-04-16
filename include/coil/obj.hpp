@@ -92,7 +92,7 @@ namespace coil {
   * Fixed-size header at the beginning of every COIL object file
   */
   struct ObjectHeader {
-    u8 magic[4] = COIL_MAGIC;   ///< Magic number (COIL_MAGIC)
+    u8 magic[4] = { COIL_MAGIC[0], COIL_MAGIC[1], COIL_MAGIC[2], COIL_MAGIC[3] };   ///< Magic number (COIL_MAGIC)
     u16 version = COIL_VERSION; ///< Format version
     u16 section_count = 0;      ///< Section Count
     u64 file_size = 0;          ///< Complete object size

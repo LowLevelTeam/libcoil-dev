@@ -10,14 +10,7 @@
 
 namespace coil {
   // Constructor
-  Object::Object() {
-    // Initialize with empty header
-    std::memset(&header, 0, sizeof(ObjectHeader));
-    
-    // Set magic and version
-    std::memcpy(header.magic, COIL_MAGIC, sizeof(COIL_MAGIC));
-    header.version = COIL_VERSION;
-  }
+  Object::Object() {}
   
   // Initialize with type
   void Object::init() {
@@ -29,12 +22,9 @@ namespace coil {
   // -------------------------------- Stream Functionality -------------------------------- //
   
   Result Object::load(Stream& stream) {
-    Result result;
-    
     // Load Header
     if (stream.readValue(header) != Result::Success) {
-      return COIL_RETURN_ERROR(Result::IoError, ErrorLevel::Error, 
-                               "Failed to read object header");
+      COIL_RETURN_ERROR(Result::IoError, ErrorLevel::Error, "Failed to read object header");
     }
     
     // Validate header
@@ -42,14 +32,11 @@ namespace coil {
         header.magic[1] != COIL_MAGIC[1] ||
         header.magic[2] != COIL_MAGIC[2] ||
         header.magic[3] != COIL_MAGIC[3]) {
-      return COIL_RETURN_ERROR(Result::InvalidFormat, ErrorLevel::Error, 
-                               "Invalid object format magic number");
+      COIL_RETURN_ERROR(Result::InvalidFormat, ErrorLevel::Error, "Invalid object format magic number");
     }
     
     if (header.version != COIL_VERSION) {
-      COIL_REPORT_ERROR(ErrorLevel::Warning, 
-                         "Object format version mismatch. File: %hu, Library: %hu", 
-                         header.version, COIL_VERSION);
+      COIL_REPORT_ERROR(ErrorLevel::Warning, "Object format version mismatch. File: %hu, Library: %hu", header.version, COIL_VERSION);
     }
     
     // Resize sections vector
@@ -61,7 +48,7 @@ namespace coil {
       
       // Load Section Header
       if (stream.readValue(section.header) != Result::Success) {
-        return COIL_RETURN_ERROR(Result::IoError, ErrorLevel::Error, 
+        COIL_RETURN_ERROR(Result::IoError, ErrorLevel::Error, 
                                  "Failed to read section header");
       }
       
@@ -71,7 +58,7 @@ namespace coil {
       // Load Section Data
       size_t bytesread = stream.read(section.data.data(), section.header.size);
       if (bytesread != section.header.size) {
-        return COIL_RETURN_ERROR(Result::IoError, ErrorLevel::Error, 
+        COIL_RETURN_ERROR(Result::IoError, ErrorLevel::Error, 
                                  "Failed to read section data");
       }
       
@@ -105,7 +92,7 @@ namespace coil {
     
     // Write Header
     if (stream.writeValue(header) != Result::Success) {
-      return COIL_RETURN_ERROR(Result::IoError, ErrorLevel::Error, 
+      COIL_RETURN_ERROR(Result::IoError, ErrorLevel::Error, 
                               "Failed to write object header");
     }
     
@@ -113,14 +100,14 @@ namespace coil {
     for (const Section& section : sections) {
       // Write Section Header
       if (stream.writeValue(section.header) != Result::Success) {
-        return COIL_RETURN_ERROR(Result::IoError, ErrorLevel::Error, 
+        COIL_RETURN_ERROR(Result::IoError, ErrorLevel::Error, 
                                 "Failed to write section header");
       }
       
       // Write Section Data
       size_t byteswritten = stream.write(section.data.data(), section.header.size);
       if (byteswritten != section.header.size) {
-        return COIL_RETURN_ERROR(Result::IoError, ErrorLevel::Error, 
+        COIL_RETURN_ERROR(Result::IoError, ErrorLevel::Error, 
                                 "Failed to write section data");
       }
     }
@@ -340,15 +327,15 @@ namespace coil {
     }
     
     // Get current size as the offset
-    u64 offset = strtab->getData().size();
+    u64 offset = strtab->data.size();
     size_t len = std::strlen(str) + 1; // Include null terminator
     
     // Add to string table
-    strtab->getData().resize(offset + len);
-    std::memcpy(strtab->getData().data() + offset, str, len);
+    strtab->data.resize(offset + len);
+    std::memcpy(strtab->data.data() + offset, str, len);
     
     // Update section size
-    strtab->header.size = strtab->getData().size();
+    strtab->header.size = strtab->data.size();
     
     return offset;
   }
@@ -360,12 +347,12 @@ namespace coil {
     }
     
     // Check offset
-    if (offset >= strtab->getData().size()) {
+    if (offset >= strtab->data.size()) {
       return nullptr;
     }
     
     // Return pointer to string
-    return reinterpret_cast<const char*>(strtab->getData().data() + offset);
+    return reinterpret_cast<const char*>(strtab->data.data() + offset);
   }
   
   // -------------------------------- Private Methods -------------------------------- //
@@ -379,12 +366,12 @@ namespace coil {
     // Create empty string table section
     u16 index = addSection(".strtab", SectionType::StrTab, SectionFlag::None, nullptr, 0);
     if (index == 0) {
-      return COIL_RETURN_ERROR(Result::OutOfMemory, ErrorLevel::Error, 
+      COIL_RETURN_ERROR(Result::OutOfMemory, ErrorLevel::Error, 
                                "Failed to create string table");
     }
     
     // Add initial empty string (index 0 is reserved)
-    strtab->getData().push_back('\0');
+    strtab->data.push_back('\0');
     strtab->header.size = 1;
     
     return Result::Success;
@@ -399,7 +386,7 @@ namespace coil {
     // Create empty symbol table section
     u16 index = addSection(".symtab", SectionType::SymTab, SectionFlag::None, nullptr, 0);
     if (index == 0) {
-      return COIL_RETURN_ERROR(Result::OutOfMemory, ErrorLevel::Error, 
+      COIL_RETURN_ERROR(Result::OutOfMemory, ErrorLevel::Error, 
                                "Failed to create symbol table");
     }
     
@@ -413,7 +400,7 @@ namespace coil {
     
     // Update section
     Section* symtab = getSection(index);
-    symtab->getData() = symbol_data;
+    symtab->data = symbol_data;
     symtab->header.size = symbol_data.size();
     
     return Result::Success;
