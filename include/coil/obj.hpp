@@ -30,7 +30,7 @@ namespace coil {
   */
   enum class SectionType : u8 {
     Null = 0,         ///< Null section
-    ProgBits = 1,     ///< Progam space with data
+    ProgBits = 1,     ///< Program space with data
     SymTab = 2,       ///< Symbol table
     StrTab = 3,       ///< String table
     RelTab = 4,       ///< Relocation entries
@@ -44,13 +44,12 @@ namespace coil {
   enum class SectionFlag : u16 {
     None = 0,          ///< No flags
     Write = 1 << 0,    ///< Writable
-    Code = 1 << 1,     ///< Compile this section as COIL
+    Code = 1 << 1,     ///< Executable code
     Merge = 1 << 2,    ///< Might be merged
     Alloc = 1 << 3,    ///< Occupies memory during execution
     TLS = 1 << 4       ///< Thread-local storage
   };
 
-  // This is why people hate C++
   /**
   * @brief Bitwise OR operator for section flags
   */
@@ -96,8 +95,6 @@ namespace coil {
     u8 magic[4] = COIL_MAGIC;   ///< Magic number (COIL_MAGIC)
     u16 version = COIL_VERSION; ///< Format version
     u16 section_count = 0;      ///< Section Count
-    u32 reserved = 0;           ///< Reserved
-    u32 flags = 0;              ///< Object flags
     u64 file_size = 0;          ///< Complete object size
 
     ObjectHeader() = default;
@@ -112,6 +109,7 @@ namespace coil {
     u32 reserved;         ///< Reserved
     u16 flags;            ///< Section flags
     u8 type;              ///< Section type
+    u8 reserved1;         ///< Reserved
   };
 
   /**
@@ -130,7 +128,7 @@ namespace coil {
   */
   class Section {
     SectionHeader header;
-    std::vector<uint8_t> data;
+    std::vector<u8> data;
   };
 
   /**
@@ -139,11 +137,18 @@ namespace coil {
   * Represents a COIL object file with sections, symbols, and a string table.
   */
   class Object {
+  public:
     /**
     * @brief Create an empty object
     */
-    Object() = default;
-
+    Object();
+    
+    /**
+    * @brief Initialize object with specified type
+    * @param type The object type (relocatable, executable, etc)
+    */
+    void init();
+    
     // -------------------------------- Stream Functionality -------------------------------- //
 
     /**
@@ -154,40 +159,113 @@ namespace coil {
     /**
     * @brief Save an object to a stream
     */
-    Result save(Stream& stream)
+    Result save(Stream& stream);
 
     // -------------------------------- Section Functionality -------------------------------- //
     /**
+    * @brief Add a section to the object
+    * @param name Section name
+    * @param type Section type
+    * @param flags Section flags
+    * @param data Section data
+    * @param size Size of section data
+    * @return Index of added section (0 on error)
+    */
+    u16 addSection(const char* name, SectionType type, SectionFlag flags, 
+                  const void* data, size_t size);
+    
+    /**
     * @brief Get a section by name (0 on error)
     */
-    u16 getSectionIndex(const char *name, size_t namelen);
+    u16 getSectionIndex(const char* name, size_t namelen);
+    
+    /**
+    * @brief Get a section by name (0 on error)
+    */
+    u16 getSectionIndex(const char* name);
 
     /**
     * @brief Get a section by index
-    * indicies start at 1 as 0 is used as an error code
+    * indices start at 1 as 0 is used as an error code
     */
-    Section* getSection(u16 index) { return this->sections.data() + (index - 1); }
+    Section* getSection(u16 index);
+    
+    /**
+    * @brief Get a const section by index
+    */
+    const Section* getSection(u16 index) const;
 
     // -------------------------------- Symbol Table Functionality -------------------------------- //
     /**
-    * @brief Get a section by name (0 on error)
+    * @brief Add a symbol to the symbol table
+    * @param name Symbol name
+    * @param value Symbol value
+    * @param section_index Index of section
+    * @param type Symbol type
+    * @param binding Symbol binding
+    * @return Index of added symbol (0 on error)
     */
-    u16 getSymbolIndex(const char *name, size_t namelen);
+    u16 addSymbol(const char* name, u32 value, u16 section_index, 
+                 SymbolType type, SymbolBinding binding);
+    
+    /**
+    * @brief Get a symbol by name (0 on error)
+    */
+    u16 getSymbolIndex(const char* name, size_t namelen);
+    
+    /**
+    * @brief Get a symbol by name (0 on error)
+    */
+    u16 getSymbolIndex(const char* name);
 
     /**
     * @brief Get a symbol by index
-    * indicies start at 1 as 0 is used as an error code
+    * indices start at 1 as 0 is used as an error code
     */
-    Symbol* getSymbol(u16 index) { return symbols + (index - 1); }
+    Symbol* getSymbol(u16 index);
+    
+    /**
+    * @brief Get a const symbol by index
+    */
+    const Symbol* getSymbol(u16 index) const;
 
     // -------------------------------- String Table Functionality -------------------------------- //
+    /**
+    * @brief Add a string to the string table
+    * @param str String to add
+    * @return Offset into string table (0 on error)
+    */
+    u64 addString(const char* str);
     
+    /**
+    * @brief Get a string from the string table
+    * @param offset Offset into string table
+    * @return Pointer to string (null on error)
+    */
+    const char* getString(u64 offset) const;
 
-    // -------------------------------- Members -------------------------------- //
+  private:
+    /**
+    * @brief Initialize string table
+    */
+    Result initStringTable();
+    
+    /**
+    * @brief Initialize symbol table
+    */
+    Result initSymbolTable();
+    
+    /**
+    * @brief Convert raw symbol data to structured symbols
+    */
+    void setupSymbolTable();
+    
     ObjectHeader header;
     std::vector<Section> sections;
-    Section *strtab = nullptr; // shortcut to string table
-    Symbol *symbols = nullptr;
-    size_t symbol_count = 0;
+    Section* strtab = nullptr;    // Shortcut to string table
+    Symbol* symbols = nullptr;    // Pointer to symbol array
+    size_t symbol_count = 0;      // Number of symbols
+    size_t symbol_capacity = 0;   // Symbol array capacity
+    std::vector<u8> symbol_data;  // Raw symbol data
   };
 }; // namespace coil
