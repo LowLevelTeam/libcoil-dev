@@ -126,7 +126,7 @@ namespace coil {
   /**
   * @brief Section data container
   */
-  class Section {
+  struct Section {
     SectionHeader header;
     std::vector<u8> data;
   };
