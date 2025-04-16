@@ -1,76 +1,41 @@
 # COIL Library
 
-## Overview
+COIL (Compiler Optimization & Instruction Library) is a minimalist C++ library designed for working with a custom intermediate representation and binary format. It provides efficient abstractions for manipulating code, similar to LLVM IR or WebAssembly, but with an emphasis on performance and low overhead.
 
-COIL (Compiler Optimization & Instruction Library) is a C++ library designed for working with a custom intermediate representation and binary format. The library provides zero-cost abstractions for manipulating code, similar to LLVM IR or WebAssembly, but with a focus on performance and minimalism.
+## Design Principles
+
+- **Minimal Allocations**: Avoid heap allocations where possible
+- **Stack First**: Prefer stack allocations and references
+- **Clean API**: Simple, intuitive interfaces
+- **Performance**: Zero-cost abstractions that compile to efficient machine code
+- **Portability**: Works across platforms with consistent behavior
 
 ## Core Components
 
-### Instruction Set Architecture
+### Instruction Set
 
-COIL defines a complete instruction set architecture (ISA) that serves as an intermediate representation for compilation:
-
-- **Control Flow Operations**: Branch, call, return, and comparison instructions
-- **Memory Operations**: Data movement, stack manipulation, and scope control
-- **Arithmetic Operations**: Standard mathematical operations
-- **Bitwise Operations**: Bit-level manipulations
-- **Multi-Dimensional Operations**: For multi scalar operations
-- **Type System**: Comprehensive type system with fixed-width integers, floating point, vectors
+A compact instruction set for representing code:
+- Control flow operations
+- Memory operations
+- Arithmetic/logic operations
+- Type system with fixed-width numerics
 
 ### Object Format
 
-COIL includes a custom binary object format, inspired by ELF but tailored for the COIL instruction set:
+A simple binary format for storing compiled code:
+- Section-based layout
+- Strong typing
+- Minimal metadata
 
-- **Section-based layout**: Code, data, symbols, and other information organized in sections
-- **Strong typing**: All data is strongly typed
-- **Metadata support**: Version information, target platform
-- **Relocation**: Supports various relocation types for linking
+### Utilities
 
-### Library Infrastructure
-
-The library provides several utility components:
-
-- **Stream System**: Lightweight I/O with FileStream and MemoryStream implementations
-- **Logging**: Minimalist logging with severity levels
-- **Error Handling**: Streamlined error reporting with position tracking
-
-## Design Philosophy
-
-COIL adheres to the following principles:
-
-- **Minimize Heap Allocations**: Value semantics are preferred over pointer semantics
-- **Explicit Memory Management**: No hidden allocations or RAII for resource management
-- **Performance First**: Zero-cost abstractions that don't sacrifice runtime performance
-- **Simplicity**: Clear, straightforward interfaces without unnecessary abstractions
-- **C-Compatible Core**: Core functionality works well with C codebases
-
-## Directory Structure
-
-```
-/include/coil/       - Public API headers
-  /coil.hpp          - Main header and version information
-  /instr.hpp         - Instruction set definitions
-  /obj.hpp           - Object format definitions
-  /stream.hpp        - Stream abstraction for I/O
-  /log.hpp           - Logging facilities
-  /err.hpp           - Error handling
-
-/src/                - Implementation files
-  /coil.cpp          - Version information implementation
-  /log.cpp           - Logger implementation
-  /err.cpp           - Error manager implementation
-  /stream.cpp        - Stream implementations
-  /obj.cpp           - Object format implementation
-
-/tests/              - Test suite
-  /test_*.cpp        - Test files for each component
-```
+- Stream abstraction for I/O
+- Minimal error handling
+- Lean logging
 
 ## Getting Started
 
-### Building the Library
-
-The library uses the Meson build system:
+### Building
 
 ```bash
 meson setup build
@@ -78,37 +43,26 @@ cd build
 ninja
 ```
 
-### Using the Library
-
-Here's a simple example of using the library to create an object file:
+### Basic Usage
 
 ```cpp
 #include "coil/coil.hpp"
-#include "coil/stream.hpp"
 #include "coil/obj.hpp"
-#include "coil/log.hpp"
-#include "coil/err.hpp"
+#include "coil/stream.hpp"
+#include "coil/error.hpp"
 
 int main() {
-    // Create context
-    coil::Logger logger("COIL", stdout, coil::LogLevel::Info);
-    coil::ErrorManager errorMgr(&logger);
-    coil::Context ctx{&logger, &errorMgr};
-    
     // Create an object file
-    coil::CoilObject obj = coil::CoilObject::create(coil::obj::CT_REL, 0, &ctx);
+    coil::Object obj = coil::Object::create(coil::ObjType::Relocatable);
     
-    // Add a section
-    const char* code = "Example code data";
-    obj.addSection(".text", coil::obj::CST_CODE, coil::obj::CSF_EXEC,
-                  (const uint8_t*)code, strlen(code), 0);
+    // Add a code section
+    const uint8_t code[] = { 0x01, 0x02, 0x03, 0x04 };
+    obj.addSection(".text", coil::SectionType::Code, 
+                  coil::SectionFlag::Executable, code, sizeof(code));
     
-    // Save the object file
-    coil::FileStream stream = coil::FileStream::open("output.obj", "wb", &ctx);
-    obj.save(&stream);
-    
-    // Clean up
-    stream.close();
+    // Save to file
+    coil::FileStream fs("output.obj", coil::StreamMode::Write);
+    obj.save(fs);
     
     return 0;
 }
@@ -116,4 +70,4 @@ int main() {
 
 ## License
 
-This project is in the public domain under the Unlicense.
+This project is in the public domain. See the LICENSE file for details.

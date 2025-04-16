@@ -1,13 +1,10 @@
 /**
  * @file coil.hpp
- * @brief Main header for the COIL development library.
- * 
- * This header includes the core components for versioning.
- * focusing on zero-cost abstractions.
+ * @brief Main header for the COIL library
  */
 
 #pragma once
-#include <string>
+#include "coil/types.hpp"
 
 namespace coil {
 
@@ -15,16 +12,14 @@ namespace coil {
  * @brief Library version information
  */
 struct Version {
-  int major;           ///< Major version
-  int minor;           ///< Minor version
-  int patch;           ///< Patch version
-  const char* string;  ///< Version as string (static lifetime)
+    int major;           ///< Major version
+    int minor;           ///< Minor version
+    int patch;           ///< Patch version
+    const char* string;  ///< Version as string
 };
 
 /**
  * @brief Get the library version
- * 
- * @return Version structure with version information
  */
 Version getVersion();
 

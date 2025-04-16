@@ -1,346 +1,160 @@
-#pragma once
+/**
+* @file stream.hpp
+* @brief Stream abstraction for I/O
+*/
 
-#include "coil/err.hpp"
-#include <string>
-#include <cstdint>
-#include <algorithm>
-#include <cstring>
+#pragma once
+#include "coil/types.hpp"
+#include <cstddef>
 
 namespace coil {
 
 /**
-* @brief Stream flags (bitfield)
+* @brief Stream modes
 */
-enum StreamFlags : uint32_t {
-  Read  = (1 << 0),  ///< Stream is readable
-  Write = (1 << 1),  ///< Stream is writable
-  Eof   = (1 << 2)   ///< End of stream has been reached
+enum class StreamMode {
+  Read,      ///< Read-only
+  Write,     ///< Write-only
+  ReadWrite  ///< Read and write
 };
 
 /**
-* @brief Stream base structure
-* 
-* This is the common interface for all streams.
-* Note: Streams must be explicitly closed before destruction via close().
-* This class does not use RAII for resource management to maintain C-like
-* explicit resource handling.
+* @brief Base stream interface
 */
-struct Stream {
-  // Position tracking for read/write operations
-  StreamPosition readPosition;   // Current read position
-  StreamPosition writePosition;  // Current write position
-  uint32_t flags;                // Stream flags
-  
-  // Virtual function table - this approach allows C-like interfaces
-  // while maintaining polymorphism without full OOP overhead
-  struct VTable {
-    bool (*eof)(const Stream* stream);
-    void (*close)(Stream* stream);
-    size_t (*read)(Stream* stream, void* buffer, size_t size);
-    size_t (*write)(Stream* stream, const void* buffer, size_t size);
-    void (*resetReadPosition)(Stream* stream);
-    void (*resetWritePosition)(Stream* stream);
-  };
-  
-  const VTable* vtable;  // Pointer to virtual function table
-  
+class Stream {
+public:
   /**
-    * @brief Check if the end of stream has been reached
-    * 
-    * @return true if at end of stream
+    * @brief Virtual destructor
     */
-  bool eof() const { return vtable->eof(this); }
-  
-  /**
-    * @brief Close the stream and free resources
-    * 
-    * This method must be called before destruction to properly clean up
-    * resources. The stream is not usable after calling close().
-    */
-  void close() { vtable->close(this); }
-  
-  /**
-    * @brief Get stream flags
-    * 
-    * @return uint32_t Flags
-    */
-  uint32_t getFlags() const { return flags; }
-  
-  /**
-    * @brief Get the current read position information
-    * 
-    * @return const StreamPosition& Read position
-    */
-  const StreamPosition& getReadPosition() const { return readPosition; }
-  
-  /**
-    * @brief Get the current write position information
-    * 
-    * @return const StreamPosition& Write position
-    */
-  const StreamPosition& getWritePosition() const { return writePosition; }
-  
-  /**
-    * @brief Get the current position information (for backward compatibility)
-    * 
-    * @return const StreamPosition& Current read position
-    */
-  const StreamPosition& getPosition() const { return readPosition; }
-  
-  /**
-    * @brief Reset the read position to the beginning of the stream
-    * 
-    * This also clears the EOF flag.
-    */
-  void resetReadPosition() { vtable->resetReadPosition(this); }
-  
-  /**
-    * @brief Reset the write position to the beginning of the stream
-    */
-  void resetWritePosition() { vtable->resetWritePosition(this); }
-  
-  /**
-    * @brief Check if the stream is readable
-    * 
-    * @return true if readable
-    */
-  bool isReadable() const { return (flags & StreamFlags::Read) != 0; }
-  
-  /**
-    * @brief Check if the stream is writable
-    * 
-    * @return true if writable
-    */
-  bool isWritable() const { return (flags & StreamFlags::Write) != 0; }
+  virtual ~Stream() = default;
   
   /**
     * @brief Read data from the stream
-    * 
-    * @param buffer Buffer to read into (must not be null)
-    * @param size Size to read (must be > 0)
-    * @return size_t Bytes read (0 on EOF or error)
+    * @return Number of bytes read, or 0 on EOF/error
     */
-  size_t read(void* buffer, size_t size) { 
-      return vtable->read(this, buffer, size); 
-  }
+  virtual size_t read(void* buffer, size_t size) = 0;
   
   /**
     * @brief Write data to the stream
-    * 
-    * @param buffer Buffer to write from (must not be null)
-    * @param size Size to write (must be > 0)
-    * @return size_t Bytes written (0 on error)
+    * @return Number of bytes written, or 0 on error
     */
-  size_t write(const void* buffer, size_t size) { 
-      return vtable->write(this, buffer, size); 
-  }
+  virtual size_t write(const void* buffer, size_t size) = 0;
   
   /**
-    * @brief Read data of type T from the stream
-    * 
-    * @tparam T Type to read
-    * @param value Reference to store the value (must not be null)
-    * @return true if read successfully
+    * @brief Check if end of stream reached
+    */
+  virtual bool eof() const = 0;
+  
+  /**
+    * @brief Get current position in stream
+    */
+  virtual size_t tell() const = 0;
+  
+  /**
+    * @brief Seek to position in stream
+    * @return Result of operation
+    */
+  virtual Result seek(size_t position) = 0;
+  
+  /**
+    * @brief Close the stream
+    */
+  virtual void close() = 0;
+  
+  /**
+    * @brief Read a single typed value
     */
   template<typename T>
-  bool readType(T* value) {
-      return value ? (read(value, sizeof(T)) == sizeof(T)) : false;
+  Result readValue(T& value) {
+      if (read(&value, sizeof(T)) == sizeof(T)) {
+          return Result::Success;
+      }
+      return Result::IoError;
   }
   
   /**
-    * @brief Write data of type T to the stream
-    * 
-    * @tparam T Type to write
-    * @param value Value to write
-    * @return true if written successfully
+    * @brief Write a single typed value
     */
   template<typename T>
-  bool writeType(const T& value) {
-      return write(&value, sizeof(T)) == sizeof(T);
+  Result writeValue(const T& value) {
+      if (write(&value, sizeof(T)) == sizeof(T)) {
+          return Result::Success;
+      }
+      return Result::IoError;
   }
-  
-  /**
-    * @brief Read a line of text from the stream
-    * 
-    * @param maxSize Maximum size to read
-    * @return std::string The line read (empty string on EOF)
-    */
-  std::string readLine(size_t maxSize = 1024);
-  
-  /**
-    * @brief Write a string to the stream
-    * 
-    * @param str String to write (must not be null)
-    * @return size_t Bytes written (0 on error)
-    */
-  size_t writeString(const char* str) {
-      if (!str) return 0;
-      return write(str, strlen(str));
-  }
-  
-  /**
-    * @brief Helper to update position information after read/write
-    * 
-    * @param buffer Buffer that was read or written (must not be null)
-    * @param size Size of data (must be > 0)
-    * @param isRead Whether this was a read (true) or write (false) operation
-    */
-  void updatePosition(const char* buffer, size_t size, bool isRead);
 };
 
 /**
 * @brief File-based stream
 */
-struct FileStream : public Stream {
-  FILE* fp = nullptr;        // File pointer (not owned)
-  size_t readOffset = 0;     // Current read offset
-  size_t writeOffset = 0;    // Current write offset
-  const Context* ctx = nullptr;  // Library context (not owned)
+class FileStream : public Stream {
+public:
+  /**
+    * @brief Create a file stream
+    */
+  FileStream(const char* filename, StreamMode mode);
   
   /**
-    * @brief Open a file stream
-    * 
-    * @param filename Filename (must not be null)
-    * @param mode Mode ("r", "w", "a", "r+", "w+", "a+") (must not be null)
-    * @param context Library context (must not be null)
-    * @return FileStream The opened stream
-    * 
-    * For exact byte control, use binary mode ("rb", "wb", etc.)
+    * @brief Destructor
     */
-  static FileStream open(
-      const char* filename,
-      const char* mode,
-      const Context* context);
+  ~FileStream();
   
-  /**
-    * @brief Close the file
-    * 
-    * @param stream Stream to close (must not be null)
-    */
-  static void closeFile(Stream* stream);
+  // Stream implementation
+  size_t read(void* buffer, size_t size) override;
+  size_t write(const void* buffer, size_t size) override;
+  bool eof() const override;
+  size_t tell() const override;
+  Result seek(size_t position) override;
+  void close() override;
   
-  /**
-    * @brief Check for EOF
-    */
-  static bool fileEof(const Stream* stream);
-  
-  /**
-    * @brief Read implementation
-    */
-  static size_t fileRead(Stream* stream, void* buffer, size_t size);
-  
-  /**
-    * @brief Write implementation
-    */
-  static size_t fileWrite(Stream* stream, const void* buffer, size_t size);
-  
-  /**
-    * @brief Reset read position
-    */
-  static void fileResetReadPos(Stream* stream);
-  
-  /**
-    * @brief Reset write position
-    */
-  static void fileResetWritePos(Stream* stream);
-  
-  // Static VTable for file operations
-  static const VTable FILE_VTABLE;
+private:
+  void* handle = nullptr;  ///< File handle (opaque)
 };
 
 /**
 * @brief Memory-based stream
+* 
+* Provides a stream interface over a memory buffer.
+* If not provided, the buffer is allocated and owned by the stream.
 */
-struct MemoryStream : public Stream {
-  uint8_t* buffer = nullptr;  // Memory buffer (not owned by default)
-  size_t size = 0;            // Buffer capacity
-  size_t readOffset = 0;      // Current read offset
-  size_t writeOffset = 0;     // Current write offset (also represents valid data size)
-  bool ownsBuffer = false;    // Whether the buffer is owned by this stream
-  const Context* ctx = nullptr;    // Library context (not owned)
-  
+class MemoryStream : public Stream {
+public:
   /**
     * @brief Create a memory stream
-    * 
-    * @param buffer Buffer (if null, a new buffer is allocated and owned)
-    * @param size Buffer capacity
-    * @param streamFlags Flags (Read, Write, etc.)
-    * @param context Library context (must not be null)
-    * @return MemoryStream The created stream
-    * 
-    * If buffer is provided, it must remain valid for the lifetime of the stream
-    * or until close() is called.
+    * If buffer is nullptr, one will be allocated of 'size' bytes
     */
-  static MemoryStream create(
-      void* buffer,
-      size_t size,
-      uint32_t streamFlags,
-      const Context* context);
+  MemoryStream(void* buffer, size_t size, StreamMode mode);
   
   /**
-    * @brief Close the memory stream
-    * 
-    * @param stream Stream to close (must not be null)
-    * 
-    * If the stream owns the buffer, it will be freed.
+    * @brief Destructor
     */
-  static void closeMemory(Stream* stream);
+  ~MemoryStream();
+  
+  // Stream implementation
+  size_t read(void* buffer, size_t size) override;
+  size_t write(const void* buffer, size_t size) override;
+  bool eof() const override;
+  size_t tell() const override;
+  Result seek(size_t position) override;
+  void close() override;
   
   /**
-    * @brief Check for EOF
+    * @brief Get the underlying buffer
     */
-  static bool memoryEof(const Stream* stream);
+  const void* getBuffer() const { return buffer; }
   
   /**
-    * @brief Read implementation
+    * @brief Get the current size of valid data
     */
-  static size_t memoryRead(Stream* stream, void* buffer, size_t size);
+  size_t getSize() const { return data_size; }
   
-  /**
-    * @brief Write implementation
-    */
-  static size_t memoryWrite(Stream* stream, const void* buffer, size_t size);
-  
-  /**
-    * @brief Reset read position
-    */
-  static void memoryResetReadPos(Stream* stream);
-  
-  /**
-    * @brief Reset write position
-    */
-  static void memoryResetWritePos(Stream* stream);
-  
-  /**
-    * @brief Get the buffer
-    * 
-    * @return void* Buffer pointer or nullptr if not initialized
-    */
-  void* getBuffer() const { return buffer; }
-  
-  /**
-    * @brief Get the buffer capacity
-    * 
-    * @return size_t Total capacity in bytes
-    */
-  size_t getSize() const { return size; }
-  
-  /**
-    * @brief Get the current write offset (also represents valid data size)
-    * 
-    * @return size_t Current number of valid bytes in the buffer
-    */
-  size_t getWriteOffset() const { return writeOffset; }
-  
-  /**
-    * @brief Get the current read offset
-    * 
-    * @return size_t Current read position in bytes
-    */
-  size_t getReadOffset() const { return readOffset; }
-  
-  // Static VTable for memory operations
-  static const VTable MEMORY_VTABLE;
+private:
+  u8* buffer = nullptr;    ///< Memory buffer
+  size_t capacity = 0;     ///< Buffer capacity
+  size_t position = 0;     ///< Current position
+  size_t data_size = 0;    ///< Valid data size
+  bool owns_buffer = false;///< Whether we own the buffer
+  StreamMode mode;         ///< Stream mode
 };
 
 } // namespace coil

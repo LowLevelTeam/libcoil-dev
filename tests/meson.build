@@ -1,6 +1,6 @@
 # Test configuration
 test_sources = [
-  'test_version.cpp',
+  'test_coil.cpp',
   'test_log.cpp',
   'test_err.cpp',
   'test_stream.cpp',
