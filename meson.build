@@ -14,11 +14,10 @@ incdir = include_directories('include')
 # Library sources
 coil_src = [
   'src/coil.cpp',
-  'src/log.cpp',
   'src/err.cpp',
   'src/stream.cpp',
   'src/obj.cpp',
-#  'src/instr.cpp',
+  'src/instr.cpp',
 ]
 
 # Build the library with optimization flags

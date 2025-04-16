@@ -13,24 +13,24 @@ namespace coil {
 */
 enum class ValueType : u8 {
   // Integer types
-  I8,   ///< 8-bit signed integer
-  I16,  ///< 16-bit signed integer
-  I32,  ///< 32-bit signed integer
-  I64,  ///< 64-bit signed integer
+  I8 = 0,    ///< 8-bit signed integer
+  I16 = 1,   ///< 16-bit signed integer
+  I32 = 2,   ///< 32-bit signed integer
+  I64 = 3,   ///< 64-bit signed integer
   
   // Unsigned integer types
-  U8,   ///< 8-bit unsigned integer
-  U16,  ///< 16-bit unsigned integer
-  U32,  ///< 32-bit unsigned integer
-  U64,  ///< 64-bit unsigned integer
+  U8 = 4,    ///< 8-bit unsigned integer
+  U16 = 5,   ///< 16-bit unsigned integer
+  U32 = 6,   ///< 32-bit unsigned integer
+  U64 = 7,   ///< 64-bit unsigned integer
   
   // Floating point types
-  F32,  ///< 32-bit float
-  F64,  ///< 64-bit float
+  F32 = 8,   ///< 32-bit float
+  F64 = 9,   ///< 64-bit float
   
   // Special types
-  Ptr,  ///< Pointer type (platform width)
-  Void, ///< Void type
+  Ptr = 10,  ///< Pointer type (platform width)
+  Void = 11, ///< Void type
 };
 
 /**
@@ -38,12 +38,12 @@ enum class ValueType : u8 {
 */
 enum class InstrFlag0 : u8 {
   None = 0,
-  EQ,
-  NEQ,
-  GT,
-  GTE,
-  LT,
-  LTE,
+  EQ = 1,
+  NEQ = 2,
+  GT = 3,
+  GTE = 4,
+  LT = 5,
+  LTE = 6,
   /// TODO: Add more...
 };
 
@@ -62,50 +62,50 @@ enum class TypeModifier : u8 {
 */
 enum class Opcode : u8 {
   // Control flow
-  Nop = 0,  ///< No operation
-  Br,       ///< Branch (conditional jump)
-  Jump,     ///< Unconditional jump
-  Call,     ///< Call function
-  Ret,      ///< Return from function
+  Nop = 0,    ///< No operation
+  Br = 1,     ///< Branch (conditional jump)
+  Jump = 2,   ///< Unconditional jump
+  Call = 3,   ///< Call function
+  Ret = 4,    ///< Return from function
   
   // Memory ops
-  Load,     ///< Load from memory
-  Store,    ///< Store to memory
-  Push,     ///< Push onto stack
-  Pop,      ///< Pop from stack
+  Load = 5,   ///< Load from memory
+  Store = 6,  ///< Store to memory
+  Push = 7,   ///< Push onto stack
+  Pop = 8,    ///< Pop from stack
   
   // Arithmetic
-  Add,      ///< Addition
-  Sub,      ///< Subtraction
-  Mul,      ///< Multiplication
-  Div,      ///< Division
-  Rem,      ///< Remainder
-  Inc,      ///< Increment
-  Dec,      ///< Decrement
+  Add = 9,    ///< Addition
+  Sub = 10,   ///< Subtraction
+  Mul = 11,   ///< Multiplication
+  Div = 12,   ///< Division
+  Rem = 13,   ///< Remainder
+  Inc = 14,   ///< Increment
+  Dec = 15,   ///< Decrement
   
   // Bitwise
-  And,      ///< Bitwise AND
-  Or,       ///< Bitwise OR
-  Xor,      ///< Bitwise XOR
-  Not,      ///< Bitwise NOT
-  Shl,      ///< Shift left
-  Shr,      ///< Shift right (logical)
-  Sar,      ///< Shift arithmetic right
+  And = 16,   ///< Bitwise AND
+  Or = 17,    ///< Bitwise OR
+  Xor = 18,   ///< Bitwise XOR
+  Not = 19,   ///< Bitwise NOT
+  Shl = 20,   ///< Shift left
+  Shr = 21,   ///< Shift right (logical)
+  Sar = 22,   ///< Shift arithmetic right
   
   // Comparison
-  Cmp,      ///< Compare (sets flags)
-  Test,     ///< Test (sets flags)
+  Cmp = 23,   ///< Compare (sets flags)
+  Test = 24,  ///< Test (sets flags)
 };
 
 /**
 * @brief Operand types
 */
 enum class OperandType : u8 {
-  None,     ///< No operand
-  Reg,      ///< Register
-  Imm,      ///< Immediate value
-  Mem,      ///< Memory reference
-  Label,    ///< Label reference
+  None = 0,   ///< No operand
+  Reg = 1,    ///< Register
+  Imm = 2,    ///< Immediate value
+  Mem = 3,    ///< Memory reference
+  Label = 4,  ///< Label reference
 };
 
 /**
@@ -135,13 +135,13 @@ struct Operand {
   u8          modifiers; ///< Type modifiers (TypeModifier flags)
   
   union {
-      u32           reg;   ///< Register index
-      ImmediateValue imm;  ///< Immediate value
-      struct {
-          u32 base;        ///< Base register
-          i32 offset;      ///< Memory offset
-      } mem;               ///< Memory reference
-      u32          label;  ///< Label index
+    u32           reg;   ///< Register index
+    ImmediateValue imm;  ///< Immediate value
+    struct {
+      u32 base;        ///< Base register
+      i32 offset;      ///< Memory offset
+    } mem;               ///< Memory reference
+    u32          label;  ///< Label index
   };
 };
 

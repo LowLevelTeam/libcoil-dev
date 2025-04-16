@@ -1,11 +1,10 @@
 # Test configuration
 test_sources = [
   'test_coil.cpp',
-  'test_log.cpp',
   'test_err.cpp',
   'test_stream.cpp',
   'test_obj.cpp',
-#  'test_instr.cpp',
+  'test_instr.cpp',
 ]
 
 # Include catch2-with-main

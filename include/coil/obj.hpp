@@ -14,22 +14,22 @@ namespace coil {
 * @brief Object file types
 */
 enum class ObjType : u16 {
-  None,          ///< No specific type
-  Relocatable,   ///< Relocatable object
-  Shared,        ///< Shared library
+  None = 0,          ///< No specific type
+  Relocatable = 1,   ///< Relocatable object
+  Shared = 2,        ///< Shared library
 };
 
 /**
 * @brief Section types
 */
 enum class SectionType : u32 {
-  None,          ///< No specific type
-  Code,          ///< COIL code
-  Data,          ///< Initialized data
-  Bss,           ///< Uninitialized data
-  SymTab,        ///< Symbol table
-  StrTab,        ///< String table
-  RelTable,      ///< Relocation table
+  None = 0,          ///< No specific type
+  Code = 1,          ///< COIL code
+  Data = 2,          ///< Initialized data
+  Bss = 3,           ///< Uninitialized data
+  SymTab = 4,        ///< Symbol table
+  StrTab = 5,        ///< String table
+  RelTable = 6,      ///< Relocation table
 };
 
 /**
@@ -63,30 +63,30 @@ inline bool operator&(SectionFlag a, SectionFlag b) {
 * @brief Symbol types
 */
 enum class SymbolType : u8 {
-  None,          ///< No specific type
-  Object,        ///< Data object
-  Function,      ///< Function
-  Section,       ///< Section
-  File,          ///< File
+  None = 0,          ///< No specific type
+  Object = 1,        ///< Data object
+  Function = 2,      ///< Function
+  Section = 3,       ///< Section
+  File = 4,          ///< File
 };
 
 /**
 * @brief Symbol binding
 */
 enum class SymbolBinding : u8 {
-  Local,         ///< Local symbol
-  Global,        ///< Global symbol
-  Weak,          ///< Weak symbol
+  Local = 0,         ///< Local symbol
+  Global = 1,        ///< Global symbol
+  Weak = 2,          ///< Weak symbol
 };
 
 /**
 * @brief Relocation types
 */
 enum class RelocationType : u8 {
-  None,          ///< No specific type
-  Abs32,         ///< 32-bit absolute
-  Abs64,         ///< 64-bit absolute
-  Rel32,         ///< 32-bit relative
+  None = 0,          ///< No specific type
+  Abs32 = 1,         ///< 32-bit absolute
+  Abs64 = 2,         ///< 64-bit absolute
+  Rel32 = 3,         ///< 32-bit relative
 };
 
 /**

@@ -6,6 +6,7 @@
 #pragma once
 #include "coil/types.hpp"
 #include <cstdarg>
+#include <cstddef>
 
 namespace coil {
 
