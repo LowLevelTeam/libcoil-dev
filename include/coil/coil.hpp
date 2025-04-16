@@ -30,9 +30,6 @@ Version getVersion();
 struct Configuration {
     bool debug_enabled;     ///< Whether debug is enabled
     bool asserts_enabled;   ///< Whether asserts are enabled
-    int max_sections;       ///< Maximum number of sections
-    int max_symbols;        ///< Maximum number of symbols
-    int max_relocations;    ///< Maximum number of relocations
 };
 
 /**

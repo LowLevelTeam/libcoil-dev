@@ -27,11 +27,8 @@ static const Configuration LIBRARY_CONFIG = {
   false,              // asserts_enabled
 #else
   true,               // debug_enabled
-  true,               // asserts_enabled
+  true                // asserts_enabled
 #endif
-  MAX_SECTIONS,       // max_sections
-  MAX_SYMBOLS,        // max_symbols
-  MAX_RELOCATIONS     // max_relocations
 };
 
 // Library initialization state
