@@ -45,39 +45,7 @@ ninja
 
 ### Basic Usage
 
-```cpp
-#include "coil/coil.hpp"
-#include "coil/obj.hpp"
-#include "coil/stream.hpp"
-#include "coil/err.hpp"
-
-int main() {
-    // Initialize the library
-    coil::initialize();
-    
-    // Create an object file
-    coil::Object obj;
-    obj.init(coil::ObjType::Relocatable);
-    
-    // Add a code section
-    const uint8_t code[] = { 0x01, 0x02, 0x03, 0x04 };
-    obj.addSection(".text", coil::SectionType::ProgBits, 
-                  coil::SectionFlag::Code | coil::SectionFlag::Alloc, 
-                  code, sizeof(code));
-    
-    // Add a symbol
-    obj.addSymbol("main", 0, 1, coil::SymbolType::Func, coil::SymbolBinding::Global);
-    
-    // Save to file
-    coil::FileStream fs("output.obj", coil::StreamMode::Write);
-    obj.save(fs);
-    
-    // Clean up
-    coil::shutdown();
-    
-    return 0;
-}
-```
+TODO
 
 ## License
 

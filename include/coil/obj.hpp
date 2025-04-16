@@ -30,7 +30,7 @@ namespace coil {
   */
   enum class SectionType : u8 {
     Null = 0,         ///< Null section
-    ProgBits = 1,     ///< Program space with data
+    ProgBits = 1,     ///< Progam space with data
     SymTab = 2,       ///< Symbol table
     StrTab = 3,       ///< String table
     RelTab = 4,       ///< Relocation entries
@@ -44,12 +44,13 @@ namespace coil {
   enum class SectionFlag : u16 {
     None = 0,          ///< No flags
     Write = 1 << 0,    ///< Writable
-    Code = 1 << 1,     ///< Executable code
+    Code = 1 << 1,     ///< Compile this section as COIL
     Merge = 1 << 2,    ///< Might be merged
     Alloc = 1 << 3,    ///< Occupies memory during execution
     TLS = 1 << 4       ///< Thread-local storage
   };
 
+  // This is why people hate C++
   /**
   * @brief Bitwise OR operator for section flags
   */
@@ -104,23 +105,21 @@ namespace coil {
   * @brief Section header
   */
   struct SectionHeader {
-    u64 name_offset;      ///< Offset into string table for name
-    u64 size;             ///< Section size in bytes
-    u32 reserved;         ///< Reserved
-    u16 flags;            ///< Section flags
-    u8 type;              ///< Section type
-    u8 reserved1;         ///< Reserved
+    u64 name = 0;     ///< Offset into string table for name
+    u64 size = 0;             ///< Section size in bytes
+    u16 flags = 0;            ///< Section flags
+    u8 type = 0;              ///< Section type
   };
 
   /**
   * @brief Symbol table entry
   */
   struct Symbol {
-    u64 name;             ///< Symbol name (string table offset)
-    u32 value;            ///< Symbol value
-    u16 section_index;    ///< Section index
-    u8 type;              ///< Type information
-    u8 binding;           ///< Binding information
+    u64 name = 0;             ///< Symbol name (string table offset)
+    u32 value = 0;            ///< Symbol value
+    u16 section_index = 0;    ///< Section index
+    u8 type = 0;              ///< Type information
+    u8 binding = 0;           ///< Binding information
   };
   
   /**
@@ -128,7 +127,55 @@ namespace coil {
   */
   struct Section {
     SectionHeader header;
+    
+    // Unionised vectors, maybe the worst thing to exist
+    // I am tempted to just switch it to pointers and utilize malloc
+    union {
     std::vector<u8> data;
+    std::vector<Symbol> symbols;
+    };
+
+    explicit Section(SectionHeader info) : header(info) {
+      if (info.type == (u8)SectionType::SymTab) {
+        new (&symbols) std::vector<Symbol>();
+      } else {
+        new (&data) std::vector<u8>();
+      }
+    }
+
+    // DO NOT USE THIS
+    // THIS IS FOR RESIZE IN LOADING OF SECTIONs
+    // THIS COULD CAUSE ISSUES IN SYMBOL TABLE SECTIONS
+    // SERIOUSLY THIS FUNCTION IS REALLY INCREDIBLY DANGEROUS
+    Section() {
+      new (&data) std::vector<u8>();
+    }
+
+    ~Section() {
+      if (header.type == (u8)SectionType::SymTab) {
+        symbols.~vector<Symbol>();
+      } else {
+        data.~vector<u8>();
+      }
+    }
+
+    // Copy constructor
+    Section(const Section& other) : header(other.header) {
+      if (header.type == (u8)SectionType::SymTab) {
+        new (&symbols) std::vector<Symbol>(other.symbols);
+      } else {
+        new (&data) std::vector<u8>(other.data);
+      }
+    }
+
+    // Move constructor
+    Section(Section&& other) noexcept : header(std::move(other.header)) {
+      if (header.type == (u8)SectionType::SymTab) {
+        new (&symbols) std::vector<Symbol>(std::move(other.symbols));
+      } else {
+        new (&data) std::vector<u8>(std::move(other.data));
+      }
+    }
   };
 
   /**
@@ -137,18 +184,11 @@ namespace coil {
   * Represents a COIL object file with sections, symbols, and a string table.
   */
   class Object {
-  public:
     /**
     * @brief Create an empty object
     */
-    Object();
-    
-    /**
-    * @brief Initialize object with specified type
-    * @param type The object type (relocatable, executable, etc)
-    */
-    void init();
-    
+    Object() = default;
+
     // -------------------------------- Stream Functionality -------------------------------- //
 
     /**
@@ -163,109 +203,68 @@ namespace coil {
 
     // -------------------------------- Section Functionality -------------------------------- //
     /**
-    * @brief Add a section to the object
-    * @param name Section name
-    * @param type Section type
-    * @param flags Section flags
-    * @param data Section data
-    * @param size Size of section data
-    * @return Index of added section (0 on error)
-    */
-    u16 addSection(const char* name, SectionType type, SectionFlag flags, 
-                  const void* data, size_t size);
-    
-    /**
     * @brief Get a section by name (0 on error)
     */
-    u16 getSectionIndex(const char* name, size_t namelen);
-    
-    /**
-    * @brief Get a section by name (0 on error)
-    */
-    u16 getSectionIndex(const char* name);
+    u16 getSectionIndex(const char *name, size_t namelen);
 
     /**
     * @brief Get a section by index
-    * indices start at 1 as 0 is used as an error code
+    * indicies start at 1 as 0 is used as an error code
     */
-    Section* getSection(u16 index);
-    
+    Section* getSection(u16 index) { 
+      if ((size_t)(index - 1) > this->sections.size()) { return nullptr; } // out of bounds
+      return this->sections.data() + (index - 1); 
+    }
+
     /**
-    * @brief Get a const section by index
+    * @brief Put a section
+    * data can be a nullptr if no data is needed or the section should be created empty
     */
-    const Section* getSection(u16 index) const;
+    u16 putSection(u64 section_name, u16 flags, u8 type, u64 size, const u8 *data, u64 datasize);
+    u16 putSection(const SectionHeader& info, const u8 *data, u64 datasize);
 
     // -------------------------------- Symbol Table Functionality -------------------------------- //
     /**
-    * @brief Add a symbol to the symbol table
-    * @param name Symbol name
-    * @param value Symbol value
-    * @param section_index Index of section
-    * @param type Symbol type
-    * @param binding Symbol binding
-    * @return Index of added symbol (0 on error)
+    * @brief Get a section by name (0 on error)
     */
-    u16 addSymbol(const char* name, u32 value, u16 section_index, 
-                 SymbolType type, SymbolBinding binding);
-    
-    /**
-    * @brief Get a symbol by name (0 on error)
-    */
-    u16 getSymbolIndex(const char* name, size_t namelen);
-    
-    /**
-    * @brief Get a symbol by name (0 on error)
-    */
-    u16 getSymbolIndex(const char* name);
+    u16 getSymbolIndex(const char *name, size_t namelen);
 
     /**
     * @brief Get a symbol by index
-    * indices start at 1 as 0 is used as an error code
+    * indicies start at 1 as 0 is used as an error code
     */
-    Symbol* getSymbol(u16 index);
-    
+    Symbol* getSymbol(u16 index) { 
+      if (!symtab) { return nullptr; } // symbol table not initalized
+      if ((size_t)(index - 1) > symtab->symbols.size()) { return nullptr; } // out of bounds
+      return symtab->symbols.data() + (index - 1);
+    }
+
     /**
-    * @brief Get a const symbol by index
+    * @brief Put a symbol in the symbol table
     */
-    const Symbol* getSymbol(u16 index) const;
+    u16 putSymbol(u64 name, u32 value, u16 section_index, u8 type, u8 binding);
+    u16 putSymbol(const Symbol& symbol);
 
     // -------------------------------- String Table Functionality -------------------------------- //
     /**
-    * @brief Add a string to the string table
-    * @param str String to add
-    * @return Offset into string table (0 on error)
+    * @brief get a string at the specified offset in the string table
     */
-    u64 addString(const char* str);
-    
-    /**
-    * @brief Get a string from the string table
-    * @param offset Offset into string table
-    * @return Pointer to string (null on error)
-    */
-    const char* getString(u64 offset) const;
+    const char *getString(u64 offset) {
+      if (!strings) return nullptr; // string table not initalized
+      if (strtab->symbols.size() < offset) { return nullptr; } // string table too small
+      return strings + offset;
+    }
 
-  private:
     /**
-    * @brief Initialize string table
+    * @brief put string into the string table
     */
-    Result initStringTable();
-    
-    /**
-    * @brief Initialize symbol table
-    */
-    Result initSymbolTable();
-    
-    /**
-    * @brief Convert raw symbol data to structured symbols
-    */
-    void setupSymbolTable();
-    
+    Result putString(const char *str);
+
+    // -------------------------------- Members -------------------------------- //
     ObjectHeader header;
     std::vector<Section> sections;
-    Section* strtab = nullptr;    // Shortcut to string table
-    Symbol* symbols = nullptr;    // Pointer to symbol array
-    size_t symbol_count = 0;      // Number of symbols
-    size_t symbol_capacity = 0;   // Symbol array capacity
-    std::vector<u8> symbol_data;  // Raw symbol data
+    Section *strtab = nullptr;
+    Section *symtab = nullptr;
+    const char *strings = nullptr; // strab->data.data() shorthand
   };
 }; // namespace coil
