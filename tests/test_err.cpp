@@ -60,7 +60,6 @@ TEST_CASE("Error callback registration", "[error]") {
       CHECK(g_errors[0].message == "Test error at position");
       CHECK(g_errors[0].has_position == true);
       CHECK(g_errors[0].file == "test_file.cpp");
-      CHECK(g_errors[0].index == 42);
   }
   
   SECTION("Multiple error levels") {

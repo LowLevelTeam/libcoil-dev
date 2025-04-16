@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstdarg>
 #include <cstring>
+#include <cstdlib>
 
 namespace coil {
 
@@ -16,27 +17,24 @@ namespace {
                             const ErrorPosition* position, void* user_data) {
 
       (void)user_data;
-      const char* level_str = "Unknown";
-      switch (level) {
-          case ErrorLevel::Info:
-              level_str = "Info";
-              break;
-          case ErrorLevel::Warning:
-              level_str = "Warning";
-              break;
-          case ErrorLevel::Error:
-              level_str = "Error";
-              break;
-          case ErrorLevel::Fatal:
-              level_str = "Fatal";
-              break;
-      }
+      const char* level_str = errorLevelToString(level);
       
       if (position) {
-          fprintf(stderr, "COIL %s: %s:%zu: %s\n",
-                  level_str, position->file, position->index, message);
+          if (position->line > 0) {
+              fprintf(stderr, "COIL %s: %s:%zu: %s\n",
+                      level_str, position->file, position->line, message);
+          } else {
+              fprintf(stderr, "COIL %s: %s:%zu: %s\n",
+                      level_str, position->file, position->index, message);
+          }
       } else {
           fprintf(stderr, "COIL %s: %s\n", level_str, message);
+      }
+      
+      // Abort on fatal errors
+      if (level == ErrorLevel::Fatal) {
+          fprintf(stderr, "Fatal error: aborting\n");
+          abort();
       }
   }
   
@@ -59,6 +57,13 @@ void setErrorCallback(ErrorCallback callback, void* user_data) {
   }
 }
 
+ErrorCallback getErrorCallback(void** user_data) {
+  if (user_data) {
+      *user_data = g_user_data;
+  }
+  return g_error_callback;
+}
+
 void reportErrorV(ErrorLevel level, const char* format, va_list args) {
   // Format the error message
   vsnprintf(g_error_buffer, ERROR_BUFFER_SIZE, format, args);
@@ -66,6 +71,16 @@ void reportErrorV(ErrorLevel level, const char* format, va_list args) {
   
   // Call the error callback with no position information
   g_error_callback(level, g_error_buffer, nullptr, g_user_data);
+}
+
+void reportErrorWithPosV(ErrorLevel level, const ErrorPosition* position,
+                        const char* format, va_list args) {
+  // Format the error message
+  vsnprintf(g_error_buffer, ERROR_BUFFER_SIZE, format, args);
+  g_error_buffer[ERROR_BUFFER_SIZE - 1] = '\0';
+  
+  // Call the error callback with position information
+  g_error_callback(level, g_error_buffer, position, g_user_data);
 }
 
 void reportError(ErrorLevel level, const char* format, ...) {
@@ -77,16 +92,10 @@ void reportError(ErrorLevel level, const char* format, ...) {
 
 void reportErrorWithPos(ErrorLevel level, const ErrorPosition* position,
                       const char* format, ...) {
-  // Format the error message
   va_list args;
   va_start(args, format);
-  vsnprintf(g_error_buffer, ERROR_BUFFER_SIZE, format, args);
+  reportErrorWithPosV(level, position, format, args);
   va_end(args);
-  
-  g_error_buffer[ERROR_BUFFER_SIZE - 1] = '\0';
-  
-  // Call the error callback with position information
-  g_error_callback(level, g_error_buffer, position, g_user_data);
 }
 
 Result makeError(Result code, ErrorLevel level, const char* format, ...) {
@@ -116,6 +125,21 @@ const char* resultToString(Result result) {
           return "Not Supported";
       default:
           return "Unknown Error";
+  }
+}
+
+const char* errorLevelToString(ErrorLevel level) {
+  switch (level) {
+      case ErrorLevel::Info:
+          return "Info";
+      case ErrorLevel::Warning:
+          return "Warning";
+      case ErrorLevel::Error:
+          return "Error";
+      case ErrorLevel::Fatal:
+          return "Fatal";
+      default:
+          return "Unknown";
   }
 }
 

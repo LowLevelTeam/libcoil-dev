@@ -157,6 +157,8 @@ TEST_CASE("File Stream Operations", "[stream]") {
           for (int& i : ints) {
               CHECK(stream.readValue(i) == coil::Result::Success);
           }
+          int sixth;
+          CHECK(stream.readValue(sixth) == coil::Result::IoError); // reading beyond causes EOF (Maybe change this)
           
           CHECK(ints[0] == 1);
           CHECK(ints[1] == 2);

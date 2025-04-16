@@ -158,10 +158,17 @@ struct Relocation {
   i32 addend;         ///< Addend value
 };
 
+// Forward declaration for SymbolTable and RelocationTable
+struct SymbolTableEntry;
+struct RelocationTableEntry;
+
 /**
 * @brief Maximum sections in an object
 */
 constexpr size_t MAX_SECTIONS = 16;
+constexpr size_t MAX_SYMBOLS = 1024;
+constexpr size_t MAX_RELOCATIONS = 1024;
+constexpr size_t INITIAL_STRTAB_SIZE = 1024;
 
 /**
 * @brief Object file
@@ -170,6 +177,11 @@ constexpr size_t MAX_SECTIONS = 16;
 */
 class Object {
 public:
+  /**
+   * @brief Initialize object with default values
+   */
+  Object();
+
   /**
     * @brief Create a new object file
     */
@@ -183,7 +195,7 @@ public:
   /**
     * @brief Save the object to a stream
     */
-  Result save(Stream& stream) const;
+  Result save(Stream& stream);
   
   /**
     * @brief Add a section to the object
@@ -228,11 +240,59 @@ public:
     */
   u16 getSectionCount() const { return section_count; }
   
+  /**
+   * @brief Destructor to clean up temporary buffers
+   */
+  ~Object();
+
 private:
+  /**
+   * @brief Add string to string table and return offset
+   */
+  u32 addStringToTable(const char* str);
+
+  /**
+   * @brief Find or create a section of the given type
+   * @param name Section name
+   * @param type Section type
+   * @param flags Section flags
+   * @return Index of the section, or MAX_SECTIONS if not found/created
+   */
+  u16 findOrCreateSection(const char* name, SectionType type, SectionFlag flags);
+
+  /**
+   * @brief Finalize symbol and string tables for saving
+   */
+  Result finalizeTablesForSave();
+
+  // Object properties
   u16 type;               ///< Object type
   u16 section_count;      ///< Number of sections
   u16 str_table_index;    ///< String table index
+  u16 sym_table_index;    ///< Symbol table index
   Section sections[MAX_SECTIONS]; ///< Sections
+
+  // Working storage for building symbol and string tables
+  struct SymbolEntry {
+    Symbol symbol;
+    const char* name;  // name pointer (not owned)
+  };
+
+  struct RelocationEntry {
+    u16 section_index;
+    Relocation relocation;
+  };
+
+  // These vectors will store symbols and relocations during object construction
+  SymbolEntry symbols[MAX_SYMBOLS];
+  u32 symbol_count;
+  
+  RelocationEntry relocations[MAX_RELOCATIONS];
+  u32 relocation_count;
+
+  // String table working buffer
+  char strtab_buffer[INITIAL_STRTAB_SIZE];
+  u32 strtab_size;
 };
 
 } // namespace coil

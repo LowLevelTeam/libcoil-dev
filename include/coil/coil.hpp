@@ -16,11 +16,41 @@ struct Version {
     int minor;           ///< Minor version
     int patch;           ///< Patch version
     const char* string;  ///< Version as string
+    const char* build;   ///< Build information
 };
 
 /**
  * @brief Get the library version
  */
 Version getVersion();
+
+/**
+ * @brief Library configuration information
+ */
+struct Configuration {
+    bool debug_enabled;     ///< Whether debug is enabled
+    bool asserts_enabled;   ///< Whether asserts are enabled
+    int max_sections;       ///< Maximum number of sections
+    int max_symbols;        ///< Maximum number of symbols
+    int max_relocations;    ///< Maximum number of relocations
+};
+
+/**
+ * @brief Get the library configuration
+ */
+Configuration getConfiguration();
+
+/**
+ * @brief Initialize the library
+ * Call this before using any other functions
+ * @return Result of initialization
+ */
+Result initialize();
+
+/**
+ * @brief Shutdown the library
+ * Call this when done using the library
+ */
+void shutdown();
 
 } // namespace coil

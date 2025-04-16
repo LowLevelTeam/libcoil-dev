@@ -117,8 +117,9 @@ Operand createImmOpInt(i64 value, ValueType type) {
           break;
       default:
           // Report error for incompatible types
-          reportError(ErrorLevel::Error, "Cannot create integer immediate for non-integer type %d", 
-                      static_cast<int>(type));
+          COIL_REPORT_ERROR(ErrorLevel::Error, 
+                     "Cannot create integer immediate for non-integer type %d", 
+                     static_cast<int>(type));
           break;
   }
   
@@ -142,8 +143,9 @@ Operand createImmOpFp(f64 value, ValueType type) {
           break;
       default:
           // Report error for incompatible types
-          reportError(ErrorLevel::Error, "Cannot create floating point immediate for non-float type %d", 
-                      static_cast<int>(type));
+          COIL_REPORT_ERROR(ErrorLevel::Error, 
+                     "Cannot create floating point immediate for non-float type %d", 
+                     static_cast<int>(type));
           break;
   }
   
@@ -180,7 +182,7 @@ InstructionBlock::InstructionBlock()
   if (instructions) {
       capacity = DEFAULT_CAPACITY;
   } else {
-      reportError(ErrorLevel::Error, "Failed to allocate memory for instruction block");
+      COIL_REPORT_ERROR(ErrorLevel::Error, "Failed to allocate memory for instruction block");
   }
 }
 
@@ -196,12 +198,19 @@ u32 InstructionBlock::addInstruction(const Instruction& instr) {
   // Check if we need to grow the array
   if (count >= capacity) {
       u32 new_capacity = static_cast<u32>(capacity * GROWTH_FACTOR) + 1;
+      
+      // Safety check for overflow
+      if (new_capacity < capacity) {
+          COIL_REPORT_ERROR(ErrorLevel::Error, "Instruction block capacity overflow");
+          return count;
+      }
+      
       Instruction* new_instructions = static_cast<Instruction*>(
           realloc(instructions, new_capacity * sizeof(Instruction))
       );
       
       if (!new_instructions) {
-          reportError(ErrorLevel::Error, "Failed to resize instruction block");
+          COIL_REPORT_ERROR(ErrorLevel::Error, "Failed to resize instruction block");
           return count;  // Return current count, indicating failure
       }
       
