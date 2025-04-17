@@ -212,7 +212,7 @@ namespace coil {
     * indicies start at 1 as 0 is used as an error code
     */
     Section* getSection(u16 index) { 
-      if ((size_t)(index - 1) > this->sections.size()) { return nullptr; } // out of bounds
+      if ((size_t)index  > this->sections.size()) { return nullptr; } // out of bounds
       return this->sections.data() + (index - 1); 
     }
 
@@ -233,7 +233,7 @@ namespace coil {
     * @brief Get a symbol by index
     * indicies start at 1 as 0 is used as an error code
     */
-    Symbol* getSymbol(u16 index) { 
+    Symbol* getSymbol(u16 index) {
       if (!symtab) { return nullptr; } // symbol table not initalized
       if ((size_t)(index - 1) > symtab->symbols.size()) { return nullptr; } // out of bounds
       return symtab->symbols.data() + (index - 1);
@@ -250,7 +250,11 @@ namespace coil {
     * @brief get a string at the specified offset in the string table
     */
     const char *getString(u64 offset) {
-      if (!strings) return nullptr; // string table not initalized
+      if (!strings) {
+        if (strtab) {
+          strings = (const char*)this->strtab->data.data();
+        } else return nullptr; // string table not initalized
+      }
       if (strtab->symbols.size() < offset) { return nullptr; } // string table too small
       return strings + offset;
     }

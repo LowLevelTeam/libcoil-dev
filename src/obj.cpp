@@ -94,6 +94,7 @@ namespace coil {
             ErrorLevel::Error,
             "The object file loaded contains two string tables\n"
           );
+          return Result::InvalidFormat;
         } else {
           this->strtab = this->sections.data() + i;
           this->strings = (const char*)this->strtab->data.data();
@@ -104,6 +105,7 @@ namespace coil {
             ErrorLevel::Error,
             "The object file loaded contains two symbol tables\n"
           );
+          return Result::InvalidFormat;
         } else {
           this->symtab = this->sections.data() + i;
         }
@@ -168,6 +170,29 @@ namespace coil {
 
     // Push section
     sections.push_back(std::move(section));
+
+    if (info.type == (u8)SectionType::StrTab) {
+      if (this->strtab) {
+        reportError(
+          ErrorLevel::Error,
+          "Creating object with two string tables\n"
+        );
+        return 0;
+      } else {
+        this->strtab = getSection(sections.size());
+        getString(0); // initalizes strings member
+      }
+    } else if (info.type == (u8)SectionType::SymTab) {
+      if (this->symtab) {
+        reportError(
+          ErrorLevel::Error,
+          "Creating object with two string tables\n"
+        );
+        return 0;
+      } else {
+        this->symtab = getSection(sections.size());
+      }
+    }
 
     // return index of section
     return sections.size(); // indicies are incremented by one as zero is taken for errors
