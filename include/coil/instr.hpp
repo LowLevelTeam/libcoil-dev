@@ -98,9 +98,9 @@ enum class Opcode : u8 {
   Mul = 0x32,   // Multiplication
   Div = 0x33,   // Division
   Rem = 0x34,   // Remainder
-  Inc = 0x34,   // Increment
-  Dec = 0x35,   // Decrement
-  Neg = 0x36,   // Negate a value
+  Inc = 0x35,   // Increment
+  Dec = 0x36,   // Decrement
+  Neg = 0x37,   // Negate a value
   
   // Bitwise
   And = 0x50,   // Bitwise AND
