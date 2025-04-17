@@ -270,8 +270,20 @@ public:
     }
     
     m_isAtEof = false;
+    
+    // First seek the get position
     m_file.seekg(offset, dir);
-    m_file.seekp(offset, dir);
+    
+    // For non-current seeks, or to sync positions, update put position
+    if (origin != SeekOrigin::Current) {
+      m_file.seekp(offset, dir);
+    } else {
+      // For current-relative seeks, sync the put position to match get position
+      auto newPos = m_file.tellg();
+      if (newPos >= 0) {
+        m_file.seekp(newPos);
+      }
+    }
     
     if (!m_file) {
       throw IOException("Failed to seek to offset " + std::to_string(offset));
