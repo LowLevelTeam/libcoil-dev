@@ -11,7 +11,9 @@
 #include "coil/types.hpp"
 #include "coil/stream.hpp"
 #include <vector>
+#include <string>
 #include <cstring>
+#include <memory>
 
 namespace coil {
   /**
@@ -50,7 +52,6 @@ namespace coil {
     TLS = 1 << 4       ///< Thread-local storage
   };
 
-  // This is why people hate C++
   /**
   * @brief Bitwise OR operator for section flags
   */
@@ -97,8 +98,6 @@ namespace coil {
     u16 version = COIL_VERSION; ///< Format version
     u16 section_count = 0;      ///< Section Count
     u64 file_size = 0;          ///< Complete object size
-
-    ObjectHeader() = default;
   };
 
   /**
@@ -106,9 +105,9 @@ namespace coil {
   */
   struct SectionHeader {
     u64 name = 0;     ///< Offset into string table for name
-    u64 size = 0;             ///< Section size in bytes
-    u16 flags = 0;            ///< Section flags
-    u8 type = 0;              ///< Section type
+    u64 size = 0;     ///< Section size in bytes
+    u16 flags = 0;    ///< Section flags
+    u8 type = 0;      ///< Section type
   };
 
   /**
@@ -122,61 +121,170 @@ namespace coil {
     u8 binding = 0;           ///< Binding information
   };
   
+  // Forward declaration of section types
+  class BaseSection;
+  class DataSection;
+  class SymbolSection;
+
   /**
-  * @brief Section data container
+  * @brief Base section class - abstract type for section polymorphism
   */
-  struct Section {
-    SectionHeader header;
+  class BaseSection {
+  public:
+    explicit BaseSection(const SectionHeader& header);
+    virtual ~BaseSection() = default;
     
-    // Unionised vectors, maybe the worst thing to exist
-    // I am tempted to just switch it to pointers and utilize malloc
-    union {
-    std::vector<u8> data;
-    std::vector<Symbol> symbols;
-    };
-
-    explicit Section(SectionHeader info) : header(info) {
-      if (info.type == (u8)SectionType::SymTab) {
-        new (&symbols) std::vector<Symbol>();
-      } else {
-        new (&data) std::vector<u8>();
-      }
-    }
-
-    // DO NOT USE THIS
-    // THIS IS FOR RESIZE IN LOADING OF SECTIONs
-    // THIS COULD CAUSE ISSUES IN SYMBOL TABLE SECTIONS
-    // SERIOUSLY THIS FUNCTION IS REALLY INCREDIBLY DANGEROUS
-    Section() {
-      new (&data) std::vector<u8>();
-    }
-
-    ~Section() {
-      if (header.type == (u8)SectionType::SymTab) {
-        symbols.~vector<Symbol>();
-      } else {
-        data.~vector<u8>();
-      }
-    }
-
-    // Copy constructor
-    Section(const Section& other) : header(other.header) {
-      if (header.type == (u8)SectionType::SymTab) {
-        new (&symbols) std::vector<Symbol>(other.symbols);
-      } else {
-        new (&data) std::vector<u8>(other.data);
-      }
-    }
-
-    // Move constructor
-    Section(Section&& other) noexcept : header(std::move(other.header)) {
-      if (header.type == (u8)SectionType::SymTab) {
-        new (&symbols) std::vector<Symbol>(std::move(other.symbols));
-      } else {
-        new (&data) std::vector<u8>(std::move(other.data));
-      }
-    }
+    // No copy constructor
+    BaseSection(const BaseSection&) = delete;
+    BaseSection& operator=(const BaseSection&) = delete;
+    
+    // Allow move
+    BaseSection(BaseSection&&) = default;
+    BaseSection& operator=(BaseSection&&) = default;
+    
+    /**
+    * @brief Get section header
+    */
+    const SectionHeader& getHeader() const { return header; }
+    
+    /**
+    * @brief Set section header
+    */
+    void setHeader(const SectionHeader& h) { header = h; }
+    
+    /**
+    * @brief Save section to stream
+    */
+    virtual Result save(Stream& stream) const = 0;
+    
+    /**
+    * @brief Load section from stream
+    */
+    virtual Result load(Stream& stream) = 0;
+    
+    /**
+    * @brief Get section size
+    */
+    virtual u64 getSize() const = 0;
+    
+    /**
+    * @brief Get section type
+    */
+    virtual u8 getSectionType() const { return header.type; }
+    
+    /**
+    * @brief Clone section
+    */
+    virtual std::unique_ptr<BaseSection> clone() const = 0;
+    
+  protected:
+    SectionHeader header;
   };
+
+  /**
+  * @brief Data section - holds raw binary data
+  */
+  class DataSection : public BaseSection {
+  public:
+    explicit DataSection(const SectionHeader& header);
+    
+    /**
+    * @brief Save section to stream
+    */
+    Result save(Stream& stream) const override;
+    
+    /**
+    * @brief Load section from stream
+    */
+    Result load(Stream& stream) override;
+    
+    /**
+    * @brief Get section size
+    */
+    u64 getSize() const override { return data.size(); }
+    
+    /**
+    * @brief Get section data
+    */
+    const std::vector<u8>& getData() const { return data; }
+    
+    /**
+    * @brief Get mutable section data
+    */
+    std::vector<u8>& getData() { return data; }
+    
+    /**
+    * @brief Clone section
+    */
+    std::unique_ptr<BaseSection> clone() const override;
+    
+  private:
+    std::vector<u8> data;
+  };
+
+  /**
+  * @brief Symbol section - holds symbol table entries
+  */
+  class SymbolSection : public BaseSection {
+  public:
+    explicit SymbolSection(const SectionHeader& header);
+    
+    /**
+    * @brief Save section to stream
+    */
+    Result save(Stream& stream) const override;
+    
+    /**
+    * @brief Load section from stream
+    */
+    Result load(Stream& stream) override;
+    
+    /**
+    * @brief Get section size
+    */
+    u64 getSize() const override { return symbols.size() * sizeof(Symbol); }
+    
+    /**
+    * @brief Get symbols
+    */
+    const std::vector<Symbol>& getSymbols() const { return symbols; }
+    
+    /**
+    * @brief Get mutable symbols
+    */
+    std::vector<Symbol>& getSymbols() { return symbols; }
+    
+    /**
+    * @brief Add a symbol
+    * @return Index of the added symbol (1-based, 0 indicates error)
+    */
+    u16 addSymbol(const Symbol& symbol);
+    
+    /**
+    * @brief Get symbol by index (1-based index)
+    * @return Pointer to symbol or nullptr if not found
+    */
+    const Symbol* getSymbol(u16 index) const;
+    
+    /**
+    * @brief Get mutable symbol by index (1-based index)
+    * @return Pointer to symbol or nullptr if not found
+    */
+    Symbol* getSymbol(u16 index);
+    
+    /**
+    * @brief Clone section
+    */
+    std::unique_ptr<BaseSection> clone() const override;
+    
+  private:
+    std::vector<Symbol> symbols;
+  };
+
+  /**
+  * @brief Factory function to create appropriate section type
+  */
+  std::unique_ptr<BaseSection> createSection(const SectionHeader& header);
 
   /**
   * @brief COIL Object file
@@ -184,91 +292,211 @@ namespace coil {
   * Represents a COIL object file with sections, symbols, and a string table.
   */
   class Object {
+  public:
     /**
     * @brief Create an empty object
     */
-    Object() = default;
+    Object();
+    
+    /**
+    * @brief Destructor
+    */
+    ~Object() = default;
+    
+    /**
+    * @brief No copy constructor
+    */
+    Object(const Object&) = delete;
+    Object& operator=(const Object&) = delete;
+    
+    /**
+    * @brief Move constructor and assignment
+    */
+    Object(Object&&) = default;
+    Object& operator=(Object&&) = default;
+    
+    /**
+    * @brief Create a new COIL object
+    * @return Newly created object
+    */
+    static Object create();
 
     // -------------------------------- Stream Functionality -------------------------------- //
 
     /**
     * @brief Load an object from a stream
+    * @return Result of the operation
     */
     Result load(Stream& stream);
     
     /**
     * @brief Save an object to a stream
+    * @return Result of the operation
     */
-    Result save(Stream& stream);
+    Result save(Stream& stream) const;
 
     // -------------------------------- Section Functionality -------------------------------- //
+    
     /**
-    * @brief Get a section by name (0 on error)
+    * @brief Get a section index by name
+    * @param name Section name
+    * @param namelen Length of name
+    * @return Section index (1-based, 0 indicates not found)
     */
-    u16 getSectionIndex(const char *name, size_t namelen);
-
+    u16 getSectionIndex(const char* name, size_t namelen) const;
+    
+    /**
+    * @brief Get a section by name
+    * @param name Section name
+    * @return Pointer to section or nullptr if not found
+    */
+    BaseSection* getSection(const char* name);
+    
     /**
     * @brief Get a section by index
-    * indicies start at 1 as 0 is used as an error code
+    * @param index Section index (1-based)
+    * @return Pointer to section or nullptr if not found
     */
-    Section* getSection(u16 index) { 
-      if ((size_t)index  > this->sections.size()) { return nullptr; } // out of bounds
-      return this->sections.data() + (index - 1); 
-    }
-
+    BaseSection* getSection(u16 index);
+    
     /**
-    * @brief Put a section
-    * data can be a nullptr if no data is needed or the section should be created empty
+    * @brief Get a const section by index
+    * @param index Section index (1-based)
+    * @return Const pointer to section or nullptr if not found
     */
-    u16 putSection(u64 section_name, u16 flags, u8 type, u64 size, const u8 *data, u64 datasize);
-    u16 putSection(const SectionHeader& info, const u8 *data, u64 datasize);
+    const BaseSection* getSection(u16 index) const;
+    
+    /**
+    * @brief Add a section
+    * @param name_offset Offset in string table for section name
+    * @param flags Section flags
+    * @param type Section type
+    * @param size Initial size
+    * @param data Initial data (can be nullptr)
+    * @param datasize Size of initial data
+    * @return Index of new section (1-based, 0 indicates error)
+    */
+    u16 addSection(u64 name_offset, u16 flags, u8 type, u64 size, const u8* data, u64 datasize);
+    
+    /**
+    * @brief Add a section
+    * @param header Section header
+    * @param data Initial data (can be nullptr)
+    * @param datasize Size of initial data
+    * @return Index of new section (1-based, 0 indicates error)
+    */
+    u16 addSection(const SectionHeader& header, const u8* data, u64 datasize);
+    
+    /**
+    * @brief Get the number of sections
+    * @return Number of sections
+    */
+    u16 getSectionCount() const { return header.section_count; }
 
     // -------------------------------- Symbol Table Functionality -------------------------------- //
+    
     /**
-    * @brief Get a section by name (0 on error)
+    * @brief Initialize symbol table if not already present
+    * @return Result of operation
     */
-    u16 getSymbolIndex(const char *name, size_t namelen);
-
+    Result initSymbolTable();
+    
+    /**
+    * @brief Get symbol table section
+    * @return Pointer to symbol table section or nullptr if not present
+    */
+    SymbolSection* getSymbolTable() { return symtab; }
+    
+    /**
+    * @brief Get const symbol table section
+    * @return Const pointer to symbol table section or nullptr if not present
+    */
+    const SymbolSection* getSymbolTable() const { return symtab; }
+    
+    /**
+    * @brief Get a symbol index by name
+    * @param name Symbol name
+    * @param namelen Length of name
+    * @return Symbol index (1-based, 0 indicates not found)
+    */
+    u16 getSymbolIndex(const char* name, size_t namelen) const;
+    
     /**
     * @brief Get a symbol by index
-    * indicies start at 1 as 0 is used as an error code
+    * @param index Symbol index (1-based)
+    * @return Pointer to symbol or nullptr if not found
     */
-    Symbol* getSymbol(u16 index) {
-      if (!symtab) { return nullptr; } // symbol table not initalized
-      if ((size_t)(index - 1) > symtab->symbols.size()) { return nullptr; } // out of bounds
-      return symtab->symbols.data() + (index - 1);
-    }
-
+    Symbol* getSymbol(u16 index);
+    
     /**
-    * @brief Put a symbol in the symbol table
+    * @brief Get a const symbol by index
+    * @param index Symbol index (1-based)
+    * @return Const pointer to symbol or nullptr if not found
     */
-    u16 putSymbol(u64 name, u32 value, u16 section_index, u8 type, u8 binding);
-    u16 putSymbol(const Symbol& symbol);
+    const Symbol* getSymbol(u16 index) const;
+    
+    /**
+    * @brief Add a symbol
+    * @param name String table offset for symbol name
+    * @param value Symbol value
+    * @param section_index Section index
+    * @param type Symbol type
+    * @param binding Symbol binding
+    * @return Index of new symbol (1-based, 0 indicates error)
+    */
+    u16 addSymbol(u64 name, u32 value, u16 section_index, u8 type, u8 binding);
+    
+    /**
+    * @brief Add a symbol
+    * @param symbol Symbol to add
+    * @return Index of new symbol (1-based, 0 indicates error)
+    */
+    u16 addSymbol(const Symbol& symbol);
 
     // -------------------------------- String Table Functionality -------------------------------- //
+    
     /**
-    * @brief get a string at the specified offset in the string table
+    * @brief Initialize string table if not already present
+    * @return Result of operation
     */
-    const char *getString(u64 offset) {
-      if (!strings) {
-        if (strtab) {
-          strings = (const char*)this->strtab->data.data();
-        } else return nullptr; // string table not initalized
-      }
-      if (strtab->symbols.size() < offset) { return nullptr; } // string table too small
-      return strings + offset;
-    }
-
+    Result initStringTable();
+    
     /**
-    * @brief put string into the string table
+    * @brief Get string table section
+    * @return Pointer to string table section or nullptr if not present
     */
-    Result putString(const char *str);
+    DataSection* getStringTable() { return strtab; }
+    
+    /**
+    * @brief Get const string table section
+    * @return Const pointer to string table section or nullptr if not present
+    */
+    const DataSection* getStringTable() const { return strtab; }
+    
+    /**
+    * @brief Get a string from the string table
+    * @param offset Offset in string table
+    * @return Pointer to string or nullptr if invalid
+    */
+    const char* getString(u64 offset) const;
+    
+    /**
+    * @brief Add a string to the string table
+    * @param str String to add
+    * @return Offset of the string in table, or 0 on error
+    */
+    u64 addString(const char* str);
+    
+    /**
+    * @brief Get object header
+    */
+    const ObjectHeader& getHeader() const { return header; }
 
-    // -------------------------------- Members -------------------------------- //
+  private:
     ObjectHeader header;
-    std::vector<Section> sections;
-    Section *strtab = nullptr;
-    Section *symtab = nullptr;
-    const char *strings = nullptr; // strab->data.data() shorthand
+    std::vector<std::unique_ptr<BaseSection>> sections;
+    DataSection* strtab = nullptr;    // Pointer to string table (owned by sections vector)
+    SymbolSection* symtab = nullptr;  // Pointer to symbol table (owned by sections vector)
   };
-}; // namespace coil
+
+} // namespace coil
