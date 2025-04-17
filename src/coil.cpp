@@ -1,74 +1,90 @@
 /**
-* @file coil.cpp
-* @brief Main implementation file for the COIL library
-*/
+ * @file coil.cpp
+ * @brief Main implementation file for the COIL library
+ */
 
 #include "coil/coil.hpp"
 #include "coil/err.hpp"
-#include "coil/obj.hpp"
+#include <chrono>
 #include <ctime>
-#include <cstdlib>
+#include <iomanip>
+#include <sstream>
 
 namespace coil {
 
-// Current library version information
-static const Version CURRENT_VERSION = {
-  0,                   // major
-  1,                   // minor
-  0,                   // patch
-  "COIL 0.1.0",        // string
-  __DATE__ " " __TIME__ // build timestamp
-};
-
-// Library configuration
-static const Configuration LIBRARY_CONFIG = {
+Library::Library() {
+  // Set up version information
+  m_version.major = 0;
+  m_version.minor = 1;
+  m_version.patch = 0;
+  m_version.string = "COIL 0.1.0";
+  
+  // Get build timestamp
+  std::stringstream ss;
+  ss << __DATE__ << " " << __TIME__;
+  m_version.build = ss.str();
+  
+  // Set up configuration
 #ifdef NDEBUG
-  false,              // debug_enabled
-  false,              // asserts_enabled
+  m_config.debug_enabled = false;
+  m_config.asserts_enabled = false;
 #else
-  true,               // debug_enabled
-  true                // asserts_enabled
+  m_config.debug_enabled = true;
+  m_config.asserts_enabled = true;
 #endif
-};
-
-// Library initialization state
-static bool g_initialized = false;
-
-Version getVersion() {
-  return CURRENT_VERSION;
 }
 
-Configuration getConfiguration() {
-  return LIBRARY_CONFIG;
-}
-
-Result initialize() {
-  if (g_initialized) {
-    return Result::Success;
+void Library::initialize() {
+  if (m_initialized) {
+    return;
   }
   
-  // Seed random number generator if needed
-  srand(static_cast<unsigned int>(time(nullptr)));
-  
-  // Setup default error handling
-  setErrorCallback(nullptr, nullptr);
+  // Setup default logger
+  Logger::setCallback([](ErrorLevel level, const std::string& message, const ErrorPosition* position) {
+    std::stringstream ss;
+    ss << "COIL " << (level == ErrorLevel::Info ? "Info" : 
+                     level == ErrorLevel::Warning ? "Warning" : 
+                     level == ErrorLevel::Error ? "Error" : "Fatal")
+       << ": ";
+    
+    if (position) {
+      if (position->line > 0) {
+        ss << position->file << ":" << position->line << ": ";
+      } else {
+        ss << position->file << ":" << position->index << ": ";
+      }
+    }
+    
+    ss << message;
+    
+    if (level == ErrorLevel::Error || level == ErrorLevel::Fatal) {
+      std::cerr << ss.str() << std::endl;
+      
+      // Don't abort on Error, just Fatal
+      if (level == ErrorLevel::Fatal) {
+        std::cerr << "Fatal error: aborting" << std::endl;
+        std::abort();
+      }
+    } else {
+      std::cout << ss.str() << std::endl;
+    }
+  });
   
   // Report initialization
-  reportError(ErrorLevel::Info, "COIL Library %s initialized", CURRENT_VERSION.string);
+  Logger::info("COIL Library " + m_version.string + " initialized");
   
-  g_initialized = true;
-  return Result::Success;
+  m_initialized = true;
 }
 
-void shutdown() {
-  if (!g_initialized) {
+void Library::shutdown() {
+  if (!m_initialized) {
     return;
   }
   
   // Report shutdown
-  reportError(ErrorLevel::Info, "COIL Library %s shutdown", CURRENT_VERSION.string);
+  Logger::info("COIL Library " + m_version.string + " shutdown");
   
-  g_initialized = false;
+  m_initialized = false;
 }
 
 } // namespace coil

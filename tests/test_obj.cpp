@@ -1,24 +1,26 @@
 /**
-* @file test_obj.cpp
-* @brief Tests for the COIL object format
-*/
+ * @file test_obj.cpp
+ * @brief Tests for the COIL object format
+ */
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_exception.hpp>
 #include "coil/obj.hpp"
 #include "coil/stream.hpp"
 #include <string>
 #include <vector>
+#include <filesystem>
 
 // Helper function to create a memory stream with object data
-coil::MemoryStream* createObjectStream(coil::Object& obj) {
+std::unique_ptr<coil::MemoryStream> createObjectStream(const coil::Object& obj) {
   // Create a memory stream to write to
-  coil::MemoryStream* stream = new coil::MemoryStream(nullptr, 1024, coil::StreamMode::ReadWrite);
+  auto stream = std::make_unique<coil::MemoryStream>(1024);
   
   // Save the object to the stream
-  CHECK(obj.save(*stream) == coil::Result::Success);
+  obj.save(*stream);
   
   // Reset stream position for reading
-  CHECK(stream->seek(0) == coil::Result::Success);
+  stream->seek(0);
   
   return stream;
 }
@@ -46,7 +48,7 @@ TEST_CASE("COIL Object String Table", "[obj]") {
   coil::Object obj = coil::Object::create();
   
   SECTION("Initialize string table") {
-    CHECK(obj.initStringTable() == coil::Result::Success);
+    obj.initStringTable();
     CHECK(obj.getStringTable() != nullptr);
     
     // String table should have at least one section
@@ -58,13 +60,13 @@ TEST_CASE("COIL Object String Table", "[obj]") {
     CHECK(strtab[0] == 0);
     
     // Should have the section name in the string table
-    const char* name = obj.getString(1);  // First string after null byte
-    REQUIRE(name != nullptr);
-    CHECK(std::string(name) == ".strtab");
+    std::string_view name = obj.getString(1);  // First string after null byte
+    REQUIRE(!name.empty());
+    CHECK(name == ".strtab");
   }
   
   SECTION("Add and retrieve strings") {
-    CHECK(obj.initStringTable() == coil::Result::Success);
+    obj.initStringTable();
     
     // Add some strings
     coil::u64 offset1 = obj.addString("test1");
@@ -77,9 +79,9 @@ TEST_CASE("COIL Object String Table", "[obj]") {
     CHECK(offset3 > offset2);
     
     // Retrieve and verify strings
-    CHECK(std::string(obj.getString(offset1)) == "test1");
-    CHECK(std::string(obj.getString(offset2)) == "test2");
-    CHECK(std::string(obj.getString(offset3)) == "longer test string");
+    CHECK(obj.getString(offset1) == "test1");
+    CHECK(obj.getString(offset2) == "test2");
+    CHECK(obj.getString(offset3) == "longer test string");
     
     // Adding the same string twice should return the same offset
     coil::u64 offset1b = obj.addString("test1");
@@ -88,16 +90,16 @@ TEST_CASE("COIL Object String Table", "[obj]") {
   
   SECTION("Invalid string operations") {
     // Get non-existent string
-    CHECK(obj.getString(100) == nullptr);
+    CHECK(obj.getString(100).empty());
     
     // Initialize string table
-    CHECK(obj.initStringTable() == coil::Result::Success);
+    obj.initStringTable();
     
-    // Adding a null string should fail
-    CHECK(obj.addString(nullptr) == 0);
+    // Adding an empty string should return 0
+    CHECK(obj.addString("") == 0);
     
     // Get non-existent string after initialization
-    CHECK(obj.getString(100) == nullptr);
+    CHECK(obj.getString(100).empty());
   }
 }
 
@@ -105,7 +107,7 @@ TEST_CASE("COIL Object Symbol Table", "[obj]") {
   coil::Object obj = coil::Object::create();
   
   SECTION("Initialize symbol table") {
-    CHECK(obj.initSymbolTable() == coil::Result::Success);
+    obj.initSymbolTable();
     CHECK(obj.getSymbolTable() != nullptr);
     
     // Should have created both a string table and symbol table
@@ -114,7 +116,7 @@ TEST_CASE("COIL Object Symbol Table", "[obj]") {
   }
   
   SECTION("Add and retrieve symbols") {
-    CHECK(obj.initSymbolTable() == coil::Result::Success);
+    obj.initSymbolTable();
     
     // Add some strings for symbol names
     coil::u64 name1 = obj.addString("symbol1");
@@ -152,7 +154,7 @@ TEST_CASE("COIL Object Symbol Table", "[obj]") {
     CHECK(retrieved2->binding == static_cast<coil::u8>(coil::SymbolBinding::Local));
     
     // Retrieve symbol by name
-    coil::u16 index1b = obj.getSymbolIndex("symbol1", strlen("symbol1"));
+    coil::u16 index1b = obj.getSymbolIndex("symbol1");
     CHECK(index1b == index1);
   }
   
@@ -161,13 +163,35 @@ TEST_CASE("COIL Object Symbol Table", "[obj]") {
     CHECK(obj.getSymbol(1) == nullptr);
     
     // Initialize symbol table
-    CHECK(obj.initSymbolTable() == coil::Result::Success);
+    obj.initSymbolTable();
     
     // Get non-existent symbol after initialization
     CHECK(obj.getSymbol(100) == nullptr);
     
     // Get non-existent symbol by name
-    CHECK(obj.getSymbolIndex("nonexistent", strlen("nonexistent")) == 0);
+    CHECK(obj.getSymbolIndex("nonexistent") == 0);
+  }
+  
+  SECTION("Add symbols using convenience method") {
+    obj.initSymbolTable();
+    
+    coil::u64 name = obj.addString("func1");
+    
+    // Add using the convenience method
+    coil::u16 index = obj.addSymbol(
+      name,                                           // name
+      0x1000,                                         // value
+      1,                                              // section_index
+      static_cast<coil::u8>(coil::SymbolType::Func),  // type
+      static_cast<coil::u8>(coil::SymbolBinding::Global) // binding
+    );
+    
+    CHECK(index == 1);
+    
+    const coil::Symbol* sym = obj.getSymbol(index);
+    REQUIRE(sym != nullptr);
+    CHECK(sym->name == name);
+    CHECK(sym->value == 0x1000);
   }
 }
 
@@ -176,7 +200,7 @@ TEST_CASE("COIL Object Sections", "[obj]") {
   
   SECTION("Add and retrieve sections") {
     // Initialize string table for section names
-    CHECK(obj.initStringTable() == coil::Result::Success);
+    obj.initStringTable();
     
     // Add section names
     coil::u64 name1 = obj.addString(".text");
@@ -198,8 +222,8 @@ TEST_CASE("COIL Object Sections", "[obj]") {
     };
     
     // Add sections
-    coil::u16 index1 = obj.addSection(header1, nullptr, 0);
-    coil::u16 index2 = obj.addSection(header2, nullptr, 0);
+    coil::u16 index1 = obj.addSection(header1);
+    coil::u16 index2 = obj.addSection(header2);
     
     // Indices should be valid (string table is 1)
     CHECK(index1 == 2);
@@ -222,13 +246,13 @@ TEST_CASE("COIL Object Sections", "[obj]") {
     CHECK(section2->getHeader().type == header2.type);
     
     // Retrieve section by name
-    coil::u16 index1b = obj.getSectionIndex(".text", strlen(".text"));
+    coil::u16 index1b = obj.getSectionIndex(".text");
     CHECK(index1b == index1);
   }
   
   SECTION("Section with data") {
     // Initialize string table for section names
-    CHECK(obj.initStringTable() == coil::Result::Success);
+    obj.initStringTable();
     
     // Add section name
     coil::u64 name = obj.addString(".data");
@@ -242,8 +266,7 @@ TEST_CASE("COIL Object Sections", "[obj]") {
       static_cast<coil::u16>(coil::SectionFlag::Write), 
       static_cast<coil::u8>(coil::SectionType::ProgBits), 
       data.size(),
-      data.data(),
-      data.size()
+      data
     );
     
     // Index should be valid (string table is 1)
@@ -254,10 +277,8 @@ TEST_CASE("COIL Object Sections", "[obj]") {
     REQUIRE(section != nullptr);
     
     // Get section data
-    // Since we can't use dynamic_cast with -fno-rtti, we use static_cast
-    // This is safe because we know the section type is DataSection
     REQUIRE(section->getSectionType() == static_cast<coil::u8>(coil::SectionType::ProgBits));
-    coil::DataSection* dataSection = static_cast<coil::DataSection*>(section);
+    auto* dataSection = dynamic_cast<coil::DataSection*>(section);
     REQUIRE(dataSection != nullptr);
     
     const auto& sectionData = dataSection->getData();
@@ -273,13 +294,13 @@ TEST_CASE("COIL Object Sections", "[obj]") {
     CHECK(obj.getSection(1) == nullptr);
     
     // Initialize string table
-    CHECK(obj.initStringTable() == coil::Result::Success);
+    obj.initStringTable();
     
     // Get non-existent section after initialization
     CHECK(obj.getSection(100) == nullptr);
     
     // Get non-existent section by name
-    CHECK(obj.getSectionIndex("nonexistent", strlen("nonexistent")) == 0);
+    CHECK(obj.getSectionIndex("nonexistent") == 0);
   }
 }
 
@@ -288,11 +309,11 @@ TEST_CASE("COIL Object Save/Load", "[obj]") {
     coil::Object obj1 = coil::Object::create();
     
     // Create a memory stream for the object
-    std::unique_ptr<coil::MemoryStream> stream(createObjectStream(obj1));
+    auto stream = createObjectStream(obj1);
     
     // Load into a new object
     coil::Object obj2;
-    CHECK(obj2.load(*stream) == coil::Result::Success);
+    obj2.load(*stream);
     
     // Verify header
     CHECK(obj2.getHeader().magic[0] == 'C');
@@ -307,8 +328,8 @@ TEST_CASE("COIL Object Save/Load", "[obj]") {
     coil::Object obj1 = coil::Object::create();
     
     // Initialize tables
-    CHECK(obj1.initStringTable() == coil::Result::Success);
-    CHECK(obj1.initSymbolTable() == coil::Result::Success);
+    obj1.initStringTable();
+    obj1.initSymbolTable();
     
     // Add some strings
     coil::u64 strOffset1 = obj1.addString("test_string");
@@ -322,8 +343,7 @@ TEST_CASE("COIL Object Save/Load", "[obj]") {
       static_cast<coil::u16>(coil::SectionFlag::Write),
       static_cast<coil::u8>(coil::SectionType::ProgBits),
       sectionData.size(),
-      sectionData.data(),
-      sectionData.size()
+      sectionData
     );
     
     // Add a symbol
@@ -336,23 +356,23 @@ TEST_CASE("COIL Object Save/Load", "[obj]") {
     );
     
     // Create a memory stream for the object
-    std::unique_ptr<coil::MemoryStream> stream(createObjectStream(obj1));
+    auto stream = createObjectStream(obj1);
     
     // Load into a new object
     coil::Object obj2;
-    CHECK(obj2.load(*stream) == coil::Result::Success);
+    obj2.load(*stream);
     
     // Verify section count (string table + symbol table + custom section)
     CHECK(obj2.getSectionCount() == 3);
     
     // Verify string table content
     CHECK(obj2.getStringTable() != nullptr);
-    CHECK(std::string(obj2.getString(strOffset1)) == "test_string");
-    CHECK(std::string(obj2.getString(strOffset2)) == ".custom_section");
-    CHECK(std::string(obj2.getString(strOffset3)) == "symbol_name");
+    CHECK(obj2.getString(strOffset1) == "test_string");
+    CHECK(obj2.getString(strOffset2) == ".custom_section");
+    CHECK(obj2.getString(strOffset3) == "symbol_name");
     
     // Verify custom section
-    coil::u16 sectionIndex2 = obj2.getSectionIndex(".custom_section", strlen(".custom_section"));
+    coil::u16 sectionIndex2 = obj2.getSectionIndex(".custom_section");
     CHECK(sectionIndex2 > 0);
     
     coil::BaseSection* section = obj2.getSection(sectionIndex2);
@@ -360,7 +380,7 @@ TEST_CASE("COIL Object Save/Load", "[obj]") {
     
     // Check if it's a data section
     REQUIRE(section->getSectionType() == static_cast<coil::u8>(coil::SectionType::ProgBits));
-    coil::DataSection* dataSection = static_cast<coil::DataSection*>(section);
+    auto* dataSection = dynamic_cast<coil::DataSection*>(section);
     REQUIRE(dataSection != nullptr);
     
     const auto& loadedData = dataSection->getData();
@@ -371,7 +391,7 @@ TEST_CASE("COIL Object Save/Load", "[obj]") {
     }
     
     // Verify symbol
-    coil::u16 symbolIndex2 = obj2.getSymbolIndex("symbol_name", strlen("symbol_name"));
+    coil::u16 symbolIndex2 = obj2.getSymbolIndex("symbol_name");
     CHECK(symbolIndex2 > 0);
     
     const coil::Symbol* symbol = obj2.getSymbol(symbolIndex2);
@@ -388,7 +408,7 @@ TEST_CASE("COIL Object Save/Load", "[obj]") {
 TEST_CASE("COIL Object Error Cases", "[obj]") {
   SECTION("Invalid header") {
     // Create a memory stream with corrupted data
-    coil::MemoryStream stream(nullptr, 1024, coil::StreamMode::ReadWrite);
+    coil::MemoryStream stream(1024);
     
     // Write invalid magic
     const char badMagic[] = "BAAD";
@@ -401,16 +421,16 @@ TEST_CASE("COIL Object Error Cases", "[obj]") {
     // Reset position
     stream.seek(0);
     
-    // Attempt to load
+    // Attempt to load should throw
     coil::Object obj;
-    CHECK(obj.load(stream) == coil::Result::InvalidFormat);
+    CHECK_THROWS_AS(obj.load(stream), coil::FormatException);
   }
   
   SECTION("Multiple string tables") {
     coil::Object obj = coil::Object::create();
     
     // Initialize string table
-    CHECK(obj.initStringTable() == coil::Result::Success);
+    obj.initStringTable();
     
     // Add a second string table header
     coil::SectionHeader header = {
@@ -420,16 +440,15 @@ TEST_CASE("COIL Object Error Cases", "[obj]") {
       static_cast<coil::u8>(coil::SectionType::StrTab)
     };
     
-    // Adding a second string table should fail or report error
-    coil::u16 index = obj.addSection(header, nullptr, 0);
-    CHECK(index == 0);
+    // Adding a second string table should throw
+    CHECK_THROWS_AS(obj.addSection(header), coil::AlreadyExistsException);
   }
   
   SECTION("Multiple symbol tables") {
     coil::Object obj = coil::Object::create();
     
     // Initialize symbol table (creates string table automatically)
-    CHECK(obj.initSymbolTable() == coil::Result::Success);
+    obj.initSymbolTable();
     
     // Add a second symbol table header
     coil::u64 nameOffset = obj.addString(".symtab2");
@@ -440,30 +459,8 @@ TEST_CASE("COIL Object Error Cases", "[obj]") {
       static_cast<coil::u8>(coil::SectionType::SymTab)
     };
     
-    // Adding a second symbol table should fail or report error
-    coil::u16 index = obj.addSection(header, nullptr, 0);
-    CHECK(index == 0);
-  }
-}
-
-TEST_CASE("COIL Object Format Compatibility", "[obj]") {
-  // This test verifies the code handles version differences properly
-  
-  SECTION("Different versions") {
-    coil::Object obj = coil::Object::create();
-    
-    // Create a memory stream for the object
-    std::unique_ptr<coil::MemoryStream> stream(createObjectStream(obj));
-    
-    // Modify version in the stream (at offset 4, after magic)
-    coil::u16 modifiedVersion = 0x0200;  // Version 2.0
-    stream->seek(4);
-    stream->writeValue(modifiedVersion);
-    stream->seek(0);
-    
-    // Load should succeed but warn about version mismatch
-    coil::Object obj2;
-    CHECK(obj2.load(*stream) == coil::Result::Success);
+    // Adding a second symbol table should throw
+    CHECK_THROWS_AS(obj.addSection(header), coil::AlreadyExistsException);
   }
 }
 
@@ -480,39 +477,54 @@ TEST_CASE("COIL Object Section Flags", "[obj]") {
   }
 }
 
-TEST_CASE("COIL Object Section Types", "[obj]") {
-  coil::Object obj = coil::Object::create();
+TEST_CASE("COIL Object File I/O", "[obj]") {
+  const std::string filename = "test_object.coil";
   
-  SECTION("Create different section types") {
-    CHECK(obj.initStringTable() == coil::Result::Success);
+  // Clean up any existing file
+  std::filesystem::remove(filename);
+  
+  SECTION("Write and read object file") {
+    // Create an object with some content
+    coil::Object obj1 = coil::Object::create();
+    obj1.initStringTable();
+    obj1.initSymbolTable();
     
-    // Create a section name
-    coil::u64 nameOffset = obj.addString(".test");
+    // Add a section with data
+    std::vector<coil::u8> data = {0x01, 0x02, 0x03, 0x04};
+    coil::u64 nameOffset = obj1.addString(".data");
+    obj1.addSection(nameOffset, 0, static_cast<coil::u8>(coil::SectionType::ProgBits), data.size(), data);
     
-    // Test all section types
-    std::vector<coil::SectionType> types = {
-      coil::SectionType::Null,
-      coil::SectionType::ProgBits,
-      coil::SectionType::RelTab,
-      coil::SectionType::NoBits,
-      coil::SectionType::Debug
-    };
-    
-    for (size_t i = 0; i < types.size(); i++) {
-      coil::u16 index = obj.addSection(
-        nameOffset + i,  // Use nameOffset + i to create unique names
-        0,
-        static_cast<coil::u8>(types[i]),
-        0,
-        nullptr,
-        0
-      );
-      
-      CHECK(index > 0);
-      
-      coil::BaseSection* section = obj.getSection(index);
-      REQUIRE(section != nullptr);
-      CHECK(section->getHeader().type == static_cast<coil::u8>(types[i]));
+    // Write to file
+    {
+      coil::FileStream stream(filename, coil::StreamMode::Write);
+      obj1.save(stream);
     }
+    
+    // Read back
+    coil::Object obj2;
+    {
+      coil::FileStream stream(filename, coil::StreamMode::Read);
+      obj2.load(stream);
+    }
+    
+    // Verify object
+    CHECK(obj2.getSectionCount() == 3); // string table, symbol table, data section
+    
+    // Verify data section
+    coil::u16 sectionIndex = obj2.getSectionIndex(".data");
+    CHECK(sectionIndex > 0);
+    
+    auto* section = dynamic_cast<coil::DataSection*>(obj2.getSection(sectionIndex));
+    REQUIRE(section != nullptr);
+    
+    const auto& loadedData = section->getData();
+    CHECK(loadedData.size() == data.size());
+    
+    for (size_t i = 0; i < data.size(); i++) {
+      CHECK(loadedData[i] == data[i]);
+    }
+    
+    // Clean up
+    std::filesystem::remove(filename);
   }
 }

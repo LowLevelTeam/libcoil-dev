@@ -1,12 +1,14 @@
 /**
  * @file err.hpp
- * @brief Simple error handling for COIL
+ * @brief Error handling for COIL using modern C++ exceptions
  */
 
 #pragma once
 #include "coil/types.hpp"
-#include <cstdarg>
-#include <cstddef>
+#include <string>
+#include <functional>
+#include <sstream>
+#include <iostream>
 
 namespace coil {
 
@@ -14,96 +16,153 @@ namespace coil {
  * @brief Error severity levels
  */
 enum class ErrorLevel {
-  Info,       ///< Informational message
-  Warning,    ///< Warning message
-  Error,      ///< Error message
-  Fatal       ///< Fatal error message
+  Info,       // Informational message
+  Warning,    // Warning message
+  Error,      // Error message
+  Fatal       // Fatal error message
 };
 
 /**
  * @brief Error position information
  */
 struct ErrorPosition {
-  const char* file; ///< Source file
-  size_t line;      ///< Line number
-  size_t index;     ///< Byte Position in File
+  std::string file;  // Source file
+  size_t line;       // Line number
+  size_t index;      // Byte position in file
+  
+  // Create an error position
+  static ErrorPosition current(const char* file, size_t line, size_t index = 0) {
+    return { file, line, index };
+  }
 };
 
 /**
- * @brief Callback for error handling
+ * @brief Convenience macro for current position
  */
-using ErrorCallback = void (*)(ErrorLevel level, const char* message, 
-                               const ErrorPosition* position, void* user_data);
+#define COIL_CURRENT_POS coil::ErrorPosition::current(__FILE__, __LINE__)
 
 /**
- * @brief Set the global error callback
+ * @brief Modern logger class for COIL errors and messages
  */
-void setErrorCallback(ErrorCallback callback, void* user_data);
+class Logger {
+public:
+  using Callback = std::function<void(ErrorLevel, const std::string&, const ErrorPosition*)>;
+  
+  /**
+   * @brief Set callback for error handling
+   */
+  static void setCallback(Callback callback) {
+    s_callback = std::move(callback);
+  }
+  
+  /**
+   * @brief Get current callback
+   */
+  static Callback getCallback() {
+    return s_callback;
+  }
+  
+  /**
+   * @brief Log a message
+   */
+  static void log(ErrorLevel level, const std::string& message, const ErrorPosition* position = nullptr) {
+    if (s_callback) {
+      s_callback(level, message, position);
+    } else {
+      defaultLog(level, message, position);
+    }
+    
+    // Throw exception for errors and fatal errors
+    if (level == ErrorLevel::Error) {
+      throw CoilException(message);
+    } else if (level == ErrorLevel::Fatal) {
+      throw CoilException("FATAL: " + message);
+    }
+  }
+  
+  /**
+   * @brief Log with position information
+   */
+  static void log(ErrorLevel level, const ErrorPosition& position, const std::string& message) {
+    log(level, message, &position);
+  }
+  
+  /**
+   * @brief Log an informational message
+   */
+  static void info(const std::string& message, const ErrorPosition& position = COIL_CURRENT_POS) {
+    log(ErrorLevel::Info, message, &position);
+  }
+  
+  /**
+   * @brief Log a warning message
+   */
+  static void warning(const std::string& message, const ErrorPosition& position = COIL_CURRENT_POS) {
+    log(ErrorLevel::Warning, message, &position);
+  }
+  
+  /**
+   * @brief Log an error message and throw exception
+   */
+  static void error(const std::string& message, const ErrorPosition& position = COIL_CURRENT_POS) {
+    log(ErrorLevel::Error, message, &position);
+  }
+  
+  /**
+   * @brief Log a fatal error message and throw exception
+   */
+  static void fatal(const std::string& message, const ErrorPosition& position = COIL_CURRENT_POS) {
+    log(ErrorLevel::Fatal, message, &position);
+  }
+  
+private:
+  static inline Callback s_callback;
+  
+  /**
+   * @brief Default logging implementation
+   */
+  static void defaultLog(ErrorLevel level, const std::string& message, const ErrorPosition* position) {
+    std::ostringstream ss;
+    ss << "COIL " << toString(level) << ": ";
+    
+    if (position) {
+      if (position->line > 0) {
+        ss << position->file << ":" << position->line << ": ";
+      } else {
+        ss << position->file << ":" << position->index << ": ";
+      }
+    }
+    
+    ss << message;
+    std::cerr << ss.str() << std::endl;
+    
+    // Abort on fatal errors (in addition to throwing)
+    if (level == ErrorLevel::Fatal) {
+      std::cerr << "Fatal error: aborting" << std::endl;
+      std::abort();
+    }
+  }
+  
+  /**
+   * @brief Convert ErrorLevel to string
+   */
+  static std::string toString(ErrorLevel level) {
+    switch (level) {
+      case ErrorLevel::Info:    return "Info";
+      case ErrorLevel::Warning: return "Warning";
+      case ErrorLevel::Error:   return "Error";
+      case ErrorLevel::Fatal:   return "Fatal";
+      default:                  return "Unknown";
+    }
+  }
+};
 
 /**
- * @brief Get the current error callback and user data
+ * @brief Convenience macros for logging
  */
-ErrorCallback getErrorCallback(void** user_data = nullptr);
-
-/**
- * @brief Report an error
- */
-void reportError(ErrorLevel level, const char* format, ...);
-
-/**
- * @brief Report an error with position information
- */
-void reportErrorWithPos(ErrorLevel level, const ErrorPosition* position, 
-                       const char* format, ...);
-
-/**
- * @brief Helper for reporting errors with Result codes
- */
-Result makeError(Result code, ErrorLevel level, const char* format, ...);
-
-/**
- * @brief Helper for reporting errors with va_list
- */
-void reportErrorV(ErrorLevel level, const char* format, va_list args);
-
-/**
- * @brief Helper for reporting errors with position and va_list
- */
-void reportErrorWithPosV(ErrorLevel level, const ErrorPosition* position, 
-                       const char* format, va_list args);
-
-/**
- * @brief Convert Result code to string
- */
-const char* resultToString(Result result);
-
-/**
- * @brief Convert ErrorLevel to string
- */
-const char* errorLevelToString(ErrorLevel level);
-
-/**
- * @brief Create an error position from current location
- */
-#define COIL_CURRENT_POS coil::ErrorPosition{__FILE__, __LINE__, 0}
-
-/**
- * @brief Convenience macro for reporting errors with source location
- */
-#define COIL_REPORT_ERROR(level, format, ...) \
-  do { \
-    coil::ErrorPosition pos = {__FILE__, __LINE__, 0}; \
-    coil::reportErrorWithPos(level, &pos, format, ##__VA_ARGS__); \
-  } while(0)
-
-/**
- * @brief Convenience macro for reporting errors and returning result code
- */
-#define COIL_RETURN_ERROR(result, level, format, ...) \
-  do { \
-    coil::ErrorPosition pos = {__FILE__, __LINE__, 0}; \
-    coil::reportErrorWithPos(level, &pos, format, ##__VA_ARGS__); \
-    return result; \
-  } while(0)
+#define COIL_INFO(message) coil::Logger::info(message, COIL_CURRENT_POS)
+#define COIL_WARNING(message) coil::Logger::warning(message, COIL_CURRENT_POS)
+#define COIL_ERROR(message) coil::Logger::error(message, COIL_CURRENT_POS)
+#define COIL_FATAL(message) coil::Logger::fatal(message, COIL_CURRENT_POS)
 
 } // namespace coil
