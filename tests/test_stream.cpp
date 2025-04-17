@@ -187,6 +187,9 @@ TEST_CASE("File Stream Operations", "[stream]") {
       // Check size
       CHECK(stream.size() == TEST_DATA_SIZE);
       
+      // Ensure stream starts at zero
+      CHECK(stream.tell() == 0);
+
       // Seek to middle
       stream.seek(TEST_DATA_SIZE / 2);
       CHECK(stream.tell() == TEST_DATA_SIZE / 2);
