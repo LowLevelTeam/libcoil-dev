@@ -31,6 +31,9 @@ coil_lib = library('coil',
   install : true
 )
 
+# Install headers
+install_subdir('include/coil', install_dir : get_option('includedir'))
+
 # Create dependency for test code
 coil_dep = declare_dependency(
   include_directories : incdir,

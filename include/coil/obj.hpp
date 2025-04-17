@@ -148,6 +148,11 @@ namespace coil {
     const SectionHeader& getHeader() const { return header; }
     
     /**
+    * @brief Get mutable section header
+    */
+    SectionHeader& getMutHeader() { return header; }
+    
+    /**
     * @brief Set section header
     */
     void setHeader(const SectionHeader& h) { header = h; }
