@@ -77,50 +77,54 @@ inline bool operator&(TypeModifier a, TypeModifier b) {
  */
 enum class Opcode : u8 {
   // Control flow
-  Nop = 0,    // No operation
-  Br = 1,     // Branch (conditional jump)
-  Jump = 2,   // Unconditional jump
-  Call = 3,   // Call function
-  Ret = 4,    // Return from function
+  Nop = 0x00,    // No operation
+  Br = 0x01,     // Branch (conditional jump)
+  Jump = 0x02,   // Unconditional jump
+  Call = 0x03,   // Call function
+  Ret = 0x04,    // Return from function
+  Cmp = 0x05,    // Compare (sets flags)
+  Test = 0x06,   // Test (sets flags)
   
   // Memory ops
-  Load = 5,   // Load from memory
-  Store = 6,  // Store to memory
-  Push = 7,   // Push onto stack
-  Pop = 8,    // Pop from stack
-  
+  Load = 0x10,   // Load from memory
+  Store = 0x11,  // Store to memory
+  Push = 0x12,   // Push onto stack
+  Pop = 0x13,    // Pop from stack
+  Mov = 0x14,    // Copy value from source to destination (MOV has been used for copying since the creation of assembly languages)
+
   // Arithmetic
-  Add = 9,    // Addition
-  Sub = 10,   // Subtraction
-  Mul = 11,   // Multiplication
-  Div = 12,   // Division
-  Rem = 13,   // Remainder
-  Inc = 14,   // Increment
-  Dec = 15,   // Decrement
+  Add = 0x30,    // Addition
+  Sub = 0x31,   // Subtraction
+  Mul = 0x32,   // Multiplication
+  Div = 0x33,   // Division
+  Rem = 0x34,   // Remainder
+  Inc = 0x34,   // Increment
+  Dec = 0x35,   // Decrement
+  Neg = 0x36,   // Negate a value
   
   // Bitwise
-  And = 16,   // Bitwise AND
-  Or = 17,    // Bitwise OR
-  Xor = 18,   // Bitwise XOR
-  Not = 19,   // Bitwise NOT
-  Shl = 20,   // Shift left
-  Shr = 21,   // Shift right (logical)
-  Sar = 22,   // Shift arithmetic right
+  And = 0x50,   // Bitwise AND
+  Or  = 0x51,    // Bitwise OR
+  Xor = 0x52,   // Bitwise XOR
+  Not = 0x53,   // Bitwise NOT
+  Shl = 0x54,   // Shift left
+  Shr = 0x55,   // Shift right (logical)
+  Sar = 0x56,   // Shift arithmetic right
+
+  // Type operations
+  Cvt = 0xA0,   // Simple type cast
   
-  // Comparison
-  Cmp = 23,   // Compare (sets flags)
-  Test = 24,  // Test (sets flags)
 };
 
 /**
  * @brief Operand types
  */
 enum class OperandType : u8 {
-  None = 0,   // No operand
-  Reg = 1,    // Register
-  Imm = 2,    // Immediate value
-  Mem = 3,    // Memory reference
-  Label = 4,  // Label reference
+  None = 0x00,   // No operand
+  Reg = 0x01,    // Register
+  Imm = 0x02,    // Immediate value
+  Mem = 0x03,    // Memory reference
+  Label = 0x04,  // Label reference
 };
 
 /**
