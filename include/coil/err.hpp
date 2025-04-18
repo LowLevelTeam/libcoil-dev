@@ -135,12 +135,6 @@ private:
     
     ss << message;
     std::cerr << ss.str() << std::endl;
-    
-    // Abort on fatal errors (in addition to throwing)
-    if (level == ErrorLevel::Fatal) {
-      std::cerr << "Fatal error: aborting" << std::endl;
-      std::abort();
-    }
   }
   
   /**
