@@ -30,7 +30,7 @@ enum class ValueType : u8 {
   
   // Floating Point (0x20-0x2F)
   F32 = 0x20, // 32-bit float (IEEE-754)
-  F64 = 0x21, // 64-bit float
+  F64 = 0x21, // 64-bit float (IEEE-754)
   
   // Reserved (0x30-BF)
 
@@ -107,8 +107,8 @@ enum class InstrFlag0 : u8 {
 };
 
 /**
- * @brief Value type modifiers
- */
+* @brief Value type modifiers
+*/
 enum class TypeModifier : u8 {
   None     = 0,      // No modifiers
   Const    = 1 << 0, // Constant value (value should not be changed)
@@ -250,7 +250,6 @@ enum class Opcode : u8 {
 
 /**
 * @brief Operand types
-* Encoded as a u4
 */
 enum class OperandType : u8 {
   None = 0x00, // No operand
@@ -300,7 +299,7 @@ union ImmediateValue {
  */
 struct Operand {
   OperandType  type;       // Operand type
-  OperandType  rtype;
+  OperandType  rtype;      // Real operand type (encoded if type is OperandTyoe::Off)
   ValueType    value_type; // Value type
   TypeModifier modifiers;  // Type modifiers
   
@@ -356,90 +355,89 @@ struct Operand {
   }
 
   void addOffsets(i64 index, i64 scale, i64 disp) { 
-    this->type = OperandType::Off;
     this->rtype = type;
+    this->type = OperandType::Off;
     this->index = index; this->scale = scale; this->displacement = disp; 
   }
 };
 
-/**
- * @brief Single instruction
- * 
- * A compact instruction representation with up to three operands.
- * Not all instructions use all operands.
- */
-struct Instruction {
-  Opcode     opcode;  // Operation code
-  u8 operand_count;   // Operands
+struct BaseOperand {
+  OperandType  type;       // Operand type
+  OperandType  rtype;      // Real operand type (encoded if type is OperandTyoe::Off)
+  ValueType    value_type; // Value type
+  TypeModifier modifiers;  // Type modifiers
 
-  InstrFlag0 flag0;   // Instruction flag 0
+  i64 index;
+  i64 scale;
+  i64 displacement;
+  // base + (index * scale) + displacement
+};
 
-  Operand    dest;    // Destination operand
-  Operand    src1;    // Source operand 1
-  Operand    src2;    // Source operand 2
-  
-  /**
-  * @brief Default Constructor
-  */
-  Instruction() : 
-    opcode(Opcode::Nop),
-    flag0(InstrFlag0::None)
-  {}
+struct OperandRef {
+  OperandType  type;       // Operand type
+  OperandType  rtype;      // Real operand type (encoded if type is OperandTyoe::Off)
+  ValueType    value_type; // Value type
+  TypeModifier modifiers;  // Type modifiers
 
-  /**
-  * @brief Create an instruction
-  */
-  Instruction(Opcode op, InstrFlag0 _flag0) : opcode(op), flag0(_flag0) {}
+  i64 index;
+  i64 scale;
+  i64 displacement;
+  // base + (index * scale) + displacement
 
-  void addDestOperand(const Operand& op) { this->dest = op; }
-  void addLeftOperand(const Operand& op) { this->src1 = op; }
-  void addRightOperand(const Operand& op) { this->src2 = op; }
+  union {
+    u64             sym; // Symbol Reference
+    u64             var; // Variable ID
+    u64             exp; // Expression ID
+    u32             reg; // Register index
+  }; // base
+};
 
-  void addCondition(InstrFlag0 flag) { this->flag0 = flag; }
+struct OperandImm {
+  OperandType  type;       // Operand type
+  OperandType  rtype;      // Real operand type (encoded if type is OperandTyoe::Off)
+  ValueType    value_type; // Value type
+  TypeModifier modifiers;  // Type modifiers
+
+  i64 index;
+  i64 scale;
+  i64 displacement;
+  // base + (index * scale) + displacement
+
+  ImmediateValue imm;
 };
 
 /**
- * @brief A block of instructions
- */
-class InstructionBlock {
-public:
-  /**
-   * @brief Create an empty instruction block
-   */
-  InstructionBlock();
-  
-  /**
-   * @brief Add an instruction to the block
-   * @return Index of the instruction
-   */
-  u32 addInstruction(const Instruction& instr);
-  
-  /**
-   * @brief Get an instruction by index
-   */
-  const Instruction* getInstruction(u32 index) const;
-  
-  /**
-   * @brief Get number of instructions
-   */
-  u32 getInstructionCount() const { return static_cast<u32>(m_instructions.size()); }
-  
-  /**
-   * @brief Get raw instruction data
-   */
-  const Instruction* getData() const { 
-    return m_instructions.data(); 
-  }
-  
-  /**
-   * @brief Get all instructions
-   */
-  const std::vector<Instruction>& getInstructions() const { 
-    return m_instructions; 
-  }
-  
-private:
-  std::vector<Instruction> m_instructions;
-};
+* @brief Encode an instruction
+* The varadic arugmnets require specific parsing
+* 
+* 
+* 
+*/
+void encode_instructionv(Opcode op, uint8_t operand_count, ...);
+
+// encode_instructionv(Opcode::MOV, 2, 
+//   Operand::Var, ValueType::I32, TypeModifier::None, u64(1),
+//   Operand::Imm, ValueType::I32, TypeModifier::None, i32(1)
+// )
+
+// encode_instructionv(Opcode::MOV, 2, 
+//   Operand::Var, ValueType::I32, TypeModifier::None, u64(1),
+//   Operand::Off, Operand::Imm ValueType::I32, TypeModifier::None, i32(1), i64(0), i64(0), i64(8)
+// )
+
+void encode_instruction(Opcode op, uint8_t operand_count, void *data) {
+
+}
+
+// arenabuf_t arena = new Arena(2048);
+// arena.push_header(Opcode::MOV, 2)
+// arena.push_operand(Operand::Var, ValueType::I32, TypeModifier::None, u64(1))
+// arena.push_operand_off(Operand::Off, Operand::Imm, ValueType::I32, TypeModifier::None, i64(0), i64(0), i64(8), i32(1))
+// arena.encode(output_stream);
+
+// void push_header(Opcode op, uint8_T operand_count)
+// void push_operand(Operand op, ValueType type, TypeModifier mod, void *data)
+// void push_operand_off(Operand op, ValueType type, TypeModifier mod, i64 index, i64 scale, i64 disp, void *data)
+// void arena::encode(output_stream);
 
 } // namespace coil
