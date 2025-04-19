@@ -31,6 +31,8 @@ namespace coil {
       vec.push_back((uint8_t)optype);
       vec.push_back((uint8_t)valtype);
       vec.push_back((uint8_t)mod);
+
+      push_value(optype, valtype, data);
     }
     void push_operand_off(
       OperandType optype, ValueType valtype, TypeModifier mod, 
@@ -45,6 +47,8 @@ namespace coil {
       push64(index);
       push64(scale);
       push64(displacement);
+
+      push_value(optype, valtype, data);
     }
 
     void push_value(OperandType type, ValueType valtype, void *data) {
@@ -59,50 +63,48 @@ namespace coil {
       ) {
         push64(*((u64*)data));
       } else if (type == OperandType::Imm) {
-        push_imm(valtype, data)
-      } else {
-        return;
+        push_value_imm(valtype, data)
       }
     }
-    void push_imm(ValueType valtype, void *data) {
+    void push_value_imm(ValueType valtype, void *data) {
       switch (valtype) {
-      case Flag0:
-      case Flag1:
-      case Flag2:
-      case Flag3:
-      case Bit:
-      case I8:
-      case U8:
-        vec.push_back(*((u8*)data));
-        return;
-      case I16:
-      case U16:
-        push16(*((u16*)data));
-        return;
-      case REG:
-      case I32:
-      case U32:
-        push32(*((u32*)data));  
-        return;
-      case VAR:
-      case SYM:
-      case EXP:
-      case STR:
-      case PTR:
-      case SIZE:
-      case SSIZE:
-      case I64:
-      case U64:
-        push64(*((u64*)data));
-        return;
-      case F32:
-        pushf32(*((f32*)data));
-        return;
-      case F64:
-        pushf64(*((f32*)data));
-        return;
-      case Void:
-      default:
+        case Flag0:
+        case Flag1:
+        case Flag2:
+        case Flag3:
+        case Bit:
+        case I8:
+        case U8:
+          vec.push_back(*((u8*)data));
+          return;
+        case I16:
+        case U16:
+          push16(*((u16*)data));
+          return;
+        case REG:
+        case I32:
+        case U32:
+          push32(*((u32*)data));  
+          return;
+        case VAR:
+        case SYM:
+        case EXP:
+        case STR:
+        case PTR:
+        case SIZE:
+        case SSIZE:
+        case I64:
+        case U64:
+          push64(*((u64*)data));
+          return;
+        case F32:
+          pushf32(*((f32*)data));
+          return;
+        case F64:
+          pushf64(*((f32*)data));
+          return;
+        case Void:
+        default:
       };
     }
   private:
