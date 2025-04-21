@@ -614,6 +614,7 @@ struct CMUnitTest *get_obj_tests(int *count) {
   };
   
   *count = sizeof(obj_tests) / sizeof(obj_tests[0]);
+  printf("[get_obj_tests] Returning %d tests\n", *count);
   return obj_tests;
 }
 
@@ -622,10 +623,10 @@ struct CMUnitTest *get_obj_tests(int *count) {
 int main(void) {
   printf("Running object format tests individually\n");
   
-  const struct CMUnitTest *tests;
   int count;
+  struct CMUnitTest *tests = get_obj_tests(&count);
+  printf("Running %d tests\n", count);
   
-  tests = get_obj_tests(&count);
-  return cmocka_run_group_tests(tests, NULL, NULL);
+  return _cmocka_run_group_tests("Object Format Tests", tests, count, NULL, NULL);
 }
 #endif

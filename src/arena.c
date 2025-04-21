@@ -202,6 +202,14 @@ void* arena_alloc(coil_arena_t* arena, size_t size, size_t alignment) {
     // Update block to the new current block
     block = arena->current_block;
     offset = 0; // Start at the beginning of the new block
+    
+    // Need to align again in case the new block has an alignment requirement
+    offset = align_up(offset, alignment);
+    
+    // Check if the new block is big enough (unlikely to fail, but let's check anyway)
+    if (offset + size > block->size) {
+      return NULL;
+    }
   }
 
   // Allocate from the current block

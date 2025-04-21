@@ -83,21 +83,22 @@ int main(int argc, char *argv[]) {
     // Get tests for this group
     int count = 0;
     struct CMUnitTest *tests = test_groups[i].get_tests(&count);
+    printf("  Found %d tests in group\n", count);
     if (!tests || count == 0) {
       printf("  No tests found in group\n");
       continue;
     }
     
     // Run the tests in this group
-    int result = cmocka_run_group_tests(tests, NULL, NULL);
+    int result = _cmocka_run_group_tests(test_groups[i].name, tests, count, NULL, NULL);
     if (result != 0) {
       printf("  %d tests FAILED in %s\n", result, test_groups[i].name);
     } else {
       printf("  All %d tests PASSED in %s\n", count, test_groups[i].name);
     }
     
-    // Free test array if dynamically allocated
-    free(tests);
+    // Do not free the static array - this was causing the segmentation fault
+    // free(tests);
     
     total_tests += count;
     total_failed += (result < 0 ? 0 : result);

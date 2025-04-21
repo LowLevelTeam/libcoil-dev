@@ -645,6 +645,7 @@ struct CMUnitTest *get_integration_tests(int *count) {
   };
   
   *count = sizeof(integration_tests) / sizeof(integration_tests[0]);
+  printf("[get_integration_tests] Returning %d tests\n", *count);
   return integration_tests;
 }
 
@@ -653,10 +654,10 @@ struct CMUnitTest *get_integration_tests(int *count) {
 int main(void) {
   printf("Running integration tests individually\n");
   
-  const struct CMUnitTest *tests;
   int count;
+  struct CMUnitTest *tests = get_integration_tests(&count);
+  printf("Running %d tests\n", count);
   
-  tests = get_integration_tests(&count);
-  return cmocka_run_group_tests(tests, NULL, NULL);
+  return _cmocka_run_group_tests("Integration Tests", tests, count, NULL, NULL);
 }
 #endif

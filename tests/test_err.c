@@ -327,6 +327,7 @@ struct CMUnitTest *get_err_tests(int *count) {
   };
   
   *count = sizeof(err_tests) / sizeof(err_tests[0]);
+  printf("[get_err_tests] Returning %d tests\n", *count);
   return err_tests;
 }
 
@@ -335,10 +336,10 @@ struct CMUnitTest *get_err_tests(int *count) {
 int main(void) {
   printf("Running error handling tests individually\n");
   
-  const struct CMUnitTest *tests;
   int count;
+  struct CMUnitTest *tests = get_err_tests(&count);
+  printf("Running %d tests\n", count);
   
-  tests = get_err_tests(&count);
-  return cmocka_run_group_tests(tests, NULL, NULL);
+  return _cmocka_run_group_tests("Error Handling Tests", tests, count, NULL, NULL);
 }
 #endif

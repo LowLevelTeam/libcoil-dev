@@ -77,15 +77,21 @@ static void* push_data(coil_arena_t* arena, const void* data, size_t size) {
     return NULL;
   }
   
+  void* mem = NULL;
+  
   if (arena) {
-    return arena_push_default(arena, data, size);
-  } else {
-    void* mem = malloc(size);
+    mem = arena_alloc_default(arena, size);
     if (mem) {
       memcpy(mem, data, size);
     }
-    return mem;
+  } else {
+    mem = malloc(size);
+    if (mem) {
+      memcpy(mem, data, size);
+    }
   }
+  
+  return mem;
 }
 
 /**
@@ -152,6 +158,27 @@ static coil_u64_t add_string_to_table(coil_object_t* obj, const char* str, coil_
   coil_u8_t* data = (coil_u8_t*)strtab->data;
   coil_u64_t size = strtab->header.size;
   
+  // Empty string table should have at least one null byte
+  if (size == 0) {
+    coil_u8_t null_byte = 0;
+    if (obj->uses_arena) {
+      strtab->data = arena_alloc_default(arena, 1);
+    } else {
+      strtab->data = malloc(1);
+    }
+    
+    if (!strtab->data) {
+      COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate string table");
+      return 0;
+    }
+    
+    data = (coil_u8_t*)strtab->data;
+    data[0] = null_byte;
+    strtab->header.size = 1;
+    strtab->data_capacity = 1;
+    size = 1;
+  }
+  
   for (coil_u64_t i = 0; i < size; ) {
     // Check if we've hit the end of the table
     if (i >= size) break;
@@ -186,7 +213,7 @@ static coil_u64_t add_string_to_table(coil_object_t* obj, const char* str, coil_
     }
     
     // Copy existing data
-    if (size > 0) {
+    if (size > 0 && strtab->data) {
       memcpy(new_data, strtab->data, size);
     }
     
@@ -232,7 +259,7 @@ static coil_u64_t add_string_to_table(coil_object_t* obj, const char* str, coil_
  * @param arena Arena for memory allocation
  * @return coil_u16_t Section index (1-based, 0 on error)
  */
-static coil_u16_t add_section_internal(
+ static coil_u16_t add_section_internal(
   coil_object_t* obj,
   const coil_section_header_t* header,
   const void* data,
@@ -265,20 +292,30 @@ static coil_u16_t add_section_internal(
     coil_section_t* section = &new_sections[obj->header.section_count];
     memcpy(&section->header, header, sizeof(coil_section_header_t));
     
+    // Initialize data pointers
+    section->data = NULL;
+    section->data_capacity = 0;
+    section->header.size = 0;
+    
     // Allocate and copy data if needed
     if (data_size > 0) {
-      section->data = push_data(arena, data, data_size);
-      if (!section->data) {
-        COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate section data");
-        return 0;
+      if (data) {
+        section->data = push_data(arena, data, data_size);
+        if (!section->data) {
+          COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate section data");
+          return 0;
+        }
+      } else {
+        section->data = arena_alloc_default(arena, data_size);
+        if (!section->data) {
+          COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate section data");
+          return 0;
+        }
+        memset(section->data, 0, data_size);
       }
       
       section->data_capacity = data_size;
       section->header.size = data_size;
-    } else {
-      section->data = NULL;
-      section->data_capacity = 0;
-      section->header.size = 0;
     }
     
     // Update sections pointer
@@ -306,6 +343,11 @@ static coil_u16_t add_section_internal(
     coil_section_t section;
     memcpy(&section.header, header, sizeof(coil_section_header_t));
     
+    // Initialize data pointers
+    section.data = NULL;
+    section.data_capacity = 0;
+    section.header.size = 0;
+    
     // Allocate and copy section data if needed
     if (data_size > 0) {
       section.data = malloc(data_size);
@@ -322,10 +364,6 @@ static coil_u16_t add_section_internal(
       
       section.data_capacity = data_size;
       section.header.size = data_size;
-    } else {
-      section.data = NULL;
-      section.data_capacity = 0;
-      section.header.size = 0;
     }
     
     // Add to sections array
@@ -702,22 +740,38 @@ coil_err_t coil_object_init_string_table(coil_object_t* obj, coil_arena_t* arena
   memset(&header, 0, sizeof(header));
   header.type = COIL_SECTION_STRTAB;
   
-  // Initial data is just a null byte
-  coil_u8_t initial_data = 0;
-  
-  // Add section
-  coil_u16_t index = add_section_internal(obj, &header, &initial_data, 1, arena);
+  // Add section (initially empty)
+  coil_u16_t index = add_section_internal(obj, &header, NULL, 0, arena);
   if (index == 0) {
     return COIL_ERROR(COIL_ERR_IO, "Failed to create string table");
   }
   
-  // Add the name ".strtab" to the string table
+  // Add a single null byte to the section
+  coil_section_t* strtab = &obj->sections[index - 1];
+  uint8_t null_byte = 0;
+  
+  if (obj->uses_arena) {
+    strtab->data = arena_alloc_default(arena, 1);
+  } else {
+    strtab->data = malloc(1);
+  }
+  
+  if (!strtab->data) {
+    return COIL_ERROR(COIL_ERR_NOMEM, "Failed to initialize string table data");
+  }
+  
+  // Set the null byte
+  *((uint8_t*)strtab->data) = null_byte;
+  strtab->header.size = 1;
+  strtab->data_capacity = 1;
+  
+  // Add the name ".strtab" to the string table (offset will be 1, after null byte)
   if (add_string_to_table(obj, ".strtab", arena) == 0) {
     return COIL_ERROR(COIL_ERR_IO, "Failed to add string table name");
   }
   
   // Update the name in the section header
-  obj->sections[index - 1].header.name = 1; // offset past null byte
+  strtab->header.name = 1; // offset past null byte
   
   return COIL_ERR_GOOD;
 }
@@ -963,19 +1017,29 @@ coil_u16_t coil_object_add_symbol(
     coil_u64_t new_size = symtab->header.size + sizeof(coil_symbol_t);
     coil_u64_t symbol_count = symtab->header.size / sizeof(coil_symbol_t);
     
-    void* new_data = alloc_mem(arena, new_size);
-    if (!new_data) {
-      COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate memory for symbol table");
-      return 0;
-    }
-    
-    // Copy existing symbols
-    if (symtab->header.size > 0) {
+    void* new_data;
+    if (symtab->header.size == 0) {
+      // First symbol
+      new_data = arena_alloc_default(arena, sizeof(coil_symbol_t));
+      if (!new_data) {
+        COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate memory for symbol table");
+        return 0;
+      }
+      memcpy(new_data, &symbol, sizeof(coil_symbol_t));
+    } else {
+      // Subsequent symbols
+      new_data = arena_alloc_default(arena, new_size);
+      if (!new_data) {
+        COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate memory for symbol table");
+        return 0;
+      }
+      
+      // Copy existing symbols
       memcpy(new_data, symtab->data, symtab->header.size);
+      
+      // Add new symbol
+      memcpy((coil_u8_t*)new_data + symtab->header.size, &symbol, sizeof(coil_symbol_t));
     }
-    
-    // Add new symbol
-    memcpy((coil_u8_t*)new_data + symtab->header.size, &symbol, sizeof(coil_symbol_t));
     
     // Update section
     symtab->data = new_data;
@@ -992,7 +1056,14 @@ coil_u16_t coil_object_add_symbol(
     // Check if we need to resize
     if (new_size > symtab->data_capacity) {
       size_t new_capacity = (symtab->data_capacity * 2) + sizeof(coil_symbol_t);
-      void* new_data = realloc(symtab->data, new_capacity);
+      void* new_data;
+      
+      if (symtab->data == NULL) {
+        new_data = malloc(new_capacity);
+      } else {
+        new_data = realloc(symtab->data, new_capacity);
+      }
+      
       if (!new_data) {
         COIL_ERROR(COIL_ERR_NOMEM, "Failed to resize symbol table");
         return 0;

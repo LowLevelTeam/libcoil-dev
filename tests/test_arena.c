@@ -252,6 +252,7 @@ struct CMUnitTest *get_arena_tests(int *count) {
   };
   
   *count = sizeof(arena_tests) / sizeof(arena_tests[0]);
+  printf("[get_arena_tests] Returning %d tests\n", *count);
   return arena_tests;
 }
 
@@ -260,10 +261,10 @@ struct CMUnitTest *get_arena_tests(int *count) {
 int main(void) {
   printf("Running arena tests individually\n");
   
-  const struct CMUnitTest *tests;
   int count;
+  struct CMUnitTest *tests = get_arena_tests(&count);
+  printf("Running %d tests\n", count);
   
-  tests = get_arena_tests(&count);
-  return cmocka_run_group_tests(tests, NULL, NULL);
+  return _cmocka_run_group_tests("Arena Tests", tests, count, NULL, NULL);
 }
 #endif

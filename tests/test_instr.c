@@ -364,6 +364,7 @@ struct CMUnitTest *get_instr_tests(int *count) {
   };
   
   *count = sizeof(instr_tests) / sizeof(instr_tests[0]);
+  printf("[get_instr_tests] Returning %d tests\n", *count);
   return instr_tests;
 }
 
@@ -372,10 +373,10 @@ struct CMUnitTest *get_instr_tests(int *count) {
 int main(void) {
   printf("Running instruction tests individually\n");
   
-  const struct CMUnitTest *tests;
   int count;
+  struct CMUnitTest *tests = get_instr_tests(&count);
+  printf("Running %d tests\n", count);
   
-  tests = get_instr_tests(&count);
-  return cmocka_run_group_tests(tests, NULL, NULL);
+  return _cmocka_run_group_tests("Instruction Tests", tests, count, NULL, NULL);
 }
 #endif
