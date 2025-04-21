@@ -20,11 +20,16 @@ int main(int argc, char* argv[]) {
   printf("COIL Library Test Suite\n");
   printf("======================\n\n");
   
-  // Check for specific test filter
+  // Check for specific test filter and verbose flag
   const char* filter = NULL;
-  if (argc > 1) {
-    filter = argv[1];
-    printf("Running tests matching: %s\n\n", filter);
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0) {
+      g_test_verbose = 1;
+      printf("Verbose mode enabled\n");
+    } else if (filter == NULL) {
+      filter = argv[i];
+      printf("Running tests matching: %s\n\n", filter);
+    }
   }
   
   // Run tests

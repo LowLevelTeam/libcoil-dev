@@ -217,131 +217,131 @@ static coil_u64_t add_string_to_table(coil_object_t* obj, const char* str, coil_
 }
 
 /**
- * Add a section to the object
- */
+* Add a section to the object
+*/
 static coil_u16_t add_section_internal(
-	coil_object_t* obj,
-	const coil_section_header_t* header,
-	const void* data,
-	coil_u64_t data_size,
-	coil_arena_t* arena
+  coil_object_t* obj,
+  const coil_section_header_t* header,
+  const void* data,
+  coil_u64_t data_size,
+  coil_arena_t* arena
 ) {
-	if (!obj || !header) {
-		return 0;
-	}
-	
-	// Using arena memory model
-	if (obj->uses_arena) {
-		// Allocate space for new sections array
-		coil_section_t* new_sections = alloc_mem(
-			arena, 
-			(obj->header.section_count + 1) * sizeof(coil_section_t)
-		);
-		
-		if (!new_sections) {
-			COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate sections array");
-			return 0;
-		}
-		
-		// Copy existing sections
-		if (obj->sections && obj->header.section_count > 0) {
-			memcpy(new_sections, obj->sections, obj->header.section_count * sizeof(coil_section_t));
-		}
-		
-		// Create new section
-		coil_section_t* section = &new_sections[obj->header.section_count];
-		memcpy(&section->header, header, sizeof(coil_section_header_t));
-		
-		// Initialize data pointers
-		section->data = NULL;
-		section->data_capacity = 0;
-		section->header.size = 0;
-		
-		// Allocate and copy data if needed
-		if (data_size > 0) {
-			if (data) {
-				section->data = push_data(arena, data, data_size);
-				if (!section->data) {
-					COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate section data");
-					return 0;
-				}
-			} else {
-				section->data = arena_alloc_default(arena, data_size);
-				if (!section->data) {
-					COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate section data");
-					return 0;
-				}
-				memset(section->data, 0, data_size);
-			}
-			
-			section->data_capacity = data_size;
-			section->header.size = data_size;
-		}
-		
-		// Update sections pointer
-		obj->sections = new_sections;
-		obj->sections_capacity = obj->header.section_count + 1;
-	}
-	// Using malloc memory model
-	else {
-		// Check if we need to resize sections array
-		if (obj->header.section_count >= obj->sections_capacity) {
-			size_t new_capacity = obj->sections_capacity * 2;
-			if (new_capacity < 8) new_capacity = 8;
-			
-			coil_section_t* new_sections = realloc(obj->sections, new_capacity * sizeof(coil_section_t));
-			if (!new_sections) {
-				COIL_ERROR(COIL_ERR_NOMEM, "Failed to resize sections array");
-				return 0;
-			}
-			
-			obj->sections = new_sections;
-			obj->sections_capacity = new_capacity;
-		}
-		
-		// Create the new section
-		coil_section_t section;
-		memcpy(&section.header, header, sizeof(coil_section_header_t));
-		
-		// Initialize data pointers
-		section.data = NULL;
-		section.data_capacity = 0;
-		section.header.size = 0;
-		
-		// Allocate and copy section data if needed
-		if (data_size > 0) {
-			section.data = malloc(data_size);
-			if (!section.data) {
-				COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate section data");
-				return 0;
-			}
-			
-			if (data) {
-				memcpy(section.data, data, data_size);
-			} else {
-				memset(section.data, 0, data_size);
-			}
-			
-			section.data_capacity = data_size;
-			section.header.size = data_size;
-		}
-		
-		// Add to sections array
-		obj->sections[obj->header.section_count] = section;
-	}
-	
-	// Update count and increment
-	obj->header.section_count++;
-	
-	// Update strtab and symtab indices if applicable
-	coil_u16_t section_index = obj->header.section_count;
-	if (header->type == COIL_SECTION_STRTAB) {
-		obj->strtab_index = section_index;
-	} else if (header->type == COIL_SECTION_SYMTAB) {
-		obj->symtab_index = section_index;
-	}
-	
-	return section_index;
+  if (!obj || !header) {
+    return 0;
+  }
+  
+  // Using arena memory model
+  if (obj->uses_arena) {
+    // Allocate space for new sections array
+    coil_section_t* new_sections = alloc_mem(
+      arena, 
+      (obj->header.section_count + 1) * sizeof(coil_section_t)
+    );
+    
+    if (!new_sections) {
+      COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate sections array");
+      return 0;
+    }
+    
+    // Copy existing sections
+    if (obj->sections && obj->header.section_count > 0) {
+      memcpy(new_sections, obj->sections, obj->header.section_count * sizeof(coil_section_t));
+    }
+    
+    // Create new section
+    coil_section_t* section = &new_sections[obj->header.section_count];
+    memcpy(&section->header, header, sizeof(coil_section_header_t));
+    
+    // Initialize data pointers
+    section->data = NULL;
+    section->data_capacity = 0;
+    section->header.size = 0;
+    
+    // Allocate and copy data if needed
+    if (data_size > 0) {
+      if (data) {
+        section->data = push_data(arena, data, data_size);
+        if (!section->data) {
+          COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate section data");
+          return 0;
+        }
+      } else {
+        section->data = arena_alloc_default(arena, data_size);
+        if (!section->data) {
+          COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate section data");
+          return 0;
+        }
+        memset(section->data, 0, data_size);
+      }
+      
+      section->data_capacity = data_size;
+      section->header.size = data_size;
+    }
+    
+    // Update sections pointer
+    obj->sections = new_sections;
+    obj->sections_capacity = obj->header.section_count + 1;
+  }
+  // Using malloc memory model
+  else {
+    // Check if we need to resize sections array
+    if (obj->header.section_count >= obj->sections_capacity) {
+      size_t new_capacity = obj->sections_capacity * 2;
+      if (new_capacity < 8) new_capacity = 8;
+      
+      coil_section_t* new_sections = realloc(obj->sections, new_capacity * sizeof(coil_section_t));
+      if (!new_sections) {
+        COIL_ERROR(COIL_ERR_NOMEM, "Failed to resize sections array");
+        return 0;
+      }
+      
+      obj->sections = new_sections;
+      obj->sections_capacity = new_capacity;
+    }
+    
+    // Create the new section
+    coil_section_t section;
+    memcpy(&section.header, header, sizeof(coil_section_header_t));
+    
+    // Initialize data pointers
+    section.data = NULL;
+    section.data_capacity = 0;
+    section.header.size = 0;
+    
+    // Allocate and copy section data if needed
+    if (data_size > 0) {
+      section.data = malloc(data_size);
+      if (!section.data) {
+        COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate section data");
+        return 0;
+      }
+      
+      if (data) {
+        memcpy(section.data, data, data_size);
+      } else {
+        memset(section.data, 0, data_size);
+      }
+      
+      section.data_capacity = data_size;
+      section.header.size = data_size;
+    }
+    
+    // Add to sections array
+    obj->sections[obj->header.section_count] = section;
+  }
+  
+  // Update count and get section index
+  coil_u16_t section_index = obj->header.section_count + 1; // Section index is 1-based
+  obj->header.section_count++;
+  
+  // Update strtab and symtab indices if applicable
+  if (header->type == COIL_SECTION_STRTAB) {
+    obj->strtab_index = section_index;
+  } else if (header->type == COIL_SECTION_SYMTAB) {
+    obj->symtab_index = section_index;
+  }
+  
+  return section_index;
 }
 
 coil_object_t* coil_object_create(coil_arena_t* arena) {
