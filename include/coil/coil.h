@@ -6,10 +6,10 @@
 #ifndef __COIL_INCLUDE_GUARD_COIL_H
 #define __COIL_INCLUDE_GUARD_COIL_H
 
-#include <ccoil/err.h>
-#include <ccoil/arena.h>
-#include <ccoil/instr.h>
-#include <ccoil/obj.h>
+#include <coil/err.h>
+#include <coil/arena.h>
+#include <coil/instr.h>
+#include <coil/obj.h>
 
 #ifdef __cplusplus
 extern "C" {

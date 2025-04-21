@@ -20,6 +20,7 @@ coil_sources = [
   'src/err.c',
   'src/obj.c',
   'src/instr.c',
+  'src/coil.c',
 ]
 
 # Headers
@@ -28,6 +29,7 @@ coil_headers = [
   'include/coil/err.h',
   'include/coil/instr.h',
   'include/coil/obj.h',
+  'include/coil/coil.h',
 ]
 
 # Build options
