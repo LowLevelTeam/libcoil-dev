@@ -1,3 +1,4 @@
 option('build_tests', type : 'boolean', value : true, description : 'Build COIL tests')
-option('enable_exceptions', type : 'boolean', value : true, description : 'Enable C++ exceptions')
-option('enable_rtti', type : 'boolean', value : true, description : 'Enable C++ runtime type information')
+option('enable_debug', type : 'boolean', value : true, description : 'Enable debug mode')
+option('test_coverage', type : 'boolean', value : false, description : 'Enable test coverage')
+option('test_verbosity', type : 'boolean', value : false, description : 'Enable verbose test output')
