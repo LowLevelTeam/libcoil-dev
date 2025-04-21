@@ -3,7 +3,7 @@
  * @brief Implementation of the arena allocator
  */
 
-#include "arena.h"
+#include <coil/arena.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>

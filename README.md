@@ -1,18 +1,24 @@
 # COIL Library
 
-COIL (Computer Oriented Intermediate Language) is a modern C++ library designed for working with a custom intermediate representation and binary format. It provides efficient abstractions for manipulating code, similar to LLVM IR or WebAssembly, but with an emphasis on performance and clean design.
+COIL (Computer Oriented Intermediate Language) is a modern C library designed for working with a custom intermediate representation and binary format. It provides efficient abstractions for manipulating code, similar to LLVM IR or WebAssembly, but with an emphasis on performance and clean design.
 
 ## Design Principles
 
-- **Modern C++ Design**: Utilizing C++17 features for clean, maintainable code
-- **Exception-based Error Handling**: Clear error reporting and handling
+- **Performance-Focused C Design**: Optimized for speed and memory efficiency
+- **Arena-Based Memory Management**: Fast allocation with minimal overhead
 - **Strong Type Safety**: Prevent errors through proper type design
-- **Standard Library Integration**: Leveraging standard containers and algorithms
 - **Clean API**: Simple, intuitive interfaces with good documentation
-- **Performance**: Efficient implementation with minimal overhead
 - **Portability**: Works across platforms with consistent behavior
 
 ## Core Components
+
+### Arena Allocator
+
+A high-performance memory management system:
+- Fast allocation without per-allocation overhead
+- Bulk deallocation for better performance
+- Alignment support
+- Support for both stack and heap allocation strategies
 
 ### Instruction Set
 
@@ -30,90 +36,92 @@ A simple binary format for storing compiled code:
 - Minimal metadata
 - Symbol and string tables
 
-### Streams
-
-A modern abstraction for I/O operations:
-- File and memory-based streams
-- Consistent API for different storage types
-- Exception-based error handling
-
 ### Error Handling
 
 Comprehensive error reporting and handling:
-- Typed exceptions for different error categories
+- Typed error codes
 - Position tracking for accurate error reporting
 - Customizable logging
 
 ## Getting Started
 
-### Building with CMake
+### Building with Meson
 
 ```bash
-mkdir build && cd build
-cmake ..
-cmake --build .
+meson setup build
+meson compile -C build
 ```
 
 ### Running Tests
 
 ```bash
-cd build
-ctest
+meson test -C build
 ```
 
 ### Basic Usage
 
-```cpp
-#include <coil/coil.hpp>
-#include <coil/instr.hpp>
-#include <coil/obj.hpp>
-#include <iostream>
+```c
+#include <ccoil/coil.h>
+#include <ccoil/instr.h>
+#include <ccoil/obj.h>
+#include <ccoil/arena.h>
+#include <stdio.h>
 
 int main() {
-  // Initialize the library
-  coil::initialize();
+  // Initialize error system
+  coil_error_init();
   
-  // Create an instruction block
-  coil::InstructionBlock block;
+  // Create an arena for memory management
+  coil_arena_t* arena = arena_init(4096, 0);
   
-  // Add some instructions
-  coil::Operand reg1 = coil::createRegOp(1, coil::ValueType::I32);
-  coil::Operand imm = coil::createImmOpInt(42, coil::ValueType::I32);
-  coil::Instruction loadInstr = coil::createInstr(coil::Opcode::Load, reg1, imm);
-  
-  block.addInstruction(loadInstr);
-  
-  // Create an object file
-  coil::Object obj = coil::Object::create();
+  // Create a COIL object
+  coil_object_t* obj = coil_object_create(arena);
   
   // Initialize string table
-  obj.initStringTable();
+  coil_object_init_string_table(obj, arena);
   
   // Add a section name
-  uint64_t nameOffset = obj.addString(".text");
+  coil_u64_t name_offset = coil_object_add_string(obj, ".text", arena);
   
-  // Create a data section for the code
-  std::vector<uint8_t> codeData;
-  // ... populate code data ...
+  // Create some instructions
+  uint8_t code[] = {
+    // Example instruction encoding
+    0x10, 0x02, 0x01, 0x01, 0x00, 0x04, 0x00, 0x2A, // MOV r1, #42
+    0x10, 0x02, 0x01, 0x02, 0x00, 0x04, 0x00, 0x0D, // MOV r2, #13
+    0x30, 0x02, 0x01, 0x03, 0x00, 0x01, 0x01, 0x00, // ADD r3, r1, r2
+  };
   
-  // Add the section
-  obj.addSection(
-    nameOffset,
-    static_cast<uint16_t>(coil::SectionFlag::Code | coil::SectionFlag::Alloc),
-    static_cast<uint8_t>(coil::SectionType::ProgBits),
-    codeData.size(),
-    codeData
+  // Add a section
+  coil_object_add_section(
+    obj,
+    name_offset,
+    COIL_SECTION_FLAG_CODE | COIL_SECTION_FLAG_ALLOC,
+    COIL_SECTION_PROGBITS,
+    code,
+    sizeof(code),
+    arena
   );
   
   // Save to a file
-  coil::FileStream stream("output.coil", coil::StreamMode::Write);
-  obj.save(stream);
+  coil_object_save_to_file(obj, "output.coil");
   
   // Clean up
-  coil::shutdown();
+  coil_object_destroy(obj, arena);
+  arena_destroy(arena);
+  coil_error_shutdown();
+  
   return 0;
 }
 ```
+
+## Memory Management
+
+COIL uses an arena-based memory management strategy for improved performance:
+
+- **Low Allocation Overhead**: Reduced memory management cost for small objects
+- **Contiguous Memory**: Better cache locality
+- **Bulk Free**: Fast cleanup operation for all allocations
+- **Deterministic Lifetime**: All allocations can be freed at once, simplifying resource management
 
 ## License
 
