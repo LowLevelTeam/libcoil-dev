@@ -245,7 +245,7 @@ enum class Opcode : u8 {
   // Reserved: F5-FE
   
   // Attribute (0xFF)
-  PPEXT  = 0xFF   ///< Extension (similar to GNU __attribute__)
+  PPEXT  = 0xFF   ///< Extension (similar to GNU __attribute__) (currently reserved)
 };
 
 /**
