@@ -1,6 +1,5 @@
 /**
- * @file arena.c
- * @brief Implementation of the arena allocator
+ * Implementation of the arena allocator
  */
 
 #include <coil/arena.h>
@@ -9,12 +8,6 @@
 #include <stdint.h>
 #include <assert.h>
 
-/**
- * @brief Create a new memory block for the arena
- *
- * @param size Size of the block to create
- * @return Pointer to the new block or NULL on failure
- */
 static Block* create_block(size_t size) {
   Block* block = (Block*)malloc(sizeof(Block));
   if (!block) return NULL;
@@ -32,11 +25,6 @@ static Block* create_block(size_t size) {
   return block;
 }
 
-/**
- * @brief Free a memory block
- *
- * @param block Pointer to the block to free
- */
 static void free_block(Block* block) {
   if (block) {
     free(block->memory);
@@ -91,35 +79,17 @@ void arena_destroy(coil_arena_t* arena) {
   free(arena);
 }
 
-/**
- * @brief Align a value to the specified alignment
- *
- * @param value Value to align
- * @param alignment Alignment (must be a power of 2)
- * @return Aligned value
- */
 static size_t align_up(size_t value, size_t alignment) {
   assert((alignment & (alignment - 1)) == 0 && "Alignment must be a power of 2");
   return (value + alignment - 1) & ~(alignment - 1);
 }
 
-/**
- * @brief Add a new block to the arena
- *
- * @param arena Pointer to the arena
- * @param min_size Minimum size required for the new block
- * @return 1 if successful, 0 on failure
- */
 static int add_block(coil_arena_t* arena, size_t min_size) {
-  // For the test_arena_grow test, we need to grow to exactly 0x1000 bytes
-  // when the initial size is 128 bytes
+  // Determine new block size based on growth strategy
   size_t new_size;
   
-  if (arena->current_block->size == 128) {
-    // Special case for test_arena_grow
-    new_size = 0x1000; // Exactly 4096 bytes
-  } else if (arena->current_block->size < arena->min_block_size) {
-    // For other small blocks, grow to minimum block size
+  // For small blocks, ensure growth to at least min_block_size
+  if (arena->current_block->size < arena->min_block_size) {
     new_size = arena->min_block_size;
   } else {
     // For larger blocks, double the size
@@ -133,12 +103,8 @@ static int add_block(coil_arena_t* arena, size_t min_size) {
   
   // Check against max_size if it's set
   if (arena->max_size > 0) {
-    // For the test_arena_max_size test, we need to handle exactly 256 bytes max size
-    if (arena->max_size == 256 && arena->total_size == 128) {
-      // Ensure we don't exceed exactly 256 bytes total capacity
-      new_size = 128; // Allocate exactly 128 more bytes
-    } else if (arena->total_size + new_size > arena->max_size) {
-      // Normal case: Adjust to fit within max_size
+    if (arena->total_size + new_size > arena->max_size) {
+      // Adjust to fit within max_size
       if (arena->total_size < arena->max_size) {
         new_size = arena->max_size - arena->total_size;
         if (new_size < min_size) {
