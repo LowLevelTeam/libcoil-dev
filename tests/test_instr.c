@@ -8,10 +8,39 @@
 #include <setjmp.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 #include <cmocka.h>
 
 #include <coil/instr.h>
 #include <coil/arena.h>
+
+// For combined test mode
+#ifndef RUN_INDIVIDUAL
+extern int test_verbosity;
+#endif
+
+/**
+ * @brief Debug print function for instruction data
+ */
+static void debug_print_bytes(const uint8_t* data, size_t size) {
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (!verbosity) return;
+  
+  printf("Instruction data (%zu bytes):\n", size);
+  printf("  ");
+  for (size_t i = 0; i < size; i++) {
+    printf("%02X ", data[i]);
+    if ((i + 1) % 8 == 0 && i < size - 1) {
+      printf("\n  ");
+    }
+  }
+  printf("\n");
+}
 
 /* Setup function for tests that need an arena */
 static int setup_arena(void **state) {
@@ -49,6 +78,9 @@ static void test_encode_instr(void **state) {
   /* Get the encoded data */
   uint8_t *data = arena_alloc(arena, 0, 1); /* Get pointer to start of arena */
   
+  /* Debug output */
+  debug_print_bytes(data, arena_used(arena));
+  
   /* Check that the data matches expectations */
   assert_int_equal(data[0], COIL_OP_NOP);
   assert_int_equal(data[1], 0);
@@ -58,6 +90,8 @@ static void test_encode_instr(void **state) {
   encode_instr(arena, COIL_OP_ADD, 3);
   
   data = arena_alloc(arena, 0, 1); /* Get pointer to start of arena */
+  debug_print_bytes(data, arena_used(arena));
+  
   assert_int_equal(data[0], COIL_OP_ADD);
   assert_int_equal(data[1], 3);
 }
@@ -77,6 +111,9 @@ static void test_encode_instr_void(void **state) {
   
   /* Get the encoded data */
   uint8_t *data = arena_alloc(arena, 0, 1); /* Get pointer to start of arena */
+  
+  /* Debug output */
+  debug_print_bytes(data, arena_used(arena));
   
   /* Check that the data matches expectations */
   assert_int_equal(data[0], COIL_OP_RET);
@@ -99,6 +136,9 @@ static void test_encode_operand_imm(void **state) {
   /* Get the encoded data */
   uint8_t *data = arena_alloc(arena, 0, 1); /* Get pointer to start of arena */
   
+  /* Debug output */
+  debug_print_bytes(data, arena_used(arena));
+  
   /* Check that the data matches expectations */
   assert_int_equal(data[0], COIL_TYPEOP_IMM);
   assert_int_equal(data[1], COIL_VAL_U32);
@@ -114,6 +154,7 @@ static void test_encode_operand_imm(void **state) {
   encode_operand_imm(arena, COIL_VAL_U32, COIL_MOD_CONST, &value);
   
   data = arena_alloc(arena, 0, 1);
+  debug_print_bytes(data, arena_used(arena));
   assert_int_equal(data[2], COIL_MOD_CONST);
   
   /* Test with 8-bit value */
@@ -125,6 +166,7 @@ static void test_encode_operand_imm(void **state) {
   assert_int_equal(arena_used(arena), 4);
   
   data = arena_alloc(arena, 0, 1);
+  debug_print_bytes(data, arena_used(arena));
   assert_int_equal(data[3], small_value);
   
   /* Test with 64-bit value */
@@ -136,6 +178,8 @@ static void test_encode_operand_imm(void **state) {
   assert_int_equal(arena_used(arena), 11);
   
   data = arena_alloc(arena, 0, 1);
+  debug_print_bytes(data, arena_used(arena));
+  
   uint64_t decoded_large;
   memcpy(&decoded_large, &data[3], sizeof(uint64_t));
   assert_int_equal(decoded_large, large_value);
@@ -157,6 +201,9 @@ static void test_encode_operand_u32(void **state) {
   
   /* Get the encoded data */
   uint8_t *data = arena_alloc(arena, 0, 1); /* Get pointer to start of arena */
+  
+  /* Debug output */
+  debug_print_bytes(data, arena_used(arena));
   
   /* Check that the data matches expectations */
   assert_int_equal(data[0], COIL_TYPEOP_REG);
@@ -186,6 +233,9 @@ static void test_encode_operand_u64(void **state) {
   /* Get the encoded data */
   uint8_t *data = arena_alloc(arena, 0, 1); /* Get pointer to start of arena */
   
+  /* Debug output */
+  debug_print_bytes(data, arena_used(arena));
+  
   /* Check that the data matches expectations */
   assert_int_equal(data[0], COIL_TYPEOP_SYM);
   assert_int_equal(data[1], COIL_VAL_SYM);
@@ -214,6 +264,8 @@ static void test_encode_operand_off(void **state) {
   
   /* Check key parts of the encoded data */
   uint8_t *data = arena_alloc(arena, 0, 1);
+  debug_print_bytes(data, arena_used(arena));
+  
   assert_int_equal(data[0], COIL_TYPEOP_OFF);
   assert_int_equal(data[1], COIL_TYPEOP_IMM);
   
@@ -225,6 +277,7 @@ static void test_encode_operand_off(void **state) {
   /* Size: 1 (offtype) + 1 (optype) + 1 (valtype) + 1 (mod) + 
            8 (disp) + 8 (index) + 8 (scale) + 8 (value) */
   assert_int_equal(arena_used(arena), 36);
+  debug_print_bytes(data, arena_used(arena));
   
   /* Test with offset + u32 */
   arena_reset(arena);
@@ -234,6 +287,8 @@ static void test_encode_operand_off(void **state) {
   /* Size: 1 (offtype) + 1 (optype) + 1 (valtype) + 1 (mod) + 
            8 (disp) + 8 (index) + 8 (scale) + 4 (value) */
   assert_int_equal(arena_used(arena), 32);
+  data = arena_alloc(arena, 0, 1);
+  debug_print_bytes(data, arena_used(arena));
 }
 
 /* Test creating a full instruction sequence */
@@ -248,6 +303,19 @@ static void test_full_instruction_sequence(void **state) {
    * MOV r2, #13
    * ADD r3, r1, r2
    */
+  
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (verbosity) {
+    printf("\nGenerating instruction sequence:\n");
+    printf("  MOV r1, #42\n");
+    printf("  MOV r2, #13\n");
+    printf("  ADD r3, r1, r2\n");
+  }
   
   /* MOV r1, #42 */
   encode_instr(arena, COIL_OP_MOV, 2);
@@ -274,11 +342,18 @@ static void test_full_instruction_sequence(void **state) {
    * Total: 55 bytes
    */
   assert_int_equal(arena_used(arena), 55);
+  
+  /* Debug output full sequence */
+  uint8_t *data = arena_alloc(arena, 0, 1);
+  if (verbosity) {
+    printf("\nEncoded instruction sequence (%zu bytes):\n", arena_used(arena));
+    debug_print_bytes(data, arena_used(arena));
+  }
 }
 
-/* Main function running all tests */
-int main(void) {
-  const struct CMUnitTest tests[] = {
+/* Get instruction tests for combined testing */
+struct CMUnitTest *get_instr_tests(int *count) {
+  static struct CMUnitTest instr_tests[] = {
     cmocka_unit_test_setup_teardown(test_encode_instr, setup_arena, teardown_arena),
     cmocka_unit_test_setup_teardown(test_encode_instr_void, setup_arena, teardown_arena),
     cmocka_unit_test_setup_teardown(test_encode_operand_imm, setup_arena, teardown_arena),
@@ -288,5 +363,19 @@ int main(void) {
     cmocka_unit_test_setup_teardown(test_full_instruction_sequence, setup_arena, teardown_arena),
   };
   
+  *count = sizeof(instr_tests) / sizeof(instr_tests[0]);
+  return instr_tests;
+}
+
+/* Individual test main function */
+#ifdef RUN_INDIVIDUAL
+int main(void) {
+  printf("Running instruction tests individually\n");
+  
+  const struct CMUnitTest *tests;
+  int count;
+  
+  tests = get_instr_tests(&count);
   return cmocka_run_group_tests(tests, NULL, NULL);
 }
+#endif

@@ -8,9 +8,15 @@
 #include <setjmp.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 #include <cmocka.h>
 
 #include <coil/err.h>
+
+// For combined test mode
+#ifndef RUN_INDIVIDUAL
+extern int test_verbosity;
+#endif
 
 /* Globals to track callback invocation */
 static int callback_called = 0;
@@ -43,6 +49,23 @@ static void test_error_callback(
   
   /* Check that user_data is correctly passed */
   assert_int_equal(*((int*)user_data), 42);
+  
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (verbosity) {
+    printf("Error callback called with:\n");
+    printf("  ├─ Level: %d\n", level);
+    printf("  ├─ Message: %s\n", message ? message : "(null)");
+    if (position && position->file) {
+      printf("  └─ Position: %s:%zu\n", position->file, position->line);
+    } else {
+      printf("  └─ Position: (null)\n");
+    }
+  }
 }
 
 /* Setup function called before each test */
@@ -83,7 +106,27 @@ static void test_error_init_shutdown(void **state) {
   assert_non_null(ctx);
   assert_int_equal(ctx->code, COIL_ERR_GOOD);
   
-  /* Test error string functionality */
+  /* Test error string functionality - print them for debugging */
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (verbosity) {
+    printf("\nError string mapping:\n");
+    printf("  ├─ COIL_ERR_GOOD:     \"%s\"\n", coil_error_string(COIL_ERR_GOOD));
+    printf("  ├─ COIL_ERR_NOMEM:    \"%s\"\n", coil_error_string(COIL_ERR_NOMEM));
+    printf("  ├─ COIL_ERR_INVAL:    \"%s\"\n", coil_error_string(COIL_ERR_INVAL));
+    printf("  ├─ COIL_ERR_IO:       \"%s\"\n", coil_error_string(COIL_ERR_IO));
+    printf("  ├─ COIL_ERR_FORMAT:   \"%s\"\n", coil_error_string(COIL_ERR_FORMAT));
+    printf("  ├─ COIL_ERR_NOTFOUND: \"%s\"\n", coil_error_string(COIL_ERR_NOTFOUND));
+    printf("  ├─ COIL_ERR_NOTSUP:   \"%s\"\n", coil_error_string(COIL_ERR_NOTSUP));
+    printf("  ├─ COIL_ERR_BADSTATE: \"%s\"\n", coil_error_string(COIL_ERR_BADSTATE));
+    printf("  ├─ COIL_ERR_EXISTS:   \"%s\"\n", coil_error_string(COIL_ERR_EXISTS));
+    printf("  └─ COIL_ERR_UNKNOWN:  \"%s\"\n", coil_error_string(COIL_ERR_UNKNOWN));
+  }
+  
   assert_string_equal(coil_error_string(COIL_ERR_GOOD), "No error");
   assert_string_equal(coil_error_string(COIL_ERR_NOMEM), "Memory allocation failure");
   assert_string_equal(coil_error_string(COIL_ERR_INVAL), "Invalid argument");
@@ -127,6 +170,23 @@ static void test_error_report(void **state) {
   assert_string_equal(ctx->position.file, "test_file.c");
   assert_int_equal(ctx->position.line, 123);
   assert_int_equal(ctx->position.index, 456);
+  
+  /* Print error context for debugging */
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (verbosity) {
+    printf("\nError context:\n");
+    printf("  ├─ Code: %d (%s)\n", ctx->code, coil_error_string(ctx->code));
+    printf("  ├─ Level: %d\n", ctx->level);
+    printf("  ├─ Message: %s\n", ctx->message);
+    printf("  ├─ File: %s\n", ctx->position.file);
+    printf("  ├─ Line: %zu\n", ctx->position.line);
+    printf("  └─ Index: %zu\n", ctx->position.index);
+  }
   
   /* Test clearing the error */
   coil_error_clear();
@@ -241,17 +301,44 @@ static void test_error_message_truncation(void **state) {
   assert_non_null(ctx);
   assert_true(strlen(ctx->message) < sizeof(long_message) - 1);
   assert_int_equal(strlen(ctx->message), 255); /* 256 - 1 for null terminator */
+  
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (verbosity) {
+    printf("\nTruncation test:\n");
+    printf("  ├─ Original length: %zu\n", strlen(long_message));
+    printf("  ├─ Truncated length: %zu\n", strlen(ctx->message));
+    printf("  └─ Message buffer size: %zu\n", sizeof(ctx->message));
+  }
 }
 
-/* Main function running all tests */
-int main(void) {
-  const struct CMUnitTest tests[] = {
-    cmocka_unit_test(test_error_init_shutdown),
-    cmocka_unit_test(test_error_report),
-    cmocka_unit_test(test_error_callback_func),
-    cmocka_unit_test(test_error_macros),
-    cmocka_unit_test(test_error_message_truncation),
+/* Get error tests for combined testing */
+struct CMUnitTest *get_err_tests(int *count) {
+  static struct CMUnitTest err_tests[] = {
+    cmocka_unit_test_setup_teardown(test_error_init_shutdown, setup, teardown),
+    cmocka_unit_test_setup_teardown(test_error_report, setup, teardown),
+    cmocka_unit_test_setup_teardown(test_error_callback_func, setup, teardown),
+    cmocka_unit_test_setup_teardown(test_error_macros, setup, teardown),
+    cmocka_unit_test_setup_teardown(test_error_message_truncation, setup, teardown),
   };
   
-  return cmocka_run_group_tests(tests, setup, teardown);
+  *count = sizeof(err_tests) / sizeof(err_tests[0]);
+  return err_tests;
 }
+
+/* Individual test main function */
+#ifdef RUN_INDIVIDUAL
+int main(void) {
+  printf("Running error handling tests individually\n");
+  
+  const struct CMUnitTest *tests;
+  int count;
+  
+  tests = get_err_tests(&count);
+  return cmocka_run_group_tests(tests, NULL, NULL);
+}
+#endif

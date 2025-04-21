@@ -32,15 +32,32 @@ if cmocka_dep.found()
     '-DCOIL_VERSION_PATCH=' + version_patch.to_string(),
   ]
 
+  # Common test flags
+  test_flags = [
+    '-DCOIL_TESTING',
+  ]
+
+  # Build individual tests with individual main functions
   foreach src : test_src
     test_name = src.split('.')[0]
     test_exe = executable(test_name,
       src,
       include_directories: inc_dir,
       dependencies: test_deps,
-      c_args: version_defines,
+      c_args: version_defines + test_flags + ['-DRUN_INDIVIDUAL'],
     )
     
     test(test_name, test_exe)
   endforeach
+  
+  # Build combined test executable
+  combined_test_exe = executable('test_all',
+    ['test_main.c'] + test_src,
+    include_directories: inc_dir,
+    dependencies: test_deps,
+    c_args: version_defines + test_flags,
+  )
+  
+  # Add the combined test
+  test('all_tests', combined_test_exe)
 endif

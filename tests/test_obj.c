@@ -15,8 +15,57 @@
 #include <coil/err.h>
 #include <coil/arena.h>
 
+// For combined test mode
+#ifndef RUN_INDIVIDUAL
+extern int test_verbosity;
+#endif
+
 /* Temporary file path for testing file I/O */
 #define TEST_FILE_PATH "test_coil.obj"
+
+/**
+ * @brief Print object and section information for debugging
+ */
+static void debug_print_object_info(const coil_object_t* obj) {
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (!verbosity) return;
+  
+  const coil_object_header_t* header = coil_object_get_header(obj);
+  printf("Object header:\n");
+  printf("  ├─ Magic: %c%c%c%c\n", 
+         header->magic[0], header->magic[1], header->magic[2], header->magic[3]);
+  printf("  ├─ Version: 0x%04X\n", header->version);
+  printf("  ├─ Section count: %d\n", header->section_count);
+  printf("  └─ File size: %llu bytes\n", (unsigned long long)header->file_size);
+  
+  /* Print section info if we have a string table */
+  if (header->section_count > 0) {
+    printf("\nSections:\n");
+    
+    for (coil_u16_t i = 1; i <= header->section_count; i++) {
+      coil_section_header_t section_header;
+      const void* section_data;
+      coil_u64_t section_size;
+      
+      if (coil_object_get_section(obj, i, &section_header, &section_data, &section_size) 
+          == COIL_ERR_GOOD) {
+        
+        char name_buffer[64] = "<unknown>";
+        coil_object_get_string(obj, section_header.name, name_buffer, sizeof(name_buffer));
+        
+        printf("  Section %d: %s\n", i, name_buffer);
+        printf("    ├─ Size: %llu bytes\n", (unsigned long long)section_header.size);
+        printf("    ├─ Type: %d\n", section_header.type);
+        printf("    └─ Flags: 0x%04X\n", section_header.flags);
+      }
+    }
+  }
+}
 
 /* Setup function for tests */
 static int setup(void **state) {
@@ -72,6 +121,9 @@ static void test_object_create_destroy(void **state) {
   /* Check section count */
   assert_int_equal(header->section_count, 0);
   
+  /* Print debug info */
+  debug_print_object_info(obj);
+  
   /* Destroy object */
   coil_object_destroy(obj, arena);
   
@@ -102,6 +154,9 @@ static void test_string_table(void **state) {
   /* Verify section count */
   assert_int_equal(coil_object_get_section_count(obj), 1);
   
+  /* Print debug info */
+  debug_print_object_info(obj);
+  
   /* Add strings */
   coil_u64_t str1_offset = coil_object_add_string(obj, "test_string_1", arena);
   assert_true(str1_offset > 0);
@@ -115,6 +170,19 @@ static void test_string_table(void **state) {
   /* Adding the same string should return the same offset */
   coil_u64_t str1_dup_offset = coil_object_add_string(obj, "test_string_1", arena);
   assert_int_equal(str1_offset, str1_dup_offset);
+  
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (verbosity) {
+    printf("\nString table test:\n");
+    printf("  ├─ String 1 offset: %llu\n", (unsigned long long)str1_offset);
+    printf("  ├─ String 2 offset: %llu\n", (unsigned long long)str2_offset);
+    printf("  └─ Duplicate string offset: %llu\n", (unsigned long long)str1_dup_offset);
+  }
   
   /* Retrieve strings */
   char buffer[256];
@@ -186,6 +254,9 @@ static void test_sections(void **state) {
   assert_int_not_equal(text_index, 0);
   assert_int_not_equal(data_index, 0);
   assert_int_not_equal(text_index, data_index);
+  
+  /* Print debug info */
+  debug_print_object_info(obj);
   
   /* Verify section count */
   assert_int_equal(coil_object_get_section_count(obj), 3); /* 1 string table + 2 sections */
@@ -280,6 +351,36 @@ static void test_symbol_table(void **state) {
   assert_int_not_equal(func_sym, 0);
   assert_int_not_equal(var_sym, 0);
   
+  /* Print debug info */
+  debug_print_object_info(obj);
+  
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (verbosity) {
+    printf("\nSymbol details:\n");
+    
+    coil_symbol_t symbol;
+    coil_object_get_symbol(obj, func_sym, &symbol);
+    printf("  Function symbol:\n");
+    printf("    ├─ Index: %d\n", func_sym);
+    printf("    ├─ Value: %u\n", symbol.value);
+    printf("    ├─ Section: %d\n", symbol.section_index);
+    printf("    ├─ Type: %d\n", symbol.type);
+    printf("    └─ Binding: %d\n", symbol.binding);
+    
+    coil_object_get_symbol(obj, var_sym, &symbol);
+    printf("  Variable symbol:\n");
+    printf("    ├─ Index: %d\n", var_sym);
+    printf("    ├─ Value: %u\n", symbol.value);
+    printf("    ├─ Section: %d\n", symbol.section_index);
+    printf("    ├─ Type: %d\n", symbol.type);
+    printf("    └─ Binding: %d\n", symbol.binding);
+  }
+  
   /* Get symbols by index */
   coil_symbol_t symbol;
   
@@ -332,6 +433,10 @@ static void test_save_load_memory(void **state) {
     arena
   );
   
+  /* Print original object debug info */
+  printf("\nOriginal object:\n");
+  debug_print_object_info(obj);
+  
   /* Save to memory */
   void *buffer;
   size_t size;
@@ -340,6 +445,16 @@ static void test_save_load_memory(void **state) {
   assert_non_null(buffer);
   assert_true(size > 0);
   
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (verbosity) {
+    printf("\nSerialized object size: %zu bytes\n", size);
+  }
+  
   /* Create a new object to load into */
   coil_object_t *loaded_obj = coil_object_create(arena);
   assert_non_null(loaded_obj);
@@ -347,6 +462,10 @@ static void test_save_load_memory(void **state) {
   /* Load from memory */
   err = coil_object_load_from_memory(loaded_obj, buffer, size, arena);
   assert_int_equal(err, COIL_ERR_GOOD);
+  
+  /* Print loaded object debug info */
+  printf("\nLoaded object:\n");
+  debug_print_object_info(loaded_obj);
   
   /* Verify loaded object */
   const coil_object_header_t *header = coil_object_get_header(loaded_obj);
@@ -403,7 +522,21 @@ static void test_save_load_file(void **state) {
   /* Verify file exists */
   FILE *file = fopen(TEST_FILE_PATH, "rb");
   assert_non_null(file);
+  
+  /* Get file size */
+  fseek(file, 0, SEEK_END);
+  long file_size = ftell(file);
   fclose(file);
+  
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (verbosity) {
+    printf("\nSaved file size: %ld bytes\n", file_size);
+  }
   
   /* Create a new object to load into */
   coil_object_t *loaded_obj = coil_object_create(arena);
@@ -412,6 +545,10 @@ static void test_save_load_file(void **state) {
   /* Load from file */
   err = coil_object_load_from_file(loaded_obj, TEST_FILE_PATH, arena);
   assert_int_equal(err, COIL_ERR_GOOD);
+  
+  /* Print loaded object debug info */
+  printf("\nObject loaded from file:\n");
+  debug_print_object_info(loaded_obj);
   
   /* Verify loaded object */
   const coil_object_header_t *header = coil_object_get_header(loaded_obj);
@@ -464,9 +601,9 @@ static void test_edge_cases(void **state) {
   coil_object_destroy(obj, arena);
 }
 
-/* Main function running all tests */
-int main(void) {
-  const struct CMUnitTest tests[] = {
+/* Get object tests for combined testing */
+struct CMUnitTest *get_obj_tests(int *count) {
+  static struct CMUnitTest obj_tests[] = {
     cmocka_unit_test_setup_teardown(test_object_create_destroy, setup, teardown),
     cmocka_unit_test_setup_teardown(test_string_table, setup, teardown),
     cmocka_unit_test_setup_teardown(test_sections, setup, teardown),
@@ -476,5 +613,19 @@ int main(void) {
     cmocka_unit_test_setup_teardown(test_edge_cases, setup, teardown),
   };
   
+  *count = sizeof(obj_tests) / sizeof(obj_tests[0]);
+  return obj_tests;
+}
+
+/* Individual test main function */
+#ifdef RUN_INDIVIDUAL
+int main(void) {
+  printf("Running object format tests individually\n");
+  
+  const struct CMUnitTest *tests;
+  int count;
+  
+  tests = get_obj_tests(&count);
   return cmocka_run_group_tests(tests, NULL, NULL);
 }
+#endif

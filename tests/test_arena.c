@@ -9,8 +9,32 @@
 #include <stdint.h>
 #include <string.h>
 #include <cmocka.h>
+#include <stdio.h>
 
 #include <coil/arena.h>
+
+// For combined test mode
+#ifndef RUN_INDIVIDUAL
+extern int test_verbosity;
+#endif
+
+/**
+ * @brief Print arena information for debugging
+ */
+static void debug_print_arena_info(const coil_arena_t *arena) {
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (!verbosity) return;
+  
+  printf("Arena state:\n");
+  printf("  ├─ Capacity: %zu bytes\n", arena_capacity(arena));
+  printf("  ├─ Used:     %zu bytes\n", arena_used(arena));
+  printf("  └─ Max size: %zu bytes\n", arena_max_size(arena));
+}
 
 /* Test arena creation and destruction */
 static void test_arena_init_destroy(void **state) {
@@ -23,6 +47,7 @@ static void test_arena_init_destroy(void **state) {
   assert_int_equal(arena_used(arena), 0);
   assert_int_equal(arena_max_size(arena), 0); /* 0 means unlimited */
   
+  debug_print_arena_info(arena);
   arena_destroy(arena);
   
   /* Test with minimum size */
@@ -30,6 +55,7 @@ static void test_arena_init_destroy(void **state) {
   assert_non_null(arena);
   assert_true(arena_capacity(arena) >= 4096); /* Should be at least minimum size */
   
+  debug_print_arena_info(arena);
   arena_destroy(arena);
   
   /* Test with max size */
@@ -37,6 +63,7 @@ static void test_arena_init_destroy(void **state) {
   assert_non_null(arena);
   assert_int_equal(arena_max_size(arena), 8192);
   
+  debug_print_arena_info(arena);
   arena_destroy(arena);
 }
 
@@ -59,9 +86,13 @@ static void test_arena_basic_alloc(void **state) {
   /* Check that pointers are different */
   assert_ptr_not_equal(ptr1, ptr2);
   
+  debug_print_arena_info(arena);
+  
   /* Reset arena and check usage */
   arena_reset(arena);
   assert_int_equal(arena_used(arena), 0);
+  
+  debug_print_arena_info(arena);
   
   arena_destroy(arena);
 }
@@ -92,6 +123,7 @@ static void test_arena_alignment(void **state) {
   assert_non_null(ptr4);
   assert_true(((uintptr_t)ptr4 % 16) == 0);
   
+  debug_print_arena_info(arena);
   arena_destroy(arena);
 }
 
@@ -117,6 +149,7 @@ static void test_arena_push(void **state) {
   assert_true(((uintptr_t)num_copy % 8) == 0);
   assert_memory_equal(num_copy, numbers, sizeof(numbers));
   
+  debug_print_arena_info(arena);
   arena_destroy(arena);
 }
 
@@ -135,10 +168,18 @@ static void test_arena_grow(void **state) {
   void *ptr2 = arena_alloc_default(arena, 64);
   assert_non_null(ptr2);
   
+  /* Print state before growth */
+  printf("\n--- Pre-growth arena state ---\n");
+  debug_print_arena_info(arena);
+  
   /* This allocation should cause the arena to grow */
   void *ptr3 = arena_alloc_default(arena, 64);
   assert_non_null(ptr3);
   assert_true(arena_capacity(arena) > 128);
+  
+  /* Print state after growth */
+  printf("--- Post-growth arena state ---\n");
+  debug_print_arena_info(arena);
   
   arena_destroy(arena);
 }
@@ -154,8 +195,15 @@ static void test_arena_max_size(void **state) {
   /* Allocate up to the max size */
   void *ptr1 = arena_alloc_default(arena, 128);
   assert_non_null(ptr1);
+  
+  printf("\n--- Arena before reaching max size ---\n");
+  debug_print_arena_info(arena);
+  
   void *ptr2 = arena_alloc_default(arena, 100);
   assert_non_null(ptr2);
+  
+  printf("--- Arena at max size ---\n");
+  debug_print_arena_info(arena);
   
   /* This allocation should fail because it would exceed max size */
   void *ptr3 = arena_alloc_default(arena, 100);
@@ -191,9 +239,9 @@ static void test_arena_edge_cases(void **state) {
   arena_destroy(NULL);
 }
 
-/* Main function running all tests */
-int main(void) {
-  const struct CMUnitTest tests[] = {
+/* Get arena tests for combined testing */
+struct CMUnitTest *get_arena_tests(int *count) {
+  static struct CMUnitTest arena_tests[] = {
     cmocka_unit_test(test_arena_init_destroy),
     cmocka_unit_test(test_arena_basic_alloc),
     cmocka_unit_test(test_arena_alignment),
@@ -203,5 +251,19 @@ int main(void) {
     cmocka_unit_test(test_arena_edge_cases),
   };
   
+  *count = sizeof(arena_tests) / sizeof(arena_tests[0]);
+  return arena_tests;
+}
+
+/* Individual test main function */
+#ifdef RUN_INDIVIDUAL
+int main(void) {
+  printf("Running arena tests individually\n");
+  
+  const struct CMUnitTest *tests;
+  int count;
+  
+  tests = get_arena_tests(&count);
   return cmocka_run_group_tests(tests, NULL, NULL);
 }
+#endif

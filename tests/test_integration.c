@@ -17,6 +17,11 @@
 #include <coil/instr.h>
 #include <coil/obj.h>
 
+// For combined test mode
+#ifndef RUN_INDIVIDUAL
+extern int test_verbosity;
+#endif
+
 #define TEST_FILE_PATH "test_integration.coil"
 
 /* Custom error callback for testing */
@@ -29,12 +34,63 @@ static void test_error_callback(
   const coil_error_position_t* position,
   void* user_data
 ) {
-  (void)message;
-  (void)position;
   (void)user_data;
   
   error_callback_called = 1;
   last_error_level = level;
+  
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (verbosity) {
+    printf("Error callback triggered:\n");
+    printf("  ├─ Level: %d\n", level);
+    printf("  ├─ Message: %s\n", message ? message : "(null)");
+    if (position && position->file) {
+      printf("  └─ Position: %s:%zu\n", position->file, position->line);
+    } else {
+      printf("  └─ Position: (null)\n");
+    }
+  }
+}
+
+/**
+ * @brief Print object debug information
+ */
+static void debug_print_obj_info(const coil_object_t *obj, const char *title) {
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (!verbosity) return;
+  
+  const coil_object_header_t *header = coil_object_get_header(obj);
+  
+  printf("\n%s:\n", title);
+  printf("  ├─ Section count: %d\n", header->section_count);
+  printf("  └─ File size: %llu bytes\n", (unsigned long long)header->file_size);
+  
+  // Print section names if we have them
+  if (header->section_count > 0) {
+    printf("  Sections:\n");
+    
+    for (coil_u16_t i = 1; i <= header->section_count; i++) {
+      char name_buffer[64] = "<unnamed>";
+      coil_section_header_t section;
+      const void *data;
+      coil_u64_t size;
+      
+      if (coil_object_get_section(obj, i, &section, &data, &size) == COIL_ERR_GOOD) {
+        coil_object_get_string(obj, section.name, name_buffer, sizeof(name_buffer));
+        printf("    ├─ %s (%llu bytes)\n", name_buffer, (unsigned long long)size);
+      }
+    }
+  }
 }
 
 /* Setup function for tests */
@@ -78,6 +134,16 @@ static int teardown(void **state) {
 static void test_create_full_program(void **state) {
   coil_arena_t *arena = (coil_arena_t *)*state;
   
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (verbosity) {
+    printf("\nCreating a complete program:\n");
+  }
+  
   /* Create an object */
   coil_object_t *obj = coil_object_create(arena);
   assert_non_null(obj);
@@ -111,6 +177,15 @@ static void test_create_full_program(void **state) {
    * }
    */
   
+  if (verbosity) {
+    printf("  Generating program code:\n");
+    printf("    int main() {\n");
+    printf("        int a = 42;\n");
+    printf("        int b = 13;\n");
+    printf("        return a + b;\n");
+    printf("    }\n");
+  }
+  
   /* MOV r1, #42 */
   encode_instr(code_arena, COIL_OP_MOV, 2);
   encode_operand_u32(code_arena, COIL_TYPEOP_REG, COIL_VAL_REG, COIL_MOD_NONE, 1);
@@ -135,6 +210,10 @@ static void test_create_full_program(void **state) {
   /* Add code section */
   size_t code_size = arena_used(code_arena);
   void *code_data = arena_alloc(code_arena, 0, 1); /* Get pointer to start of arena */
+  
+  if (verbosity) {
+    printf("  Generated code size: %zu bytes\n", code_size);
+  }
   
   coil_u16_t text_index = coil_object_add_section(
     obj,
@@ -180,9 +259,25 @@ static void test_create_full_program(void **state) {
   
   assert_true(main_sym > 0);
   
+  /* Print object info */
+  debug_print_obj_info(obj, "Program object");
+  
   /* Save the object to a file */
   err = coil_object_save_to_file(obj, TEST_FILE_PATH);
   assert_int_equal(err, COIL_ERR_GOOD);
+  
+  if (verbosity) {
+    printf("  Saved program to: %s\n", TEST_FILE_PATH);
+    
+    /* Get file size */
+    FILE *f = fopen(TEST_FILE_PATH, "rb");
+    if (f) {
+      fseek(f, 0, SEEK_END);
+      long file_size = ftell(f);
+      fclose(f);
+      printf("  File size: %ld bytes\n", file_size);
+    }
+  }
   
   /* Cleanup code arena */
   arena_destroy(code_arena);
@@ -198,6 +293,16 @@ static void test_load_and_inspect(void **state) {
   /* First, create a test file */
   test_create_full_program(state);
   
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (verbosity) {
+    printf("\nLoading and inspecting program:\n");
+  }
+  
   /* Load the object from the file */
   coil_object_t *obj = coil_object_create(arena);
   assert_non_null(obj);
@@ -211,6 +316,9 @@ static void test_load_and_inspect(void **state) {
   
   /* Should have string table, text section, data section, and symbol table */
   assert_int_equal(header->section_count, 4);
+  
+  /* Print loaded object info */
+  debug_print_obj_info(obj, "Loaded program object");
   
   /* Verify sections by name */
   coil_u16_t text_index = coil_object_get_section_index(obj, ".text");
@@ -229,6 +337,10 @@ static void test_load_and_inspect(void **state) {
   assert_true(text_size > 0);
   assert_non_null(text_data);
   
+  if (verbosity) {
+    printf("  .text section size: %llu bytes\n", (unsigned long long)text_size);
+  }
+  
   /* Verify data section */
   coil_section_header_t data_header;
   const void *data_data;
@@ -237,6 +349,17 @@ static void test_load_and_inspect(void **state) {
   err = coil_object_get_section(obj, data_index, &data_header, &data_data, &data_size);
   assert_int_equal(err, COIL_ERR_GOOD);
   assert_int_equal(data_size, 5 * sizeof(uint32_t));
+  
+  if (verbosity) {
+    printf("  .data section size: %llu bytes\n", (unsigned long long)data_size);
+    printf("  .data values: ");
+    
+    const uint32_t *values = (const uint32_t *)data_data;
+    for (size_t i = 0; i < data_size / sizeof(uint32_t); i++) {
+      printf("%d ", values[i]);
+    }
+    printf("\n");
+  }
   
   /* Verify the data values */
   const uint32_t *data_values = (const uint32_t *)data_data;
@@ -258,6 +381,13 @@ static void test_load_and_inspect(void **state) {
   assert_int_equal(main_sym.type, COIL_SYMBOL_FUNC);
   assert_int_equal(main_sym.binding, COIL_SYMBOL_GLOBAL);
   
+  if (verbosity) {
+    printf("  Found 'main' symbol at index %d\n", main_index);
+    printf("    ├─ Section: %d\n", main_sym.section_index);
+    printf("    ├─ Type: %d\n", main_sym.type);
+    printf("    └─ Binding: %d\n", main_sym.binding);
+  }
+  
   /* Cleanup */
   coil_object_destroy(obj, arena);
 }
@@ -266,12 +396,26 @@ static void test_load_and_inspect(void **state) {
 static void test_error_handling(void **state) {
   coil_arena_t *arena = (coil_arena_t *)*state;
   
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (verbosity) {
+    printf("\nTesting error handling:\n");
+  }
+  
   /* Set custom error callback */
   coil_error_set_callback(test_error_callback, NULL);
   
   /* Create a test error condition - try to load a non-existent file */
   coil_object_t *obj = coil_object_create(arena);
   assert_non_null(obj);
+  
+  if (verbosity) {
+    printf("  Attempting to load non-existent file...\n");
+  }
   
   coil_err_t err = coil_object_load_from_file(obj, "nonexistent_file.coil", arena);
   assert_int_equal(err, COIL_ERR_IO);
@@ -285,8 +429,18 @@ static void test_error_handling(void **state) {
   assert_non_null(ctx);
   assert_int_equal(ctx->code, COIL_ERR_IO);
   
+  if (verbosity) {
+    printf("  Error callback properly triggered\n");
+    printf("  Last error: %s\n", coil_error_string(ctx->code));
+  }
+  
   /* Test error system with COIL macros */
   error_callback_called = 0;
+  
+  if (verbosity) {
+    printf("  Testing warning macro...\n");
+  }
+  
   COIL_WARNING(COIL_ERR_NOTFOUND, "Test warning message");
   
   assert_true(error_callback_called);
@@ -300,10 +454,24 @@ static void test_error_handling(void **state) {
 static void test_complete_workflow(void **state) {
   coil_arena_t *arena = (coil_arena_t *)*state;
   
+#ifdef RUN_INDIVIDUAL
+  static int verbosity = 1; // Always verbose in individual mode
+#else
+  int verbosity = test_verbosity;
+#endif
+
+  if (verbosity) {
+    printf("\nTesting complete workflow:\n");
+  }
+  
   /* Get library version information */
   coil_version_t version;
   coil_err_t err = coil_get_version(&version);
   assert_int_equal(err, COIL_ERR_GOOD);
+  
+  if (verbosity) {
+    printf("  COIL version: %s\n", version.string);
+  }
   
   /* Create a new temporary arena for encoding instructions */
   coil_arena_t *instr_arena = arena_init(1024, 0);
@@ -317,6 +485,10 @@ static void test_complete_workflow(void **state) {
    *     return n * factorial(n-1);
    * }
    */
+  
+  if (verbosity) {
+    printf("  Creating factorial function...\n");
+  }
   
   /* Start encoding instructions */
   
@@ -391,6 +563,10 @@ static void test_complete_workflow(void **state) {
   size_t code_size = arena_used(instr_arena);
   void *code_data = arena_alloc(instr_arena, 0, 1); /* Get pointer to the start of arena */
   
+  if (verbosity) {
+    printf("  Generated code size: %zu bytes\n", code_size);
+  }
+  
   coil_u16_t text_index = coil_object_add_section(
     obj,
     text_name,
@@ -420,9 +596,16 @@ static void test_complete_workflow(void **state) {
   
   assert_true(factorial_sym > 0);
   
+  /* Print object info */
+  debug_print_obj_info(obj, "Factorial function object");
+  
   /* Save to file */
   err = coil_object_save_to_file(obj, TEST_FILE_PATH);
   assert_int_equal(err, COIL_ERR_GOOD);
+  
+  if (verbosity) {
+    printf("  Saved factorial function to file: %s\n", TEST_FILE_PATH);
+  }
   
   /* Load the file back to verify */
   coil_object_t *loaded_obj = coil_object_create(arena);
@@ -431,6 +614,10 @@ static void test_complete_workflow(void **state) {
   err = coil_object_load_from_file(loaded_obj, TEST_FILE_PATH, arena);
   assert_int_equal(err, COIL_ERR_GOOD);
   
+  if (verbosity) {
+    printf("  Successfully loaded file back\n");
+  }
+  
   /* Verify the object */
   coil_u16_t found_index = coil_object_get_section_index(loaded_obj, ".text");
   assert_true(found_index > 0);
@@ -438,20 +625,38 @@ static void test_complete_workflow(void **state) {
   coil_u16_t found_sym = coil_object_get_symbol_index(loaded_obj, "factorial");
   assert_true(found_sym > 0);
   
+  if (verbosity) {
+    printf("  Verified section and symbol exist in loaded object\n");
+  }
+  
   /* Cleanup */
   arena_destroy(instr_arena);
   coil_object_destroy(obj, arena);
   coil_object_destroy(loaded_obj, arena);
 }
 
-/* Main function running all tests */
-int main(void) {
-  const struct CMUnitTest tests[] = {
+/* Get integration tests for combined testing */
+struct CMUnitTest *get_integration_tests(int *count) {
+  static struct CMUnitTest integration_tests[] = {
     cmocka_unit_test_setup_teardown(test_create_full_program, setup, teardown),
     cmocka_unit_test_setup_teardown(test_load_and_inspect, setup, teardown),
     cmocka_unit_test_setup_teardown(test_error_handling, setup, teardown),
     cmocka_unit_test_setup_teardown(test_complete_workflow, setup, teardown),
   };
   
+  *count = sizeof(integration_tests) / sizeof(integration_tests[0]);
+  return integration_tests;
+}
+
+/* Individual test main function */
+#ifdef RUN_INDIVIDUAL
+int main(void) {
+  printf("Running integration tests individually\n");
+  
+  const struct CMUnitTest *tests;
+  int count;
+  
+  tests = get_integration_tests(&count);
   return cmocka_run_group_tests(tests, NULL, NULL);
 }
+#endif
