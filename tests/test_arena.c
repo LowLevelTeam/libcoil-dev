@@ -172,14 +172,16 @@ static void test_arena_grow(void **state) {
   printf("\n--- Pre-growth arena state ---\n");
   debug_print_arena_info(arena);
   
-  /* This allocation should cause the arena to grow */
+  /* This allocation should cause the arena to grow to exactly 0x1000 (4096) bytes */
   void *ptr3 = arena_alloc_default(arena, 64);
   assert_non_null(ptr3);
-  assert_true(arena_capacity(arena) > 128);
   
   /* Print state after growth */
   printf("--- Post-growth arena state ---\n");
   debug_print_arena_info(arena);
+  
+  /* Check exact expectation for test_arena_grow */
+  assert_int_equal(arena_capacity(arena), 0x1000);
   
   arena_destroy(arena);
 }
@@ -199,11 +201,15 @@ static void test_arena_max_size(void **state) {
   printf("\n--- Arena before reaching max size ---\n");
   debug_print_arena_info(arena);
   
+  /* This allocation should still succeed but will be close to max size */
   void *ptr2 = arena_alloc_default(arena, 100);
   assert_non_null(ptr2);
   
   printf("--- Arena at max size ---\n");
   debug_print_arena_info(arena);
+  
+  /* Check the capacity is exactly 256 bytes */
+  assert_int_equal(arena_capacity(arena), 256);
   
   /* This allocation should fail because it would exceed max size */
   void *ptr3 = arena_alloc_default(arena, 100);

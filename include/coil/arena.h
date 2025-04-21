@@ -13,13 +13,31 @@
 #include <stddef.h>
 
 /**
- * @struct Arena
- * @brief Arena allocator structure
- *
- * The arena allocator manages memory in blocks, allowing for
- * fast allocation and deallocation of memory.
- */
-typedef struct coil_arena coil_arena_t;
+* @struct Block
+* @brief Represents a block of memory in the arena
+*/
+ typedef struct Block {
+  void* memory;         /**< Pointer to the allocated memory */
+  size_t size;          /**< Size of the block in bytes */
+  size_t used;          /**< Amount of memory used in this block */
+  struct Block* next;   /**< Pointer to the next block */
+} Block;
+
+/**
+* @struct Arena
+* @brief Arena allocator structure
+*
+* The arena allocator manages memory in blocks, allowing for
+* fast allocation and deallocation of memory.
+*/
+typedef struct coil_arena {
+  Block* first_block;   /**< Pointer to the first block in the arena */
+  Block* current_block; /**< Pointer to the current block for allocations */
+  size_t total_size;    /**< Total size of all blocks in the arena */
+  size_t total_used;    /**< Total amount of memory used in the arena */
+  size_t min_block_size; /**< Minimum size for new blocks */
+  size_t max_size;      /**< Maximum size the arena can grow to (0 for unlimited) */
+} coil_arena_t;
 
 /**
  * @brief Initialize a new arena with the specified initial capacity and maximum size

@@ -7,6 +7,8 @@
 * @brief Encode an instruction header with operand count
 */
 void encode_instr(coil_arena_t *arena, coil_opcode_t op, uint8_t operand_count) {
+  if (!arena) return;  // Add NULL check
+  
   uint8_t data[2];
   data[0] = op;
   data[1] = operand_count;
@@ -17,6 +19,8 @@ void encode_instr(coil_arena_t *arena, coil_opcode_t op, uint8_t operand_count) 
 * @brief Encode an instruction header without operand count
 */
 void encode_instr_void(coil_arena_t *arena, coil_opcode_t op) {
+  if (!arena) return;  // Add NULL check
+  
   arena_push_default(arena, &op, sizeof(op));
 }
 
@@ -24,7 +28,7 @@ void encode_instr_void(coil_arena_t *arena, coil_opcode_t op) {
 * @brief Helper function to encode immediate values of different sizes
 */
 static void __encode_imm_value(coil_arena_t *arena, coil_value_type_t type, void *data) {
-  if (!data) return;
+  if (!arena || !data) return;  // Add NULL check
   
   switch (type) {
     case COIL_VAL_FLAG0:
@@ -72,7 +76,7 @@ static void __encode_imm_value(coil_arena_t *arena, coil_value_type_t type, void
 * @brief Encode an instruction operand to an immediate value
 */
 void encode_operand_imm(coil_arena_t *arena, coil_value_type_t type, coil_modifier_t mod, void *data) {
-  if (!arena || !data) return;
+  if (!arena || !data) return;  // Add NULL check
   
   uint8_t header[3];
   coil_operand_type_t optype = COIL_TYPEOP_IMM;
@@ -89,7 +93,7 @@ void encode_operand_imm(coil_arena_t *arena, coil_value_type_t type, coil_modifi
 * @brief Encode an instruction operand to a u64 reference
 */
 void encode_operand_u64(coil_arena_t *arena, coil_operand_type_t optype, coil_value_type_t type, coil_modifier_t mod, uint64_t ref) {
-  if (!arena) return;
+  if (!arena) return;  // Add NULL check
   
   uint8_t header[3];
   header[0] = optype;
@@ -104,7 +108,7 @@ void encode_operand_u64(coil_arena_t *arena, coil_operand_type_t optype, coil_va
 * @brief Encode an instruction operand to a u32 reference
 */
 void encode_operand_u32(coil_arena_t *arena, coil_operand_type_t optype, coil_value_type_t type, coil_modifier_t mod, uint32_t ref) {
-  if (!arena) return;
+  if (!arena) return;  // Add NULL check
   
   uint8_t header[3];
   header[0] = optype;
@@ -119,7 +123,7 @@ void encode_operand_u32(coil_arena_t *arena, coil_operand_type_t optype, coil_va
 * @brief Encode an instruction operand to an immediate value with offset
 */
 void encode_operand_off_imm(coil_arena_t *arena, coil_value_type_t type, coil_modifier_t mod, uint64_t disp, uint64_t index, uint64_t scale, void *data) {
-  if (!arena || !data) return;
+  if (!arena || !data) return;  // Add NULL check
   
   uint8_t header[4];
   coil_operand_type_t offtype = COIL_TYPEOP_OFF;
@@ -142,7 +146,7 @@ void encode_operand_off_imm(coil_arena_t *arena, coil_value_type_t type, coil_mo
 * @brief Encode an instruction operand to a u64 reference with offset
 */
 void encode_operand_off_u64(coil_arena_t *arena, coil_operand_type_t optype, coil_value_type_t type, coil_modifier_t mod, uint64_t disp, uint64_t index, uint64_t scale, uint64_t ref) {
-  if (!arena) return;
+  if (!arena) return;  // Add NULL check
   
   uint8_t header[4];
   coil_operand_type_t offtype = COIL_TYPEOP_OFF;
@@ -163,7 +167,7 @@ void encode_operand_off_u64(coil_arena_t *arena, coil_operand_type_t optype, coi
 * @brief Encode an instruction operand to a u32 reference with offset
 */
 void encode_operand_off_u32(coil_arena_t *arena, coil_operand_type_t optype, coil_value_type_t type, coil_modifier_t mod, uint64_t disp, uint64_t index, uint64_t scale, uint32_t ref) {
-  if (!arena) return;
+  if (!arena) return;  // Add NULL check
   
   uint8_t header[4];
   coil_operand_type_t offtype = COIL_TYPEOP_OFF;

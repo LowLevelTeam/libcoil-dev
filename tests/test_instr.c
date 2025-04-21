@@ -76,7 +76,7 @@ static void test_encode_instr(void **state) {
   assert_int_equal(arena_used(arena), 2);
   
   /* Get the encoded data */
-  uint8_t *data = arena_alloc(arena, 0, 1); /* Get pointer to start of arena */
+  uint8_t *data = arena->first_block->memory;
   
   /* Debug output */
   debug_print_bytes(data, arena_used(arena));
@@ -89,7 +89,7 @@ static void test_encode_instr(void **state) {
   arena_reset(arena);
   encode_instr(arena, COIL_OP_ADD, 3);
   
-  data = arena_alloc(arena, 0, 1); /* Get pointer to start of arena */
+  data = arena->first_block->memory;
   debug_print_bytes(data, arena_used(arena));
   
   assert_int_equal(data[0], COIL_OP_ADD);
@@ -110,7 +110,7 @@ static void test_encode_instr_void(void **state) {
   assert_int_equal(arena_used(arena), 1);
   
   /* Get the encoded data */
-  uint8_t *data = arena_alloc(arena, 0, 1); /* Get pointer to start of arena */
+  uint8_t *data = arena->first_block->memory;
   
   /* Debug output */
   debug_print_bytes(data, arena_used(arena));
@@ -134,7 +134,7 @@ static void test_encode_operand_imm(void **state) {
   assert_int_equal(arena_used(arena), 7);
   
   /* Get the encoded data */
-  uint8_t *data = arena_alloc(arena, 0, 1); /* Get pointer to start of arena */
+  uint8_t *data = arena->first_block->memory;
   
   /* Debug output */
   debug_print_bytes(data, arena_used(arena));
@@ -144,16 +144,20 @@ static void test_encode_operand_imm(void **state) {
   assert_int_equal(data[1], COIL_VAL_U32);
   assert_int_equal(data[2], COIL_MOD_NONE);
   
-  /* Check the value (considering potential endianness issues) */
-  uint32_t decoded;
-  memcpy(&decoded, &data[3], sizeof(uint32_t));
+  /* Check the value directly by reconstructing it */
+  uint32_t decoded = 0;
+  decoded |= (uint32_t)data[3];
+  decoded |= (uint32_t)data[4] << 8;
+  decoded |= (uint32_t)data[5] << 16;
+  decoded |= (uint32_t)data[6] << 24;
+  
   assert_int_equal(decoded, value);
   
   /* Test with a modifier */
   arena_reset(arena);
   encode_operand_imm(arena, COIL_VAL_U32, COIL_MOD_CONST, &value);
   
-  data = arena_alloc(arena, 0, 1);
+  data = arena->first_block->memory;
   debug_print_bytes(data, arena_used(arena));
   assert_int_equal(data[2], COIL_MOD_CONST);
   
@@ -165,7 +169,7 @@ static void test_encode_operand_imm(void **state) {
   /* Size: 1 (optype) + 1 (valtype) + 1 (mod) + 1 (value) */
   assert_int_equal(arena_used(arena), 4);
   
-  data = arena_alloc(arena, 0, 1);
+  data = arena->first_block->memory;
   debug_print_bytes(data, arena_used(arena));
   assert_int_equal(data[3], small_value);
   
@@ -177,11 +181,20 @@ static void test_encode_operand_imm(void **state) {
   /* Size: 1 (optype) + 1 (valtype) + 1 (mod) + 8 (value) */
   assert_int_equal(arena_used(arena), 11);
   
-  data = arena_alloc(arena, 0, 1);
+  data = arena->first_block->memory;
   debug_print_bytes(data, arena_used(arena));
   
-  uint64_t decoded_large;
-  memcpy(&decoded_large, &data[3], sizeof(uint64_t));
+  /* Check the 64-bit value directly by reconstructing it byte by byte */
+  uint64_t decoded_large = 0;
+  decoded_large |= (uint64_t)data[3];
+  decoded_large |= (uint64_t)data[4] << 8;
+  decoded_large |= (uint64_t)data[5] << 16;
+  decoded_large |= (uint64_t)data[6] << 24;
+  decoded_large |= (uint64_t)data[7] << 32;
+  decoded_large |= (uint64_t)data[8] << 40;
+  decoded_large |= (uint64_t)data[9] << 48;
+  decoded_large |= (uint64_t)data[10] << 56;
+  
   assert_int_equal(decoded_large, large_value);
 }
 
@@ -200,7 +213,7 @@ static void test_encode_operand_u32(void **state) {
   assert_int_equal(arena_used(arena), 7);
   
   /* Get the encoded data */
-  uint8_t *data = arena_alloc(arena, 0, 1); /* Get pointer to start of arena */
+  uint8_t *data = arena->first_block->memory;
   
   /* Debug output */
   debug_print_bytes(data, arena_used(arena));
@@ -210,9 +223,13 @@ static void test_encode_operand_u32(void **state) {
   assert_int_equal(data[1], COIL_VAL_REG);
   assert_int_equal(data[2], COIL_MOD_NONE);
   
-  /* Check the value */
-  uint32_t decoded;
-  memcpy(&decoded, &data[3], sizeof(uint32_t));
+  /* Check the value directly by reconstructing it byte by byte */
+  uint32_t decoded = 0;
+  decoded |= (uint32_t)data[3];
+  decoded |= (uint32_t)data[4] << 8;
+  decoded |= (uint32_t)data[5] << 16;
+  decoded |= (uint32_t)data[6] << 24;
+  
   assert_int_equal(decoded, reg);
 }
 
@@ -231,7 +248,7 @@ static void test_encode_operand_u64(void **state) {
   assert_int_equal(arena_used(arena), 11);
   
   /* Get the encoded data */
-  uint8_t *data = arena_alloc(arena, 0, 1); /* Get pointer to start of arena */
+  uint8_t *data = arena->first_block->memory;
   
   /* Debug output */
   debug_print_bytes(data, arena_used(arena));
@@ -241,9 +258,17 @@ static void test_encode_operand_u64(void **state) {
   assert_int_equal(data[1], COIL_VAL_SYM);
   assert_int_equal(data[2], COIL_MOD_NONE);
   
-  /* Check the value */
-  uint64_t decoded;
-  memcpy(&decoded, &data[3], sizeof(uint64_t));
+  /* Check the value directly by reconstructing it byte by byte */
+  uint64_t decoded = 0;
+  decoded |= (uint64_t)data[3];
+  decoded |= (uint64_t)data[4] << 8;
+  decoded |= (uint64_t)data[5] << 16;
+  decoded |= (uint64_t)data[6] << 24;
+  decoded |= (uint64_t)data[7] << 32;
+  decoded |= (uint64_t)data[8] << 40;
+  decoded |= (uint64_t)data[9] << 48;
+  decoded |= (uint64_t)data[10] << 56;
+  
   assert_int_equal(decoded, sym_ref);
 }
 
@@ -262,8 +287,8 @@ static void test_encode_operand_off(void **state) {
            8 (disp) + 8 (index) + 8 (scale) + 4 (value) */
   assert_int_equal(arena_used(arena), 32);
   
-  /* Check key parts of the encoded data */
-  uint8_t *data = arena_alloc(arena, 0, 1);
+  /* Get the encoded data */
+  uint8_t *data = arena->first_block->memory;
   debug_print_bytes(data, arena_used(arena));
   
   assert_int_equal(data[0], COIL_TYPEOP_OFF);
@@ -277,6 +302,8 @@ static void test_encode_operand_off(void **state) {
   /* Size: 1 (offtype) + 1 (optype) + 1 (valtype) + 1 (mod) + 
            8 (disp) + 8 (index) + 8 (scale) + 8 (value) */
   assert_int_equal(arena_used(arena), 36);
+  
+  data = arena->first_block->memory;
   debug_print_bytes(data, arena_used(arena));
   
   /* Test with offset + u32 */
@@ -287,7 +314,8 @@ static void test_encode_operand_off(void **state) {
   /* Size: 1 (offtype) + 1 (optype) + 1 (valtype) + 1 (mod) + 
            8 (disp) + 8 (index) + 8 (scale) + 4 (value) */
   assert_int_equal(arena_used(arena), 32);
-  data = arena_alloc(arena, 0, 1);
+  
+  data = arena->first_block->memory;
   debug_print_bytes(data, arena_used(arena));
 }
 
@@ -343,8 +371,9 @@ static void test_full_instruction_sequence(void **state) {
    */
   assert_int_equal(arena_used(arena), 55);
   
-  /* Debug output full sequence */
-  uint8_t *data = arena_alloc(arena, 0, 1);
+  /* Get the encoded data */
+  uint8_t *data = arena->first_block->memory;
+  
   if (verbosity) {
     printf("\nEncoded instruction sequence (%zu bytes):\n", arena_used(arena));
     debug_print_bytes(data, arena_used(arena));
