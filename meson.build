@@ -34,8 +34,6 @@ coil_headers = [
 
 # Build options
 build_tests = get_option('build_tests')
-enable_exceptions = get_option('enable_exceptions')
-enable_rtti = get_option('enable_rtti')
 enable_debug = get_option('enable_debug')
 
 # Define version numbers
