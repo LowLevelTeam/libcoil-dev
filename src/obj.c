@@ -83,15 +83,6 @@ static void* push_data(coil_arena_t* arena, const void* data, size_t size) {
 }
 
 /**
- * Free memory if not using arena
- */
-static void free_mem(void* ptr, int uses_arena) {
-	if (!uses_arena && ptr) {
-		free(ptr);
-	}
-}
-
-/**
  * Find a section by name
  */
 static coil_u16_t find_section_by_name(const coil_object_t* obj, const char* name) {
@@ -381,6 +372,8 @@ coil_object_t* coil_object_create(coil_arena_t* arena) {
 }
 
 void coil_object_destroy(coil_object_t* obj, coil_arena_t* arena) {
+	(void)arena;
+	
 	if (!obj) {
 		return;
 	}
