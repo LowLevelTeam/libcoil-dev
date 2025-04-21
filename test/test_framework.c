@@ -9,7 +9,7 @@
 test_result_t g_test_result = {0, 0, 0, 0.0};
 
 // Global verbose flag
-int g_test_verbose = 1;
+int g_test_verbose = 0;
 
 // Run all tests in a test array
 void run_tests(const test_t* tests, int count) {

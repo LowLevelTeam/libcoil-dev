@@ -230,212 +230,75 @@ enum coil_modifier_e {
 typedef uint8_t coil_modifier_t;
 
 /**
- * @brief Operand header structure
- */
+* @brief Instruction Header
+*/
 typedef struct {
-  coil_operand_type_t type;   // Operand type
-  coil_value_type_t value_type; // Value type
-  coil_modifier_t modifier;   // Modifiers
-} coil_operand_header_t;
+  uint8_t opcode;
+  uint8_t operand_count;
+} coil_instr_t;
 
 /**
- * @brief Offset operand header structure
- */
+* @brief Offset operand header structure
+*/
 typedef struct {
-  coil_operand_type_t offset_type; // Should be COIL_TYPEOP_OFF
-  coil_operand_type_t op_type;    // Underlying operand type
-  coil_value_type_t value_type;   // Value type
-  coil_modifier_t modifier;       // Modifiers
-} coil_offset_header_t;
+  uint64_t disp;
+  uint64_t index;
+  uint64_t scale;
+  // (scale * index) + disp
+} coil_offset_t;
+
+/**
+* @brief Operand header structure
+*/
+typedef struct {
+  uint8_t type;       // Operand type
+  uint8_t value_type; // Value type
+  uint8_t modifier;   // Modifiers
+} coil_operand_header_t;
 
 // -------------------------------- Serialization -------------------------------- //
 
 /**
-* @brief Encode an instruction header with operand count
+* @brief Encode an instruction header with operand count (should be used to encode 0 operands)
 */
 void encode_instr(coil_arena_t *arena, coil_opcode_t op, uint8_t operand_count);
 
 /**
-* @brief Encode an instruction header without operand count
+* @brief Encode an instruction header without operand count 
+*
+* not for 0 operands but for instructions that NEVER take any operands
 */
 void encode_instr_void(coil_arena_t *arena, coil_opcode_t op);
 
 /**
-* @brief Encode an instruction operand to an immediate value
+* @brief Encode operand header with or without offset addition
 */
-void encode_operand_imm(coil_arena_t *arena, coil_value_type_t type, coil_modifier_t mod, void *data);
+void encode_operand(coil_arena_t *arena, coil_operand_header_t *header);
+void encode_operand_off(coil_arena_t *arena, coil_operand_header_t *header, coil_offset_t *offset);
 
 /**
-* @brief Encode an instruction operand to a u64 reference
+* @brief Encode operand data
 */
-void encode_operand_u64(coil_arena_t *arena, coil_operand_type_t optype, coil_value_type_t type, coil_modifier_t mod, uint64_t ref);
-
-/**
-* @brief Encode an instruction operand to a u32 reference
-*/
-void encode_operand_u32(coil_arena_t *arena, coil_operand_type_t optype, coil_value_type_t type, coil_modifier_t mod, uint32_t ref);
-
-/**
-* @brief Encode an instruction operand to an immediate value
-*/
-void encode_operand_off_imm(coil_arena_t *arena, coil_value_type_t type, coil_modifier_t mod, uint64_t disp, uint64_t index, uint64_t scale, void *data);
-
-/**
-* @brief Encode an instruction operand to a u64 reference
-*/
-void encode_operand_off_u64(coil_arena_t *arena, coil_operand_type_t optype, coil_value_type_t type, coil_modifier_t mod, uint64_t disp, uint64_t index, uint64_t scale, uint64_t ref);
-
-/**
-* @brief Encode an instruction operand to a u32 reference
-*/
-void encode_operand_off_u32(coil_arena_t *arena, coil_operand_type_t optype, coil_value_type_t type, coil_modifier_t mod, uint64_t disp, uint64_t index, uint64_t scale, uint32_t ref);
+void encode_operand_data(coil_arena_t *arena, void *data, size_t datasize);
 
 // -------------------------------- De-Serialization -------------------------------- //
+/**
+* @brief Decode an instruction header 
+*/
+void decode_instr(coil_arena_t *arena, coil_instr_t *op);
 
 /**
- * @brief Parse an opcode from encoded data
- *
- * @param data Pointer to encoded data
- * @return coil_opcode_t Parsed opcode
- */
-coil_opcode_t decode_opcode(const void* data);
+* @brief Encode operand header with or without offset addition
+*
+* if operand does not have offset parameters the three offset values will be set to zero
+*/
+void decode_operand(coil_arena_t *arena, coil_operand_header_t *header, coil_offset_t *offset);
 
 /**
- * @brief Get the operand count from an encoded instruction
- *
- * @param data Pointer to encoded data 
- * @return uint8_t Number of operands (0 for void instructions)
- */
-uint8_t decode_operand_count(const void* data);
-
-/**
- * @brief Check if an instruction has operand count encoded
- * 
- * @param data Pointer to encoded data
- * @param code The opcode to check (optional, decoded from data if not provided)
- * @return int Non-zero if instruction has operand count
- */
-int has_operand_count(const void* data, coil_opcode_t code);
-
-/**
- * @brief Get the instruction size in bytes
- *
- * @param data Pointer to encoded data
- * @return size_t Size in bytes
- */
-size_t get_instruction_size(const void* data);
-
-/**
- * @brief Parse operand header from encoded data
- *
- * @param data Pointer to encoded operand
- * @param header Pointer to store operand header information
- * @return size_t Size of the header in bytes
- */
-size_t decode_operand_header(const void* data, coil_operand_header_t* header);
-
-/**
- * @brief Parse offset operand header from encoded data
- *
- * @param data Pointer to encoded operand
- * @param header Pointer to store offset header information
- * @return size_t Size of the header in bytes
- */
-size_t decode_offset_header(const void* data, coil_offset_header_t* header);
-
-/**
- * @brief Get total size of an encoded operand
- *
- * @param data Pointer to encoded operand
- * @return size_t Size in bytes
- */
-size_t get_operand_size(const void* data);
-
-/**
- * @brief Get a pointer to an operand's value data
- *
- * @param data Pointer to encoded operand
- * @return const void* Pointer to value data
- */
-const void* get_operand_value_ptr(const void* data);
-
-/**
- * @brief Extract a uint8 value from an operand
- *
- * @param data Pointer to encoded operand
- * @param value Pointer to store the value
- * @return int Non-zero if successful
- */
-int decode_operand_u8(const void* data, uint8_t* value);
-
-/**
- * @brief Extract a uint16 value from an operand
- *
- * @param data Pointer to encoded operand
- * @param value Pointer to store the value
- * @return int Non-zero if successful
- */
-int decode_operand_u16(const void* data, uint16_t* value);
-
-/**
- * @brief Extract a uint32 value from an operand
- *
- * @param data Pointer to encoded operand
- * @param value Pointer to store the value
- * @return int Non-zero if successful
- */
-int decode_operand_u32(const void* data, uint32_t* value);
-
-/**
- * @brief Extract a uint64 value from an operand
- *
- * @param data Pointer to encoded operand
- * @param value Pointer to store the value
- * @return int Non-zero if successful
- */
-int decode_operand_u64(const void* data, uint64_t* value);
-
-/**
- * @brief Get a pointer to the next operand
- *
- * @param data Pointer to current operand
- * @return const void* Pointer to next operand or NULL if error
- */
-const void* get_next_operand(const void* data);
-
-/**
- * @brief Get a pointer to the first operand in an instruction
- *
- * @param data Pointer to instruction
- * @return const void* Pointer to first operand or NULL if none
- */
-const void* get_first_operand(const void* data);
-
-/**
- * @brief Get displacement value from offset operand
- *
- * @param data Pointer to offset operand
- * @param disp Pointer to store displacement value
- * @return int Non-zero if successful
- */
-int decode_offset_displacement(const void* data, uint64_t* disp);
-
-/**
- * @brief Get index value from offset operand
- *
- * @param data Pointer to offset operand
- * @param index Pointer to store index value
- * @return int Non-zero if successful
- */
-int decode_offset_index(const void* data, uint64_t* index);
-
-/**
- * @brief Get scale value from offset operand
- *
- * @param data Pointer to offset operand
- * @param scale Pointer to store scale value
- * @return int Non-zero if successful
- */
-int decode_offset_scale(const void* data, uint64_t* scale);
+* @brief Encode operand data
+*
+* header must already be decoded
+*/
+void decode_operand_data(coil_arena_t *arena, void *data, size_t datasize, size_t *valsize, coil_operand_header_t *header);
 
 #endif // __COIL_INCLUDE_GUARD_INSTR_H
