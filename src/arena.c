@@ -24,7 +24,7 @@ typedef struct Block {
  * @struct Arena
  * @brief Arena allocator structure
  */
-struct Arena {
+struct coil_arena {
 	Block* first_block;   /**< Pointer to the first block in the arena */
 	Block* current_block; /**< Pointer to the current block for allocations */
 	size_t total_size;    /**< Total size of all blocks in the arena */
@@ -68,7 +68,7 @@ static void free_block(Block* block) {
 	}
 }
 
-Arena* arena_init(size_t initial_size, size_t max_size) {
+coil_arena_t* arena_init(size_t initial_size, size_t max_size) {
 	// Minimum block size is 4KB
 	const size_t min_block_size = 4096;
 	
@@ -83,7 +83,7 @@ Arena* arena_init(size_t initial_size, size_t max_size) {
 		return NULL;
 	}
 
-	Arena* arena = (Arena*)malloc(sizeof(Arena));
+	coil_arena_t* arena = (coil_arena_t*)malloc(sizeof(coil_arena_t));
 	if (!arena) return NULL;
 
 	Block* block = create_block(initial_size);
@@ -102,7 +102,7 @@ Arena* arena_init(size_t initial_size, size_t max_size) {
 	return arena;
 }
 
-void arena_destroy(Arena* arena) {
+void arena_destroy(coil_arena_t* arena) {
 	if (!arena) return;
 
 	Block* block = arena->first_block;
@@ -134,7 +134,7 @@ static size_t align_up(size_t value, size_t alignment) {
  * @param min_size Minimum size required for the new block
  * @return 1 if successful, 0 on failure
  */
-static int add_block(Arena* arena, size_t min_size) {
+static int add_block(coil_arena_t* arena, size_t min_size) {
 	// Determine the size of the new block
 	// Double the current block size, but ensure it's at least min_size
 	size_t new_size = arena->current_block->size * 2;
@@ -178,7 +178,7 @@ static int add_block(Arena* arena, size_t min_size) {
 	return 1;
 }
 
-void* arena_alloc(Arena* arena, size_t size, size_t alignment) {
+void* arena_alloc(coil_arena_t* arena, size_t size, size_t alignment) {
 	if (!arena || size == 0) return NULL;
 
 	// Ensure alignment is at least 1
@@ -212,13 +212,13 @@ void* arena_alloc(Arena* arena, size_t size, size_t alignment) {
 	return result;
 }
 
-void* arena_alloc_default(Arena* arena, size_t size) {
+void* arena_alloc_default(coil_arena_t* arena, size_t size) {
 	// Default to sizeof(max_align_t) alignment, which is usually suitable
 	// for any data type without specific alignment requirements
 	return arena_alloc(arena, size, sizeof(max_align_t));
 }
 
-void arena_reset(Arena* arena) {
+void arena_reset(coil_arena_t* arena) {
 	if (!arena) return;
 
 	// Reset all blocks
@@ -233,19 +233,19 @@ void arena_reset(Arena* arena) {
 	arena->total_used = 0;
 }
 
-size_t arena_capacity(const Arena* arena) {
+size_t arena_capacity(const coil_arena_t* arena) {
 	return arena ? arena->total_size : 0;
 }
 
-size_t arena_used(const Arena* arena) {
+size_t arena_used(const coil_arena_t* arena) {
 	return arena ? arena->total_used : 0;
 }
 
-size_t arena_max_size(const Arena* arena) {
+size_t arena_max_size(const coil_arena_t* arena) {
 	return arena ? arena->max_size : 0;
 }
 
-void* arena_push(Arena* arena, const void* data, size_t size, size_t alignment) {
+void* arena_push(coil_arena_t* arena, const void* data, size_t size, size_t alignment) {
 	if (!arena || !data || size == 0) return NULL;
 	
 	// Allocate memory for the object
@@ -258,6 +258,6 @@ void* arena_push(Arena* arena, const void* data, size_t size, size_t alignment) 
 	return dest;
 }
 
-void* arena_push_default(Arena* arena, const void* data, size_t size) {
+void* arena_push_default(coil_arena_t* arena, const void* data, size_t size) {
 	return arena_push(arena, data, size, sizeof(max_align_t));
 }

@@ -16,18 +16,18 @@ inc_dir = include_directories('include')
 
 # Source files
 coil_sources = [
-  'csrc/arena.c',
-  'csrc/err.c',
-  'csrc/obj.c',
-  'csrc/instr.c',
+  'src/arena.c',
+  'src/err.c',
+  'src/obj.c',
+  'src/instr.c',
 ]
 
 # Headers
 coil_headers = [
-  'include/ccoil/arena.h',
-  'include/ccoil/err.h',
-  'include/ccoil/instr.h',
-  'include/ccoil/obj.h',
+  'include/coil/arena.h',
+  'include/coil/err.h',
+  'include/coil/instr.h',
+  'include/coil/obj.h',
 ]
 
 # Build options

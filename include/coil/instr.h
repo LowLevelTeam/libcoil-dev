@@ -6,12 +6,15 @@
 #ifndef __COIL_INCLUDE_GUARD_INSTR_H
 #define __COIL_INCLUDE_GUARD_INSTR_H
 
+#include <coil/arena.h>
+#include <stdint.h>
+
 // -------------------------------- Definitions -------------------------------- //
 
 /**
 * @brief Encode an instruction header with operand count
 */
-typedef enum coil_opcode_e : uint8_t {
+enum coil_opcode_e {
   // Control Flow operations (0x00-0x0F)
   COIL_OP_NOP  = 0x00,    // No operation
   COIL_OP_BR   = 0x01,     // Branch (conditional jump)
@@ -126,12 +129,13 @@ typedef enum coil_opcode_e : uint8_t {
   
   // Attribute (0xFF)
   COIL_OP_EXT    = 0xFF   ///< Extension (similar to GNU __attribute__) (currently reserved)
-} coil_opcode_t;
+};
+typedef uint8_t coil_opcode_t;
 
 /**
 * @brief Encode the data encoding
 */
-typedef enum coil_operand_type_e : uint8_t {
+enum coil_operand_type_e {
   COIL_TYPEOP_NONE = 0x00, // No operand
   COIL_TYPEOP_REG = 0x01,  // u32 Register
   COIL_TYPEOP_VAR = 0x02,  // u64 Variable reference
@@ -140,12 +144,13 @@ typedef enum coil_operand_type_e : uint8_t {
   COIL_TYPEOP_SYM = 0x05,  // u64 Symbol reference
   COIL_TYPEOP_OFF = 0x06,  // { u64 u64 u64 void* }  The instruction includes offsets then another 4 bits follows this for the actual operand type
   // Reserved 0x06-0x0F
-} coil_operand_type_t;
+};
+typedef uint8_t coil_operand_type_t;
 
 /**
 * @brief Encode the value type
 */
-typedef enum coil_value_type_e : uint8_t {
+enum coil_value_type_e {
   // Signed Integer (0x00-0x0F)
   COIL_VAL_I8   = 0x00,  // 8-bit signed integer
   COIL_VAL_I16  = 0x01, // 16-bit signed integer
@@ -209,19 +214,20 @@ typedef enum coil_value_type_e : uint8_t {
 
   // Void Type
   COIL_VAL_VOID = 0xFF, // Void type
-} coil_value_type_t;
+};
+typedef uint8_t coil_value_type_t;
 
 /**
 * @brief Encode the operand modifier
 */
-typedef enum coil_modifier_e : uint8_t {
+enum coil_modifier_e {
   COIL_MOD_NONE   = 0,      // No modifiers
   COIL_MOD_CONST  = 1 << 0, // Constant value (value should not be changed)
   COIL_MOD_VOL    = 1 << 1, // Volatile value (value could change unexpectedly)
   COIL_MOD_ATOMIC = 1 << 2, // Atomic access (value requires atomic access)
   COIL_MOD_MUT    = 1 << 3, // Value can change (finds use cases in composite types and possible uses in the future)
-} coil_modifier_t;
-
+};
+typedef uint8_t coil_modifier_t;
 // -------------------------------- Serialization -------------------------------- //
 
 /**

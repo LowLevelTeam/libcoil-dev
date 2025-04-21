@@ -10,8 +10,8 @@
 #ifndef __COIL_INCLUDE_GUARD_OBJ_H
 #define __COIL_INCLUDE_GUARD_OBJ_H
 
-#include <ccoil/err.h>
-#include <ccoil/arena.h>
+#include <coil/err.h>
+#include <coil/arena.h>
 #include <stdint.h>
 #include <stddef.h>
 

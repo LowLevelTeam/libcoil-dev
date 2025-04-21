@@ -81,7 +81,7 @@ void encode_operand_u32(coil_arena_t *arena, coil_operand_type_t optype, coil_va
 }
 
 void encode_operand_off_imm(coil_arena_t *arena, coil_value_type_t type, coil_modifier_t mod, uint64_t disp, uint64_t index, uint64_t scale, void *data) {
-  coil_operand_off_type_t offtype = COIL_TYPEOP_OFF;
+  coil_operand_type_t offtype = COIL_TYPEOP_OFF;
   coil_operand_type_t optype = COIL_TYPEOP_IMM;
 
   arena_push_default(arena, &offtype, sizeof(offtype));
@@ -97,20 +97,30 @@ void encode_operand_off_imm(coil_arena_t *arena, coil_value_type_t type, coil_mo
 }
 
 void encode_operand_off_u64(coil_arena_t *arena, coil_operand_type_t optype, coil_value_type_t type, coil_modifier_t mod, uint64_t disp, uint64_t index, uint64_t scale, uint64_t ref) {
-  coil_operand_off_type_t offtype = COIL_TYPEOP_OFF;
+  coil_operand_type_t offtype = COIL_TYPEOP_OFF;
   arena_push_default(arena, &offtype, sizeof(offtype));
   arena_push_default(arena, &optype, sizeof(optype));
   arena_push_default(arena, &type, sizeof(type));
   arena_push_default(arena, &mod, sizeof(mod));
+
+  arena_push_default(arena, &disp, 8);
+  arena_push_default(arena, &index, 8);
+  arena_push_default(arena, &scale, 8);
+  
   arena_push_default(arena, &ref, 8);
 }
 
 void encode_operand_off_u32(coil_arena_t *arena, coil_operand_type_t optype, coil_value_type_t type, coil_modifier_t mod, uint64_t disp, uint64_t index, uint64_t scale, uint32_t ref) {
-  coil_operand_off_type_t offtype = COIL_TYPEOP_OFF;
+  coil_operand_type_t offtype = COIL_TYPEOP_OFF;
   arena_push_default(arena, &offtype, sizeof(offtype));
   arena_push_default(arena, &optype, sizeof(optype));
   arena_push_default(arena, &type, sizeof(type));
   arena_push_default(arena, &mod, sizeof(mod));
+
+  arena_push_default(arena, &disp, 8);
+  arena_push_default(arena, &index, 8);
+  arena_push_default(arena, &scale, 8);
+  
   arena_push_default(arena, &ref, 4);
 }
 
