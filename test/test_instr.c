@@ -11,10 +11,11 @@
 #include <stdint.h>
 #include <stdio.h>
 
+void test_todo() {}
+
 // Define test array with more comprehensive tests
 test_t instr_tests[] = {
-  
-
+  { "Testing", test_todo }
   // {"TODO", TODO},
 };
 
