@@ -54,8 +54,26 @@ meson compile -C build
 
 ### Running Tests
 
+The library comes with a comprehensive test suite to verify all components:
+
 ```bash
 meson test -C build
+```
+
+To run specific test categories:
+
+```bash
+meson test -C build arena_tests
+meson test -C build error_tests
+meson test -C build instr_tests
+meson test -C build obj_tests
+meson test -C build coil_tests
+```
+
+For verbose test output:
+
+```bash
+meson test -C build -v
 ```
 
 ### Basic Usage
