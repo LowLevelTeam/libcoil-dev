@@ -6,18 +6,25 @@ SRC_DIR = src
 TEST_DIR = tests
 BUILD_DIR = build
 LIB_DIR = lib
+INCLUDE_DIR = include
 
 SRCS = $(wildcard $(SRC_DIR)/*.c)
 OBJS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/%.o,$(SRCS))
 TEST_SRCS = $(wildcard $(TEST_DIR)/*.c)
 TEST_OBJS = $(patsubst $(TEST_DIR)/%.c,$(BUILD_DIR)/%.o,$(TEST_SRCS))
+HEADERS = $(wildcard $(INCLUDE_DIR)/coil/*.h)
 
 LIB_STATIC = $(LIB_DIR)/libcoil.a
 LIB_SHARED = $(LIB_DIR)/libcoil.so
 
 TEST_BIN = $(BUILD_DIR)/coil_test
 
-.PHONY: all clean test static shared
+# Default installation directories
+prefix = /usr/local
+libdir = $(prefix)/lib
+includedir = $(prefix)/include/coil
+
+.PHONY: all clean test static shared install
 
 all: static shared test
 
@@ -53,6 +60,15 @@ test: $(TEST_BIN)
 # Run the test program
 run-test: test
 	./$(TEST_BIN)
+
+# Install libraries and headers
+install: static shared $(includedir) 
+	install -d $(libdir)
+	install -d $(includedir)
+	install -m 644 $(LIB_STATIC) $(libdir)
+	install -m 755 $(LIB_SHARED) $(libdir)
+	install -m 644 $(HEADERS) $(includedir)
+	ldconfig
 
 # Clean build files
 clean:
