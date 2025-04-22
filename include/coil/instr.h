@@ -260,6 +260,10 @@ typedef struct {
 
 /**
 * @brief Encode an instruction header with operand count (should be used to encode 0 operands)
+*
+* @param arena Memory arena for allocation
+* @param op Opcode to encode
+* @param operand_count Number of operands for this instruction
 */
 void encode_instr(coil_arena_t *arena, coil_opcode_t op, uint8_t operand_count);
 
@@ -267,38 +271,76 @@ void encode_instr(coil_arena_t *arena, coil_opcode_t op, uint8_t operand_count);
 * @brief Encode an instruction header without operand count 
 *
 * not for 0 operands but for instructions that NEVER take any operands
+*
+* @param arena Memory arena for allocation
+* @param op Opcode to encode
 */
 void encode_instr_void(coil_arena_t *arena, coil_opcode_t op);
 
 /**
 * @brief Encode operand header with or without offset addition
+* 
+* @param arena Memory arena for allocation
+* @param header Operand header to encode
 */
 void encode_operand(coil_arena_t *arena, coil_operand_header_t *header);
+
+/**
+* @brief Encode operand header with offset 
+* 
+* @param arena Memory arena for allocation
+* @param header Operand header to encode
+* @param offset Offset data to encode
+*/
 void encode_operand_off(coil_arena_t *arena, coil_operand_header_t *header, coil_offset_t *offset);
 
 /**
 * @brief Encode operand data
+* 
+* @param arena Memory arena for allocation
+* @param data Pointer to data to encode
+* @param datasize Size of data to encode
 */
 void encode_operand_data(coil_arena_t *arena, void *data, size_t datasize);
 
 // -------------------------------- De-Serialization -------------------------------- //
+
 /**
 * @brief Decode an instruction header 
+*
+* @param buffer Pointer to the buffer containing encoded data
+* @param pos Current position in the buffer
+* @param op Pointer to store the decoded instruction
+* @return size_t Updated buffer position after decoding
 */
-void decode_instr(coil_arena_t *arena, coil_instr_t *op);
+size_t decode_instr(const uint8_t *buffer, size_t pos, coil_instr_t *op);
 
 /**
-* @brief Encode operand header with or without offset addition
+* @brief Decode operand header with or without offset addition
 *
-* if operand does not have offset parameters the three offset values will be set to zero
+* If operand does not have offset parameters the three offset values will be set to zero
+*
+* @param buffer Pointer to the buffer containing encoded data
+* @param pos Current position in the buffer
+* @param header Pointer to store the decoded operand header
+* @param offset Pointer to store the decoded offset (if present)
+* @return size_t Updated buffer position after decoding
 */
-void decode_operand(coil_arena_t *arena, coil_operand_header_t *header, coil_offset_t *offset);
+size_t decode_operand(const uint8_t *buffer, size_t pos, coil_operand_header_t *header, coil_offset_t *offset);
 
 /**
-* @brief Encode operand data
+* @brief Decode operand data
 *
-* header must already be decoded
+* Header must already be decoded
+*
+* @param buffer Pointer to the buffer containing encoded data
+* @param pos Current position in the buffer
+* @param data Pointer to store the decoded data
+* @param datasize Size of the data buffer
+* @param valsize Pointer to store the actual size of the value type
+* @param header Operand header containing value type information
+* @return size_t Updated buffer position after decoding
 */
-void decode_operand_data(coil_arena_t *arena, void *data, size_t datasize, size_t *valsize, coil_operand_header_t *header);
+size_t decode_operand_data(const uint8_t *buffer, size_t pos, void *data, size_t datasize, size_t *valsize, coil_operand_header_t *header);
 
 #endif // __COIL_INCLUDE_GUARD_INSTR_H
