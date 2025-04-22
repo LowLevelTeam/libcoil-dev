@@ -10,26 +10,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-/**
- * Section information structure
- */
-typedef struct coil_section_s {
-	coil_section_header_t header;  // Section header
-	void* data;                    // Section data
-	size_t data_capacity;          // Capacity of data buffer
-} coil_section_t;
 
-/**
- * COIL object structure
- */
-struct coil_object_s {
-	coil_object_header_t header;     // Object header
-	coil_section_t* sections;        // Array of sections
-	size_t sections_capacity;        // Capacity of sections array
-	coil_u16_t strtab_index;         // String table index (1-based, 0 if not present)
-	coil_u16_t symtab_index;         // Symbol table index (1-based, 0 if not present)
-	int uses_arena;                  // Whether this object uses arena allocation
-};
 
 /**
  * Initialize a default object header
