@@ -48,8 +48,8 @@ typedef struct coil_object {
 coil_err_t coil_obj_init(coil_object_t *obj);
 
 // Serialization and De-Serialization
-coil_err_t coil_obj_load_file(coil_object_t *obj, FILE *fileptr);
-coil_err_t coil_obj_save_file(coil_object_t *obj, FILE *fileptr);
+coil_err_t coil_obj_load_file(coil_object_t *obj, int fd);
+coil_err_t coil_obj_save_file(coil_object_t *obj, int fd);
 
 // Section manipulation
 coil_err_t coil_obj_sload(coil_object_t *obj, u16 index, coil_section_t *sect, int mode); // get section

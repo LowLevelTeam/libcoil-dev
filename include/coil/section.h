@@ -99,7 +99,7 @@ coil_err_t coil_section_putstr(coil_section_t *sect, coil_byte_t *str);
 coil_err_t coil_section_getstr(coil_section_t *sect, u64 offset, coil_byte_t **str);
 
 // Serialization and De-Serialization
-coil_err_t coil_section_deserialize(coil_object_t *obj, FILE *fileptr);
-coil_err_t coil_section_serialize(coil_object_t *obj, FILE *fileptr);
+coil_err_t coil_section_deserialize(coil_object_t *obj, int fd);
+coil_err_t coil_section_serialize(coil_object_t *obj, int fd);
 
 #endif // __COIL_INCLUDE_GUARD_SECTION_H
