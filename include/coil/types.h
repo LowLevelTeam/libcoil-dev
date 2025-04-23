@@ -122,25 +122,23 @@ enum coil_opcode_e {
   COIL_OP_TEST = 0x06,    ///< Test (sets flags)
   // Reserved: 07-0F
 
-  // Memory Operations (0x10-0x2F)
+  // Memory Operations (0x10-0x1F)
   COIL_OP_MOV  = 0x10,    ///< Copy value from source to destination
   COIL_OP_PUSH = 0x11,    ///< Push onto stack
   COIL_OP_POP  = 0x12,    ///< Pop from stack
   COIL_OP_LEA  = 0x13,    ///< Load effective address
-  COIL_OP_LOAD = 0x14,    ///< Load from memory
-  COIL_OP_STOR = 0x15,    ///< Store from memory
-  // Reserved: 15-2F
+  // Reserved: 14-2F
 
-  // Arithmetic (0x30-0x4F)
-  COIL_OP_ADD = 0x30,     ///< Addition
-  COIL_OP_SUB = 0x31,     ///< Subtraction
-  COIL_OP_MUL = 0x32,     ///< Multiplication
-  COIL_OP_DIV = 0x33,     ///< Division
-  COIL_OP_MOD = 0x34,     ///< Remainder
-  COIL_OP_INC = 0x35,     ///< Increment
-  COIL_OP_DEC = 0x36,     ///< Decrement
-  COIL_OP_NEG = 0x37,     ///< Negate a value
-  // Reserved: 38-4F
+  // Arithmetic (0x20-0x4F)
+  COIL_OP_ADD = 0x20,     ///< Addition
+  COIL_OP_SUB = 0x21,     ///< Subtraction
+  COIL_OP_MUL = 0x22,     ///< Multiplication
+  COIL_OP_DIV = 0x23,     ///< Division
+  COIL_OP_MOD = 0x24,     ///< Remainder
+  COIL_OP_INC = 0x25,     ///< Increment
+  COIL_OP_DEC = 0x26,     ///< Decrement
+  COIL_OP_NEG = 0x27,     ///< Negate a value
+  // Reserved: 28-4F
 
   // Bitwise (0x50-5F)
   COIL_OP_AND    = 0x50,  ///< Bitwise AND
@@ -151,18 +149,18 @@ enum coil_opcode_e {
   COIL_OP_SHR    = 0x55,  ///< Shift right (logical)
   COIL_OP_SAL    = 0x56,  ///< Shift arithmetic left
   COIL_OP_SAR    = 0x57,  ///< Shift arithmetic right
-  COIL_OP_POPCNT = 0x58,  ///< Population count  
-  // Reserved: 59-5F
+  // Reserved: 58-5F
 
   // Multi-Dimensional (0x60-0x6F)
-  COIL_OP_GETE  = 0x60,   ///< Get element
-  COIL_OP_SETE  = 0x61,   ///< Set element
-  COIL_OP_DOT   = 0x62,   ///< Dot product
-  COIL_OP_CROSS = 0x63,   ///< Cross product
-  COIL_OP_NORM  = 0x64,   ///< Normalize
-  COIL_OP_LEN   = 0x65,   ///< Length/magnitude
-  COIL_OP_TRANS = 0x66,   ///< Transpose
-  COIL_OP_INV   = 0x67,   ///< Invert/inverse
+  // Reserved: 60-6F
+  // COIL_OP_GETE  = 0x60,   ///< Get element
+  // COIL_OP_SETE  = 0x61,   ///< Set element
+  // COIL_OP_DOT   = 0x62,   ///< Dot product
+  // COIL_OP_CROSS = 0x63,   ///< Cross product
+  // COIL_OP_NORM  = 0x64,   ///< Normalize
+  // COIL_OP_LEN   = 0x65,   ///< Length/magnitude
+  // COIL_OP_TRANS = 0x66,   ///< Transpose
+  // COIL_OP_INV   = 0x67,   ///< Invert/inverse
 
   // Crpytography and Random Numbers (0x70-0x7F)
   // Reserved: 70-7F
@@ -172,7 +170,8 @@ enum coil_opcode_e {
   // Type (0xA0-0xAF)
   COIL_OP_CVT   = 0xA0,   ///< Type Cast
   COIL_OP_SIZE  = 0xA1,   ///< Sizeof Type
-  COIL_OP_ALIGN = 0xA2,   ///< Allign Types
+  COIL_OP_ALIGN = 0xA2,   ///< Allignof Type
+  COIL_OP_TYPE  = 0xA3,   ///< Typeof Operand
   // Reserved: A3-AF
 
   // PU (0xB0-0xCF)
@@ -210,10 +209,9 @@ enum coil_opcode_e {
         // TODO...
       // INTEL
 
-  // Directive (0xE0-0xFE)
+  // Directive (0xE0-0xFF)
   COIL_OP_DEF    = 0xE0,   ///< Define an expression
   COIL_OP_UDEF   = 0xE1,   ///< Undefine an expression
-  COIL_OP_ISDEF  = 0xE2,   ///< Check if an expression exists
   // Reserved: E3-EF
   COIL_OP_ABI    = 0xF0,   ///< Define an ABI
   COIL_OP_SPARAM = 0xF1,   ///< Set the parameter value utilizing the current ABI (used in the caller)
@@ -221,9 +219,6 @@ enum coil_opcode_e {
   COIL_OP_SRET   = 0xF3,   ///< Set the return value utilizing the current ABI (used in the callee)
   COIL_OP_GRET   = 0xF4,   ///< Get the return value utilizing the current ABI (used in the caller)
   // Reserved: F5-FE
-  
-  // Attribute (0xFF)
-  COIL_OP_EXT    = 0xFF    ///< Extension (similar to GNU __attribute__)
 };
 typedef uint8_t coil_opcode_t;
 
@@ -281,12 +276,6 @@ enum coil_value_type_e {
   COIL_VAL_EXP   = 0xF2,  ///< Value is u64 Expression ID
   COIL_VAL_REG   = 0xF3,  ///< Value is u32 register reference
   COIL_VAL_STR   = 0xF4,  ///< Value is u64 string table offset
-  
-  // Instruction Flags
-  COIL_VAL_FLAG0 = 0xFA,  ///< Flag 0
-  COIL_VAL_FLAG1 = 0xFB,  ///< Flag 1
-  COIL_VAL_FLAG2 = 0xFC,  ///< Flag 2
-  COIL_VAL_FLAG3 = 0xFD,  ///< Flag 3
 
   // Bit Type
   COIL_VAL_BIT  = 0xFE,   ///< Bit type
