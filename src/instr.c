@@ -8,10 +8,10 @@
 *
 * @param sect Section to write the encoded instruction to
 * @param op Opcode to encode
-* @param operand_count Number of operands for this instruction
+* @param condition Number of operands for this instruction
 * @return coil_err_t COIL_ERR_GOOD on success
 */
-coil_err_t coil_instr_encode(coil_section_t *sect, coil_opcode_t op, coil_u8_t operand_count) {
+coil_err_t coil_instr_encode(coil_section_t *sect, coil_opcode_t op, coil_u8_t condition) {
     // Validate parameters
     if (sect == NULL) {
         return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
@@ -20,23 +20,11 @@ coil_err_t coil_instr_encode(coil_section_t *sect, coil_opcode_t op, coil_u8_t o
     // Prepare instruction header
     coil_instr_t instr;
     instr.opcode = op;
-    instr.operand_count = operand_count;
+    instr.condition = condition;
     
     // Write instruction header to section
     coil_size_t bytes_written;
     return coil_section_write(sect, (coil_byte_t*)&instr, sizeof(instr), &bytes_written);
-}
-
-/**
-* @brief Encode an instruction header without operand count 
-*
-* @param sect Section to write the encoded instruction to
-* @param op Opcode to encode
-* @return coil_err_t COIL_ERR_GOOD on success
-*/
-coil_err_t coil_instr_encode_void(coil_section_t *sect, coil_opcode_t op) {
-    // Void instructions always have 0 operands
-    return coil_instr_encode(sect, op, 0);
 }
 
 /**

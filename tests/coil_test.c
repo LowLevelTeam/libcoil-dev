@@ -228,10 +228,10 @@ int test_load_object(const char* filename) {
         }
         
         printf("Instruction: opcode=0x%02X, operands=%d\n", 
-               instr.opcode, instr.operand_count);
+               instr.opcode, instr.condition);
         
         // Decode operands
-        for (int i = 0; i < instr.operand_count; i++) {
+        for (int i = 0; i < instr.condition; i++) {
             coil_operand_header_t header;
             coil_offset_t offset;
             
