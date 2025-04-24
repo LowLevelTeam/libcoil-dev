@@ -25,7 +25,7 @@ extern "C" {
 */
 typedef struct coil_instr_s {
   coil_u8_t opcode;       ///< Operation code
-  coil_u8_t condition; ///< Number of operands
+  coil_u8_t operand_count; ///< Number of operands
 } coil_instr_t;
 
 /**
@@ -58,14 +58,29 @@ typedef struct coil_operand_header_s {
 *
 * @param sect Section to write the encoded instruction to
 * @param op Opcode to encode
-* @param condition Number of operands for this instruction
+* @param operand_count Number of operands for this instruction
 * 
 * @return coil_err_t COIL_ERR_GOOD on success
 * @return coil_err_t COIL_ERR_INVAL if section is NULL
 * @return coil_err_t COIL_ERR_BADSTATE if section doesn't support writing
 * @return coil_err_t COIL_ERR_NOMEM if write fails due to memory allocation
 */
-coil_err_t coil_instr_encode(coil_section_t *sect, coil_opcode_t op, coil_u8_t condition);
+coil_err_t coil_instr_encode(coil_section_t *sect, coil_opcode_t op, coil_u8_t operand_count);
+
+/**
+* @brief Encode an instruction header without operand count 
+*
+* For instructions that NEVER take any operands
+*
+* @param sect Section to write the encoded instruction to
+* @param op Opcode to encode
+* 
+* @return coil_err_t COIL_ERR_GOOD on success
+* @return coil_err_t COIL_ERR_INVAL if section is NULL
+* @return coil_err_t COIL_ERR_BADSTATE if section doesn't support writing
+* @return coil_err_t COIL_ERR_NOMEM if write fails due to memory allocation
+*/
+coil_err_t coil_instr_encode_void(coil_section_t *sect, coil_opcode_t op);
 
 /**
 * @brief Encode operand header without offset
