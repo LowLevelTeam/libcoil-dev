@@ -21,12 +21,36 @@ extern "C" {
 /**
 * @brief Instruction Header
 * 
-* Basic structure for COIL instructions, consisting of opcode and operand count
+* Basic structure for COIL instructions, consisting of an opcode
 */
 typedef struct coil_instr_s {
   coil_u8_t opcode;       ///< Operation code
-  coil_u8_t operand_count; ///< Number of operands
 } coil_instr_t;
+
+/**
+* @brief Flag Instruction Header
+* 
+* Basic structure for COIL Flag Formatted Instructions, consisting of opcode and flag
+*/
+typedef struct coil_instrflag_s {
+  coil_u8_t opcode;       ///< Operation code
+  coil_u8_t flag;         ///< Instruction Flag
+} coil_instrflag_t;
+
+/**
+* @brief Value Instruction Header
+* 
+* Basic structure for COIL Instruction Specific Value Instructions, consisting of opcode and value
+*/
+typedef struct coil_instrval_s {
+  coil_u8_t opcode;       ///< Operation code
+  coil_u64_t value;       ///< Value
+} coil_instrval_t;
+
+/**
+* @brief Largest possible instruction header
+*/
+typedef coil_instrval_t coil_instrmem_t;
 
 /**
 * @brief Offset operand header structure
@@ -54,33 +78,46 @@ typedef struct coil_operand_header_s {
 // -------------------------------- Serialization -------------------------------- //
 
 /**
+* @brief Encode an instruction header
+*
+* @param sect Section to write the encoded instruction to
+* @param op Opcode to encode
+* 
+* @return coil_err_t COIL_ERR_GOOD on success
+* @return coil_err_t COIL_ERR_INVAL if section is NULL
+* @return coil_err_t COIL_ERR_BADSTATE if section doesn't support writing
+* @return coil_err_t COIL_ERR_NOMEM if write fails due to memory allocation
+*/
+coil_err_t coil_instr_encode(coil_section_t *sect, coil_opcode_t op);
+
+/**
 * @brief Encode an instruction header with operand count
 *
 * @param sect Section to write the encoded instruction to
 * @param op Opcode to encode
-* @param operand_count Number of operands for this instruction
+* @param flag Instruction flag to control instruction execution
 * 
 * @return coil_err_t COIL_ERR_GOOD on success
 * @return coil_err_t COIL_ERR_INVAL if section is NULL
 * @return coil_err_t COIL_ERR_BADSTATE if section doesn't support writing
 * @return coil_err_t COIL_ERR_NOMEM if write fails due to memory allocation
 */
-coil_err_t coil_instr_encode(coil_section_t *sect, coil_opcode_t op, coil_u8_t operand_count);
+coil_err_t coil_instrflag_encode(coil_section_t *sect, coil_opcode_t op, coil_instrflag_t flag);
+
 
 /**
-* @brief Encode an instruction header without operand count 
-*
-* For instructions that NEVER take any operands
+* @brief Encode an instruction header with instruction specific value
 *
 * @param sect Section to write the encoded instruction to
 * @param op Opcode to encode
+* @param value Instruction specific u64 value
 * 
 * @return coil_err_t COIL_ERR_GOOD on success
 * @return coil_err_t COIL_ERR_INVAL if section is NULL
 * @return coil_err_t COIL_ERR_BADSTATE if section doesn't support writing
 * @return coil_err_t COIL_ERR_NOMEM if write fails due to memory allocation
 */
-coil_err_t coil_instr_encode_void(coil_section_t *sect, coil_opcode_t op);
+coil_err_t coil_instrval_encode(coil_section_t *sect, coil_opcode_t op, coil_u64_t value);
 
 /**
 * @brief Encode operand header without offset
@@ -140,7 +177,7 @@ coil_err_t coil_operand_encode_data(coil_section_t *sect, void *data, coil_size_
 * @return coil_size_t Updated position after decoding
 * @return 0 on error (check coil_error_get_last() for details)
 */
-coil_size_t coil_instr_decode(coil_section_t *sect, coil_size_t pos, coil_instr_t *op);
+coil_size_t coil_instr_decode(coil_section_t *sect, coil_size_t pos, coil_instrmem_t *op, coil_instrfmt_t *fmt);
 
 /**
 * @brief Decode operand header with or without offset addition
@@ -176,6 +213,19 @@ coil_size_t coil_operand_decode(coil_section_t *sect, coil_size_t pos,
 coil_size_t coil_operand_decode_data(coil_section_t *sect, coil_size_t pos, 
                                     void *data, coil_size_t datasize, 
                                     coil_size_t *valsize, coil_operand_header_t *header);
+
+// -------------------------------- Helpers -------------------------------- //
+
+/**
+* @brief Get instruction format
+*
+* @param op Instruction Opcode
+* 
+* @return coil_instrfmt_t instruction format
+*/
+coil_instrfmt_t coil_instrfmt(coil_opcode_t op);
+
+
 
 #ifdef __cplusplus
 }

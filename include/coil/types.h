@@ -109,6 +109,37 @@ typedef enum coil_section_ownership_e {
 // -------------------------------- Instructions -------------------------------- //
 
 /**
+* @brief Instruction Format for COIL instructions
+*/
+enum coil_instrfmt_e {
+  COIL_INSTRFMT_UNKN,        // Invalid or Unsupported Instruction
+  COIL_INSTRFMT_VOID,        // [opcode]
+  COIL_INSTRFMT_VALUE,       // [opcode][id][operand]
+  COIL_INSTRFMT_UNARY,       // [opcode][operand]
+  COIL_INSTRFMT_BINARY,      // [opcode][operand][operand]
+  COIL_INSTRFMT_TENARY,      // [opcode][operand][operand][operand]
+  COIL_INSTRFMT_FLAG_UNARY,  // [opcode][flag][operand]
+  COIL_INSTRFMT_FLAG_BINARY, // [opcode][flag][operand][operand]
+  COIL_INSTRFMT_FLAG_TENARY, // [opcode][flag][operand][operand][operand]
+};
+typedef uint8_t coil_instrfmt_t;
+
+/**
+* @brief 
+*/
+enum coil_instrflag_e {
+  // Runtime Condition
+  COIL_INSTRFLAG_EQ = 0x00,
+  COIL_INSTRFLAG_NEQ = 0x01,
+  COIL_INSTRFLAG_GT = 0x02,
+  COIL_INSTRFLAG_GTE = 0x03,
+  COIL_INSTRFLAG_LT = 0x04,
+  COIL_INSTRFLAG_LTE = 0x05,
+  // Reserved
+};
+typedef uint8_t coil_instrflag_t;
+
+/**
  * @brief Opcode enumeration for COIL instructions
  */
 enum coil_opcode_e {
@@ -169,9 +200,6 @@ enum coil_opcode_e {
 
   // Type (0xA0-0xAF)
   COIL_OP_CVT   = 0xA0,   ///< Type Cast
-  COIL_OP_SIZE  = 0xA1,   ///< Sizeof Type
-  COIL_OP_ALIGN = 0xA2,   ///< Allignof Type
-  COIL_OP_TYPE  = 0xA3,   ///< Typeof Operand
   // Reserved: A3-AF
 
   // PU (0xB0-0xCF)
@@ -213,7 +241,6 @@ enum coil_opcode_e {
   COIL_OP_DEF    = 0xE0,   ///< Define an expression
   COIL_OP_UDEF   = 0xE1,   ///< Undefine an expression
   // Reserved: E3-EF
-  COIL_OP_ABI    = 0xF0,   ///< Define an ABI
   COIL_OP_SPARAM = 0xF1,   ///< Set the parameter value utilizing the current ABI (used in the caller)
   COIL_OP_GPARAM = 0xF2,   ///< Get the parameter value utilizing the current ABI (used in the callee)
   COIL_OP_SRET   = 0xF3,   ///< Set the return value utilizing the current ABI (used in the callee)

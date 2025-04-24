@@ -4,39 +4,80 @@
 #include <string.h>
 
 /**
+* @brief Encode an instruction header
+*
+* @param sect Section to write the encoded instruction to
+* @param op Opcode to encode
+* 
+* @return coil_err_t COIL_ERR_GOOD on success
+* @return coil_err_t COIL_ERR_INVAL if section is NULL
+* @return coil_err_t COIL_ERR_BADSTATE if section doesn't support writing
+* @return coil_err_t COIL_ERR_NOMEM if write fails due to memory allocation
+*/
+coil_err_t coil_instr_encode(coil_section_t *sect, coil_opcode_t op) {
+    // Validate parameters
+    if (sect == NULL) {
+        return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
+    }
+    
+    // Write opcode to section
+    coil_size_t bytes_written;
+    return coil_section_write(sect, (coil_byte_t*)&op, sizeof(op), &bytes_written);
+}
+
+/**
 * @brief Encode an instruction header with operand count
 *
 * @param sect Section to write the encoded instruction to
 * @param op Opcode to encode
-* @param operand_count Number of operands for this instruction
+* @param flag Instruction flag to control instruction execution
+* 
 * @return coil_err_t COIL_ERR_GOOD on success
+* @return coil_err_t COIL_ERR_INVAL if section is NULL
+* @return coil_err_t COIL_ERR_BADSTATE if section doesn't support writing
+* @return coil_err_t COIL_ERR_NOMEM if write fails due to memory allocation
 */
-coil_err_t coil_instr_encode(coil_section_t *sect, coil_opcode_t op, coil_u8_t operand_count) {
+coil_err_t coil_instrflag_encode(coil_section_t *sect, coil_opcode_t op, coil_instrflag_t flag) {
     // Validate parameters
     if (sect == NULL) {
         return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
     }
     
     // Prepare instruction header
-    coil_instr_t instr;
+    coil_instrflag_t instr;
     instr.opcode = op;
-    instr.operand_count = operand_count;
+    instr.flag = flag;
     
     // Write instruction header to section
     coil_size_t bytes_written;
     return coil_section_write(sect, (coil_byte_t*)&instr, sizeof(instr), &bytes_written);
 }
 
+
 /**
-* @brief Encode an instruction header without operand count 
+* @brief Encode an instruction header with instruction specific value
 *
 * @param sect Section to write the encoded instruction to
 * @param op Opcode to encode
+* @param value Instruction specific u64 value
+* 
 * @return coil_err_t COIL_ERR_GOOD on success
+* @return coil_err_t COIL_ERR_INVAL if section is NULL
+* @return coil_err_t COIL_ERR_BADSTATE if section doesn't support writing
+* @return coil_err_t COIL_ERR_NOMEM if write fails due to memory allocation
 */
-coil_err_t coil_instr_encode_void(coil_section_t *sect, coil_opcode_t op) {
-    // Void instructions always have 0 operands
-    return coil_instr_encode(sect, op, 0);
+coil_err_t coil_instrval_encode(coil_section_t *sect, coil_opcode_t op, coil_u64_t value) {
+    // Validate parameters
+    if (sect == NULL) {
+        return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
+    }
+
+    // Write opcode to section
+    coil_size_t bytes_written;
+    coil_err_t err = coil_section_write(sect, (coil_byte_t*)&op, sizeof(op), &bytes_written);
+    if (err != COIL_ERR_GOOD) return err;
+
+    return coil_section_write(sect, (coil_byte_t*)&value, sizeof(value), &bytes_written);
 }
 
 /**
@@ -133,22 +174,54 @@ coil_err_t coil_operand_encode_data(coil_section_t *sect, void *data, coil_size_
 * @param op Pointer to store the decoded instruction
 * @return coil_size_t Updated position after decoding
 */
-coil_size_t coil_instr_decode(coil_section_t *sect, coil_size_t pos, coil_instr_t *op) {
+coil_size_t coil_instr_decode(coil_section_t *sect, coil_size_t pos, coil_instrmem_t *instrmem, coil_instrfmt_t *fmt) {
     // Validate parameters
     if (sect == NULL || op == NULL) {
         COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
         return 0;
     }
     
+    // Initiate Get Opcode Sequence
+    coil_opcode_t opcode;
+
     // Check if we have enough data
-    if (pos + sizeof(coil_instr_t) > sect->size) {
+    if (pos + sizeof(opcode) > sect->size) {
         COIL_ERROR(COIL_ERR_FORMAT, "Instruction goes beyond section boundary");
         return 0;
     }
     
-    // Copy instruction header
-    memcpy(op, sect->data + pos, sizeof(coil_instr_t));
+    // Copy opcode
+    memcpy(&op, sect->data + pos, sizeof(opcode));
     
+    // Get Instruction Format
+    coil_instrfmt_t opfmt = coil_instrfmt(op);
+    if (opfmt == COIL_INSTRFMT_UNKN) {
+        return COIL_ERR_BADSTATE;
+    }
+    *fmt = opfmt;
+
+    if (
+        opfmt == COIL_INSTRFMT_VOID || 
+        opfmt == COIL_INSTRFMT_UNARY ||
+        opfmt == COIL_INSTRFMT_BINARY ||
+        opfmt == COIL_INSTRFMT_TENARY
+    ) {
+        coil_instr_t *instr = (coil_instr_t*)instrmem;
+        instr->opcode = op;
+    } else if (
+        opfmt == COIL_INSTRFMT_FLAG_UNARY ||
+        opfmt == COIL_INSTRFMT_FLAG_BINARY ||
+        opfmt == COIL_INSTRFMT_FLAG_TENARY
+    ) {
+        coil_instrflag_t *instr = (coil_instrflag_t*)instrmem;
+        instr->opcode = op;
+        memcpy(&instr->flag, sect->data + pos + sizeof(op), sizeof(instr->flag));
+    } else if (opfmt == COIL_INSTRFMT_VALUE) {
+        coil_instrval_t *instr = (coil_instrval_t*)instrmem;
+        instr->opcode = op;
+        memcpy(&instr->val, sect->data + pos + sizeof(op), sizeof(instr->val));
+    }
+
     // Return updated position
     return pos + sizeof(coil_instr_t);
 }
@@ -289,4 +362,81 @@ coil_size_t coil_operand_decode_data(coil_section_t *sect, coil_size_t pos, void
     
     // Return updated position
     return pos + type_size;
+}
+
+
+
+/**
+* @brief Get instruction format
+*
+* @param op Instruction Opcode
+* 
+* @return coil_instrfmt_t instruction format
+*/
+coil_instrfmt_t coil_instrfmt(coil_opcode_t op) {
+    switch (op) {
+    // Void Instructions
+    case COIL_OP_NOP:
+    case COIL_OP_RET:
+        return COIL_INSTRFMT_VOID;
+
+    // Specific Instruction Value Instructions
+    case COIL_OP_DEF: // value is an expression id
+        return COIL_INSTRFMT_VALUE;
+
+    // Unary Instructions
+    case COIL_OP_JMP:
+    case COIL_OP_UDEF:
+        return COIL_INSTRFMT_UNARY;
+
+    // Binary Instructions
+    case COIL_OP_CVT:
+        return COIL_INSTRFMT_BINARY;
+
+    // Tenary Instructions (for future use cases)
+    //    return COIL_INSTRFMT_TENARY;
+
+    // Unary Flag Instructions
+    case COIL_OP_BR:
+    case COIL_OP_CALL:
+    case COIL_OP_PUSH:
+    case COIL_OP_POP:
+    case COIL_OP_INC:
+    case COIL_OP_DEC:
+    case COIL_OP_NEG:
+    case COIL_OP_NOT:
+        return COIL_INSTRFMT_FLAG_UNARY;
+
+    // Binary Flag Instructions
+    case COIL_OP_CMP:
+    case COIL_OP_TEST:
+    case COIL_OP_MOV:
+    case COIL_OP_LEA:
+    case COIL_OP_ADD:
+    case COIL_OP_SUB:
+    case COIL_OP_MUL:
+    case COIL_OP_DIV:
+    case COIL_OP_MOD:
+    case COIL_OP_AND:
+    case COIL_OP_OR:
+    case COIL_OP_XOR:
+    case COIL_OP_SHL:
+    case COIL_OP_SHR:
+    case COIL_OP_SAL:
+    case COIL_OP_SAR:
+        return COIL_INSTRFMT_FLAG_BINARY;
+
+    // Tenary Flag Instructions
+    case COIL_OP_SPARAM:
+    case COIL_OP_GPARAM:
+    case COIL_OP_SRET:
+    case COIL_OP_GRET:
+        return COIL_INSTRFMT_FLAG_TENARY;
+
+    // Unknown instructions
+    default:
+        return COIL_INSTRFMT_UNKN;
+    }
+
+
 }
