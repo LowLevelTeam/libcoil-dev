@@ -655,11 +655,6 @@ coil_err_t coil_obj_delete_section(coil_object_t *obj, coil_u16_t index) {
         return COIL_ERROR(COIL_ERR_NOTFOUND, "Section index out of range");
     }
     
-    // Clean up the section if it's loaded
-    if (obj->sections != NULL && index < obj->loaded_count) {
-        coil_section_cleanup(&obj->sections[index]);
-    }
-    
     // Shift section headers down
     if (index < obj->header.section_count - 1) {
         memmove(

@@ -128,13 +128,16 @@ typedef uint8_t coil_instrfmt_t;
 * @brief 
 */
 enum coil_instrflag_e {
+  // No Flag
+  COIL_INSTRFLAG_NONE = 0x00,
+
   // Runtime Condition
-  COIL_INSTRFLAG_EQ = 0x00,
-  COIL_INSTRFLAG_NEQ = 0x01,
-  COIL_INSTRFLAG_GT = 0x02,
-  COIL_INSTRFLAG_GTE = 0x03,
-  COIL_INSTRFLAG_LT = 0x04,
-  COIL_INSTRFLAG_LTE = 0x05,
+  COIL_INSTRFLAG_EQ = 0x01,
+  COIL_INSTRFLAG_NEQ = 0x02,
+  COIL_INSTRFLAG_GT = 0x03,
+  COIL_INSTRFLAG_GTE = 0x04,
+  COIL_INSTRFLAG_LT = 0x05,
+  COIL_INSTRFLAG_LTE = 0x06,
   // Reserved
 };
 typedef uint8_t coil_instrflags_t;

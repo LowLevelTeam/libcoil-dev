@@ -65,7 +65,7 @@ int test_create_object(const char* filename) {
     }
 
     // MOV instruction (FLAG_BINARY format)
-    err = coil_instrflag_encode(&code_section, COIL_OP_MOV, COIL_INSTRFLAG_NEQ); // Using some flag
+    err = coil_instrflag_encode(&code_section, COIL_OP_MOV, COIL_INSTRFLAG_NONE); // Using no flag
     if (err != COIL_ERR_GOOD) {
         printf("Failed to encode MOV: %s\n", coil_error_string(err));
         coil_section_cleanup(&code_section);
