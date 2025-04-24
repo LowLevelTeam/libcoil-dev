@@ -53,8 +53,10 @@ int test_create_object(const char* filename) {
         return 1;
     }
 
-    // Add some simple instructions
-    err = coil_instr_encode(&code_section, COIL_OP_NOP, 0);
+    // Add some simple instructions with new format
+    
+    // NOP instruction (VOID format)
+    err = coil_instr_encode(&code_section, COIL_OP_NOP);
     if (err != COIL_ERR_GOOD) {
         printf("Failed to encode NOP: %s\n", coil_error_string(err));
         coil_section_cleanup(&code_section);
@@ -62,8 +64,8 @@ int test_create_object(const char* filename) {
         return 1;
     }
 
-    // MOV with two operands
-    err = coil_instr_encode(&code_section, COIL_OP_MOV, 2);
+    // MOV instruction (FLAG_BINARY format)
+    err = coil_instrflag_encode(&code_section, COIL_OP_MOV, COIL_INSTRFLAG_NEQ); // Using some flag
     if (err != COIL_ERR_GOOD) {
         printf("Failed to encode MOV: %s\n", coil_error_string(err));
         coil_section_cleanup(&code_section);
@@ -107,8 +109,18 @@ int test_create_object(const char* filename) {
         return 1;
     }
 
-    // Add a RET instruction
-    err = coil_instr_encode(&code_section, COIL_OP_RET, 0);
+    // DEF instruction (VALUE format)
+    coil_u64_t expr_id = 123;
+    err = coil_instrval_encode(&code_section, COIL_OP_DEF, expr_id);
+    if (err != COIL_ERR_GOOD) {
+        printf("Failed to encode DEF: %s\n", coil_error_string(err));
+        coil_section_cleanup(&code_section);
+        coil_obj_cleanup(&obj);
+        return 1;
+    }
+
+    // RET instruction (VOID format)
+    err = coil_instr_encode(&code_section, COIL_OP_RET);
     if (err != COIL_ERR_GOOD) {
         printf("Failed to encode RET: %s\n", coil_error_string(err));
         coil_section_cleanup(&code_section);
@@ -172,11 +184,8 @@ int test_create_object(const char* filename) {
     printf("Successfully created COIL object with %d sections\n", obj.header.section_count);
     
     // Clean up
-    // TODO: manually cleaning up section before object cleanup causes double free
-    // coil_section_cleanup(&strtab_section);
-    // coil_section_cleanup(&code_section);
     coil_obj_cleanup(&obj);
-    
+
     return 0;
 }
 
@@ -217,29 +226,104 @@ int test_load_object(const char* filename) {
     
     printf("Loaded code section with %zu bytes\n", code_section.size);
     
-    // Decode instructions
+    // Decode instructions with new format
     coil_size_t pos = 0;
     while (pos < code_section.size) {
-        coil_instr_t instr;
-        pos = coil_instr_decode(&code_section, pos, &instr);
-        if (pos == 0) {
-            printf("Failed to decode instruction\n");
+        coil_instrmem_t instr_mem;
+        coil_instrfmt_t fmt;
+        
+        coil_size_t new_pos = coil_instr_decode(&code_section, pos, &instr_mem, &fmt);
+        if (new_pos == 0) {
+            printf("Failed to decode instruction at position %zu\n", pos);
             break;
         }
+        pos = new_pos;
         
-        printf("Instruction: opcode=0x%02X, operands=%d\n", 
-               instr.opcode, instr.operand_count);
+        // Print instruction information based on format
+        printf("Instruction: opcode=0x%02X, format=%d\n", instr_mem.opcode, fmt);
+        
+        // Handle different instruction formats
+        switch (fmt) {
+            case COIL_INSTRFMT_VOID:
+                printf("  VOID instruction\n");
+                break;
+                
+            case COIL_INSTRFMT_VALUE: {
+                coil_instrval_t *instr = (coil_instrval_t*)&instr_mem;
+                printf("  VALUE instruction: value=%llu\n", (unsigned long long)instr->value);
+                break;
+            }
+            
+            case COIL_INSTRFMT_UNARY:
+                printf("  UNARY instruction (1 operand follows)\n");
+                break;
+                
+            case COIL_INSTRFMT_BINARY:
+                printf("  BINARY instruction (2 operands follow)\n");
+                break;
+                
+            case COIL_INSTRFMT_TENARY:
+                printf("  TENARY instruction (3 operands follow)\n");
+                break;
+                
+            case COIL_INSTRFMT_FLAG_UNARY: {
+                coil_instrflag_t *instr = (coil_instrflag_t*)&instr_mem;
+                printf("  FLAG_UNARY instruction: flag=%d (1 operand follows)\n", instr->flag);
+                break;
+            }
+            
+            case COIL_INSTRFMT_FLAG_BINARY: {
+                coil_instrflag_t *instr = (coil_instrflag_t*)&instr_mem;
+                printf("  FLAG_BINARY instruction: flag=%d (2 operands follow)\n", instr->flag);
+                break;
+            }
+            
+            case COIL_INSTRFMT_FLAG_TENARY: {
+                coil_instrflag_t *instr = (coil_instrflag_t*)&instr_mem;
+                printf("  FLAG_TENARY instruction: flag=%d (3 operands follow)\n", instr->flag);
+                break;
+            }
+            
+            default:
+                printf("  Unknown instruction format\n");
+                break;
+        }
+        
+        // Decode operands based on format
+        int operand_count = 0;
+        switch (fmt) {
+            case COIL_INSTRFMT_VOID:
+            case COIL_INSTRFMT_VALUE:
+                operand_count = 0;
+                break;
+            case COIL_INSTRFMT_UNARY:
+            case COIL_INSTRFMT_FLAG_UNARY:
+                operand_count = 1;
+                break;
+            case COIL_INSTRFMT_BINARY:
+            case COIL_INSTRFMT_FLAG_BINARY:
+                operand_count = 2;
+                break;
+            case COIL_INSTRFMT_TENARY:
+            case COIL_INSTRFMT_FLAG_TENARY:
+                operand_count = 3;
+                break;
+            default:
+                operand_count = 0;
+                break;
+        }
         
         // Decode operands
-        for (int i = 0; i < instr.operand_count; i++) {
+        for (int i = 0; i < operand_count; i++) {
             coil_operand_header_t header;
             coil_offset_t offset;
             
-            pos = coil_operand_decode(&code_section, pos, &header, &offset);
-            if (pos == 0) {
+            new_pos = coil_operand_decode(&code_section, pos, &header, &offset);
+            if (new_pos == 0) {
                 printf("Failed to decode operand header\n");
                 break;
             }
+            pos = new_pos;
             
             printf("  Operand %d: type=%d, value_type=%d, modifier=%d\n", 
                    i, header.type, header.value_type, header.modifier);
@@ -249,12 +333,13 @@ int test_load_object(const char* filename) {
                 coil_u32_t reg_id;
                 coil_size_t valsize;
                 
-                pos = coil_operand_decode_data(&code_section, pos, &reg_id, 
+                new_pos = coil_operand_decode_data(&code_section, pos, &reg_id, 
                                               sizeof(reg_id), &valsize, &header);
-                if (pos == 0) {
+                if (new_pos == 0) {
                     printf("Failed to decode register ID\n");
                     break;
                 }
+                pos = new_pos;
                 
                 printf("    Register: r%u\n", reg_id);
             } else if (header.type == COIL_TYPEOP_IMM) {
@@ -262,12 +347,13 @@ int test_load_object(const char* filename) {
                     coil_i32_t value;
                     coil_size_t valsize;
                     
-                    pos = coil_operand_decode_data(&code_section, pos, &value, 
+                    new_pos = coil_operand_decode_data(&code_section, pos, &value, 
                                                   sizeof(value), &valsize, &header);
-                    if (pos == 0) {
+                    if (new_pos == 0) {
                         printf("Failed to decode immediate value\n");
                         break;
                     }
+                    pos = new_pos;
                     
                     printf("    Immediate: %d\n", value);
                 } else {
@@ -275,15 +361,21 @@ int test_load_object(const char* filename) {
                     coil_size_t type_size = 0;
                     coil_u8_t dummy[16]; // Large enough for most types
                     
-                    pos = coil_operand_decode_data(&code_section, pos, dummy, 
+                    new_pos = coil_operand_decode_data(&code_section, pos, dummy, 
                                                   sizeof(dummy), &type_size, &header);
-                    if (pos == 0) {
+                    if (new_pos == 0) {
                         printf("Failed to decode operand data\n");
                         break;
                     }
+                    pos = new_pos;
                     
                     printf("    Unknown type data (%zu bytes)\n", type_size);
                 }
+            } else if (header.type == COIL_TYPEOP_OFF) {
+                printf("    Offset: disp=%llu, index=%llu, scale=%llu\n",
+                       (unsigned long long)offset.disp,
+                       (unsigned long long)offset.index,
+                       (unsigned long long)offset.scale);
             }
         }
     }
@@ -293,7 +385,6 @@ int test_load_object(const char* filename) {
     err = coil_obj_find_section(&obj, ".strtab", &strtab_index);
     if (err != COIL_ERR_GOOD) {
         printf("Failed to find string table section: %s\n", coil_error_string(err));
-        coil_section_cleanup(&code_section);
         coil_obj_cleanup(&obj);
         return 1;
     }
@@ -304,7 +395,6 @@ int test_load_object(const char* filename) {
                               COIL_SECT_MODE_R | COIL_SLOAD_VIEW);
     if (err != COIL_ERR_GOOD) {
         printf("Failed to load string table section: %s\n", coil_error_string(err));
-        coil_section_cleanup(&code_section);
         coil_obj_cleanup(&obj);
         return 1;
     }
@@ -321,8 +411,6 @@ int test_load_object(const char* filename) {
     }
     
     // Clean up
-    coil_section_cleanup(&strtab_section);
-    coil_section_cleanup(&code_section);
     coil_obj_cleanup(&obj);
     
     return 0;

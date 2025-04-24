@@ -102,7 +102,7 @@ coil_err_t coil_instr_encode(coil_section_t *sect, coil_opcode_t op);
 * @return coil_err_t COIL_ERR_BADSTATE if section doesn't support writing
 * @return coil_err_t COIL_ERR_NOMEM if write fails due to memory allocation
 */
-coil_err_t coil_instrflag_encode(coil_section_t *sect, coil_opcode_t op, coil_instrflag_t flag);
+coil_err_t coil_instrflag_encode(coil_section_t *sect, coil_opcode_t op, coil_instrflags_t flag);
 
 
 /**

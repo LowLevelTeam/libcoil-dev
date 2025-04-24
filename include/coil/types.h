@@ -137,7 +137,7 @@ enum coil_instrflag_e {
   COIL_INSTRFLAG_LTE = 0x05,
   // Reserved
 };
-typedef uint8_t coil_instrflag_t;
+typedef uint8_t coil_instrflags_t;
 
 /**
  * @brief Opcode enumeration for COIL instructions

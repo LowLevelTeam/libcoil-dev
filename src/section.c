@@ -101,10 +101,8 @@ void coil_section_cleanup(coil_section_t *sect) {
     // Free data if we own it
     if (sect->data != NULL && sect->ownership == COIL_SECT_OWN_SELF) {
         free(sect->data);
+        sect->data = NULL;
     }
-    
-    // Clear the section structure
-    memset(sect, 0, sizeof(coil_section_t));
 }
 
 /**

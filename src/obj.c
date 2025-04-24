@@ -242,9 +242,6 @@ coil_err_t coil_obj_mmap(coil_object_t *obj, const char *filepath) {
         return COIL_ERROR(COIL_ERR_INVAL, "File path is NULL");
     }
     
-    // Clean up any existing data
-    coil_obj_cleanup(obj);
-    
     // Initialize object
     coil_err_t err = coil_obj_init(obj, 0);
     if (err != COIL_ERR_GOOD) {
