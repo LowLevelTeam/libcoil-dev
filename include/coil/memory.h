@@ -2,15 +2,14 @@
 * @file memory.h
 * @brief Memory management utilities for COIL
 * 
-* This file provides optimized memory allocation functions for the COIL library,
-* using Linux-specific memory allocation strategies for better performance.
+* This file provides wrapper functions around libcoilt memory utilities
+* to ensure compatibility while leveraging the standardized implementation.
 */
 
 #ifndef __COIL_INCLUDE_GUARD_MEMORY_H
 #define __COIL_INCLUDE_GUARD_MEMORY_H
 
-#include <coil/types.h>
-#include <coil/err.h>
+#include <coilt.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,8 +18,7 @@ extern "C" {
 /**
 * @brief Allocate aligned memory using mmap
 * 
-* Uses Linux's mmap to allocate memory with specific alignment requirements.
-* This is particularly useful for ensuring page-aligned allocations.
+* Wrapper around coilt_mmap_alloc for compatibility.
 * 
 * @param size Size of memory to allocate
 * @param alignment Alignment requirement (must be page size multiple)
@@ -28,10 +26,14 @@ extern "C" {
 * 
 * @note For optimal performance, alignment should be a multiple of the system page size
 */
-void* coil_mmap_alloc(coil_size_t size, coil_size_t alignment);
+static inline void* coil_mmap_alloc(coil_size_t size, coil_size_t alignment) {
+  return coilt_mmap_alloc(size, alignment);
+}
 
 /**
 * @brief Free memory allocated with coil_mmap_alloc
+* 
+* Wrapper around coilt_mmap_free for compatibility.
 * 
 * @param ptr Pointer to allocated memory
 * @param size Size of the allocated memory
@@ -39,24 +41,32 @@ void* coil_mmap_alloc(coil_size_t size, coil_size_t alignment);
 * 
 * @note Size must match the originally allocated size
 */
-coil_err_t coil_mmap_free(void *ptr, coil_size_t size);
+static inline coil_err_t coil_mmap_free(void *ptr, coil_size_t size) {
+  return coilt_mmap_free(ptr, size);
+}
 
 /**
 * @brief Get system page size
 * 
+* Wrapper around coilt_get_page_size for compatibility.
+* 
 * @return coil_size_t System page size in bytes
 */
-coil_size_t coil_get_page_size(void);
+static inline coil_size_t coil_get_page_size(void) {
+  return coilt_get_page_size();
+}
 
 /**
 * @brief Calculate the size of a section including alignment padding
+* 
+* Wrapper around coilt_aligned_size for compatibility.
 * 
 * @param size Base size
 * @param alignment Required alignment (typically page size)
 * @return coil_size_t Aligned size
 */
 static inline coil_size_t coil_section_aligned_size(coil_size_t size, coil_size_t alignment) {
-    return coil_align_up(size, alignment);
+  return coilt_aligned_size(size, alignment);
 }
 
 #ifdef __cplusplus

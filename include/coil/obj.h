@@ -11,7 +11,6 @@
 
 #include <coil/section.h>
 #include <coil/types.h>
-#include <coil/err.h>
 
 #ifdef __cplusplus
 extern "C" {

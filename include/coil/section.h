@@ -10,7 +10,6 @@
 #define __COIL_INCLUDE_GUARD_SECTION_H
 
 #include <coil/types.h>
-#include <coil/err.h>
 
 #ifdef __cplusplus
 extern "C" {

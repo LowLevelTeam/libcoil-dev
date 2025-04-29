@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -Iinclude -g
-LDFLAGS = -lm
+LDFLAGS = -lm -lcoilt
 
 SRC_DIR = src
 TEST_DIR = tests
