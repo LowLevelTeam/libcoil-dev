@@ -1,6 +1,6 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -Iinclude -g
-LDFLAGS = -lm -lcoilt
+CFLAGS = -Wall -Wextra -Iinclude -g # -nostdlib (needs lseek without stdlib for this)
+LDFLAGS = -lcoilt
 
 SRC_DIR = src
 TEST_DIR = tests
@@ -62,7 +62,8 @@ run-test: test
 	./$(TEST_BIN)
 
 # Install libraries and headers
-install: static shared $(includedir) 
+install: static shared
+	mkdir -p /usr/local/include/coil
 	install -d $(libdir)
 	install -d $(includedir)
 	install -m 644 $(LIB_STATIC) $(libdir)

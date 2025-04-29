@@ -4,12 +4,8 @@
 
 #include <coilt.h>  // For additional memory and error functions
 
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+#include <unistd.h>    // For lseek (no direct equivalent in libcoilt)
+#include <fcntl.h>     // For O_* constants
 
 /**
  * @brief Initialize coil section with its own memory
@@ -454,8 +450,8 @@ coil_err_t coil_section_deserialize(coil_object_t *obj, int fd, coil_u16_t index
     }
     
     // Read section data
-    ssize_t bytes_read = read(fd, sect->data, header->size);
-    if (bytes_read < 0 || (coil_size_t)bytes_read != header->size) {
+    coil_size_t bytes_read = coilt_sys_read(fd, sect->data, header->size);
+    if (bytes_read < 0 || bytes_read != header->size) {
       coil_section_cleanup(sect);
       return COIL_ERROR(COIL_ERR_IO, "Failed to read section data");
     }
@@ -505,8 +501,8 @@ coil_err_t coil_section_serialize(coil_object_t *obj, int fd, coil_section_t *se
     }
     
     // Write section data
-    ssize_t bytes_written = write(fd, sect->data, sect->size);
-    if (bytes_written < 0 || (coil_size_t)bytes_written != sect->size) {
+    coil_size_t bytes_written = coilt_sys_write(fd, sect->data, sect->size);
+    if (bytes_written < 0 || bytes_written != sect->size) {
       return COIL_ERROR(COIL_ERR_IO, "Failed to write section data");
     }
   }

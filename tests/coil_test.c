@@ -5,9 +5,6 @@
 #include <coil/obj.h>
 #include <coilt.h>  // Include the new libcoilt library
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -24,9 +21,9 @@ void error_callback(coil_error_level_t level, const char* message, const coil_er
   }
   
   if (position && position->file) {
-    printf("[%s] %s (%s:%zu)\n", level_str, message, position->file, position->line);
+    coilt_printf("[%s] %s (%s:%zu)\n", level_str, message, position->file, position->line);
   } else {
-    printf("[%s] %s\n", level_str, message);
+    coilt_printf("[%s] %s\n", level_str, message);
   }
 }
 
@@ -35,12 +32,12 @@ int test_create_object(const char* filename) {
   coil_object_t obj;
   coil_err_t err;
 
-  printf("\n--- Testing Object Creation ---\n");
+  coilt_printf("\n--- Testing Object Creation ---\n");
   
   // Initialize object
   err = coil_obj_init(&obj, COIL_OBJ_INIT_EMPTY);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to initialize object: %s\n", coil_error_string(err));
+    coilt_printf("Failed to initialize object: %s\n", coil_error_string(err));
     return 1;
   }
   
@@ -48,7 +45,7 @@ int test_create_object(const char* filename) {
   coil_section_t code_section;
   err = coil_section_init(&code_section, 256, COIL_SECT_MODE_R | COIL_SECT_MODE_W);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to create code section: %s\n", coil_error_string(err));
+    coilt_printf("Failed to create code section: %s\n", coil_error_string(err));
     coil_obj_cleanup(&obj);
     return 1;
   }
@@ -58,7 +55,7 @@ int test_create_object(const char* filename) {
   // NOP instruction (VOID format)
   err = coil_instr_encode(&code_section, COIL_OP_NOP);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to encode NOP: %s\n", coil_error_string(err));
+    coilt_printf("Failed to encode NOP: %s\n", coil_error_string(err));
     coil_section_cleanup(&code_section);
     coil_obj_cleanup(&obj);
     return 1;
@@ -67,7 +64,7 @@ int test_create_object(const char* filename) {
   // MOV instruction (FLAG_BINARY format)
   err = coil_instrflag_encode(&code_section, COIL_OP_MOV, COIL_INSTRFLAG_NONE); // Using no flag
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to encode MOV: %s\n", coil_error_string(err));
+    coilt_printf("Failed to encode MOV: %s\n", coil_error_string(err));
     coil_section_cleanup(&code_section);
     coil_obj_cleanup(&obj);
     return 1;
@@ -76,7 +73,7 @@ int test_create_object(const char* filename) {
   // Destination register (r1)
   err = coil_operand_encode(&code_section, COIL_TYPEOP_REG, COIL_VAL_REG, COIL_MOD_NONE);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to encode destination operand: %s\n", coil_error_string(err));
+    coilt_printf("Failed to encode destination operand: %s\n", coil_error_string(err));
     coil_section_cleanup(&code_section);
     coil_obj_cleanup(&obj);
     return 1;
@@ -85,7 +82,7 @@ int test_create_object(const char* filename) {
   coil_u32_t reg_id = 1; // r1
   err = coil_operand_encode_data(&code_section, &reg_id, sizeof(reg_id));
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to encode register ID: %s\n", coil_error_string(err));
+    coilt_printf("Failed to encode register ID: %s\n", coil_error_string(err));
     coil_section_cleanup(&code_section);
     coil_obj_cleanup(&obj);
     return 1;
@@ -94,7 +91,7 @@ int test_create_object(const char* filename) {
   // Source immediate value (42)
   err = coil_operand_encode(&code_section, COIL_TYPEOP_IMM, COIL_VAL_I32, COIL_MOD_CONST);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to encode source operand: %s\n", coil_error_string(err));
+    coilt_printf("Failed to encode source operand: %s\n", coil_error_string(err));
     coil_section_cleanup(&code_section);
     coil_obj_cleanup(&obj);
     return 1;
@@ -103,7 +100,7 @@ int test_create_object(const char* filename) {
   coil_i32_t imm_value = 42;
   err = coil_operand_encode_data(&code_section, &imm_value, sizeof(imm_value));
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to encode immediate value: %s\n", coil_error_string(err));
+    coilt_printf("Failed to encode immediate value: %s\n", coil_error_string(err));
     coil_section_cleanup(&code_section);
     coil_obj_cleanup(&obj);
     return 1;
@@ -113,7 +110,7 @@ int test_create_object(const char* filename) {
   coil_u64_t expr_id = 123;
   err = coil_instrval_encode(&code_section, COIL_OP_DEF, expr_id);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to encode DEF: %s\n", coil_error_string(err));
+    coilt_printf("Failed to encode DEF: %s\n", coil_error_string(err));
     coil_section_cleanup(&code_section);
     coil_obj_cleanup(&obj);
     return 1;
@@ -122,7 +119,7 @@ int test_create_object(const char* filename) {
   // RET instruction (VOID format)
   err = coil_instr_encode(&code_section, COIL_OP_RET);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to encode RET: %s\n", coil_error_string(err));
+    coilt_printf("Failed to encode RET: %s\n", coil_error_string(err));
     coil_section_cleanup(&code_section);
     coil_obj_cleanup(&obj);
     return 1;
@@ -132,7 +129,7 @@ int test_create_object(const char* filename) {
   coil_section_t strtab_section;
   err = coil_section_init(&strtab_section, 128, COIL_SECT_MODE_R | COIL_SECT_MODE_W);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to create string table section: %s\n", coil_error_string(err));
+    coilt_printf("Failed to create string table section: %s\n", coil_error_string(err));
     coil_section_cleanup(&code_section);
     coil_obj_cleanup(&obj);
     return 1;
@@ -141,7 +138,7 @@ int test_create_object(const char* filename) {
   // Add some strings
   err = coil_section_putstr(&strtab_section, "main");
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to add string: %s\n", coil_error_string(err));
+    coilt_printf("Failed to add string: %s\n", coil_error_string(err));
     coil_section_cleanup(&strtab_section);
     coil_section_cleanup(&code_section);
     coil_obj_cleanup(&obj);
@@ -154,7 +151,7 @@ int test_create_object(const char* filename) {
   err = coil_obj_create_section(&obj, COIL_SECTION_PROGBITS, ".text", 
                               COIL_SECTION_FLAG_CODE, &code_section, &code_index);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to add code section to object: %s\n", coil_error_string(err));
+    coilt_printf("Failed to add code section to object: %s\n", coil_error_string(err));
     coil_section_cleanup(&strtab_section);
     coil_section_cleanup(&code_section);
     coil_obj_cleanup(&obj);
@@ -164,7 +161,7 @@ int test_create_object(const char* filename) {
   err = coil_obj_create_section(&obj, COIL_SECTION_STRTAB, ".strtab", 
                               COIL_SECTION_FLAG_NONE, &strtab_section, &strtab_index);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to add string table section to object: %s\n", coil_error_string(err));
+    coilt_printf("Failed to add string table section to object: %s\n", coil_error_string(err));
     coil_section_cleanup(&strtab_section);
     coil_section_cleanup(&code_section);
     coil_obj_cleanup(&obj);
@@ -174,14 +171,14 @@ int test_create_object(const char* filename) {
   // Save the object to file
   err = coil_obj_save_file(&obj, filename);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to save object: %s\n", coil_error_string(err));
+    coilt_printf("Failed to save object: %s\n", coil_error_string(err));
     coil_section_cleanup(&strtab_section);
     coil_section_cleanup(&code_section);
     coil_obj_cleanup(&obj);
     return 1;
   }
   
-  printf("Successfully created COIL object with %d sections\n", obj.header.section_count);
+  coilt_printf("Successfully created COIL object with %d sections\n", obj.header.section_count);
   
   // Clean up
   coil_obj_cleanup(&obj);
@@ -194,22 +191,22 @@ int test_load_object(const char* filename) {
   coil_object_t obj;
   coil_err_t err;
   
-  printf("\n--- Testing Object Loading ---\n");
+  coilt_printf("\n--- Testing Object Loading ---\n");
   
   // Load object file using memory mapping
   err = coil_obj_mmap(&obj, filename);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to load object: %s\n", coil_error_string(err));
+    coilt_printf("Failed to load object: %s\n", coil_error_string(err));
     return 1;
   }
   
-  printf("Loaded COIL object with %d sections\n", obj.header.section_count);
+  coilt_printf("Loaded COIL object with %d sections\n", obj.header.section_count);
   
   // Find code section
   coil_u16_t code_index;
   err = coil_obj_find_section(&obj, ".text", &code_index);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to find code section: %s\n", coil_error_string(err));
+    coilt_printf("Failed to find code section: %s\n", coil_error_string(err));
     coil_obj_cleanup(&obj);
     return 1;
   }
@@ -219,12 +216,12 @@ int test_load_object(const char* filename) {
   err = coil_obj_load_section(&obj, code_index, &code_section, 
                             COIL_SECT_MODE_R | COIL_SLOAD_VIEW);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to load code section: %s\n", coil_error_string(err));
+    coilt_printf("Failed to load code section: %s\n", coil_error_string(err));
     coil_obj_cleanup(&obj);
     return 1;
   }
   
-  printf("Loaded code section with %zu bytes\n", code_section.size);
+  coilt_printf("Loaded code section with %zu bytes\n", code_section.size);
   
   // Decode instructions with new format
   coil_size_t pos = 0;
@@ -234,58 +231,58 @@ int test_load_object(const char* filename) {
     
     coil_size_t new_pos = coil_instr_decode(&code_section, pos, &instr_mem, &fmt);
     if (new_pos == 0) {
-      printf("Failed to decode instruction at position %zu\n", pos);
+      coilt_printf("Failed to decode instruction at position %zu\n", pos);
       break;
     }
     pos = new_pos;
     
     // Print instruction information based on format
-    printf("Instruction: opcode=0x%02X, format=%d\n", instr_mem.opcode, fmt);
+    coilt_printf("Instruction: opcode=0x%02X, format=%d\n", instr_mem.opcode, fmt);
     
     // Handle different instruction formats
     switch (fmt) {
       case COIL_INSTRFMT_VOID:
-        printf("  VOID instruction\n");
+        coilt_printf("  VOID instruction\n");
         break;
         
       case COIL_INSTRFMT_VALUE: {
         coil_instrval_t *instr = (coil_instrval_t*)&instr_mem;
-        printf("  VALUE instruction: value=%llu\n", (unsigned long long)instr->value);
+        coilt_printf("  VALUE instruction: value=%llu\n", (unsigned long long)instr->value);
         break;
       }
       
       case COIL_INSTRFMT_UNARY:
-        printf("  UNARY instruction (1 operand follows)\n");
+        coilt_printf("  UNARY instruction (1 operand follows)\n");
         break;
         
       case COIL_INSTRFMT_BINARY:
-        printf("  BINARY instruction (2 operands follow)\n");
+        coilt_printf("  BINARY instruction (2 operands follow)\n");
         break;
         
       case COIL_INSTRFMT_TENARY:
-        printf("  TENARY instruction (3 operands follow)\n");
+        coilt_printf("  TENARY instruction (3 operands follow)\n");
         break;
         
       case COIL_INSTRFMT_FLAG_UNARY: {
         coil_instrflag_t *instr = (coil_instrflag_t*)&instr_mem;
-        printf("  FLAG_UNARY instruction: flag=%d (1 operand follows)\n", instr->flag);
+        coilt_printf("  FLAG_UNARY instruction: flag=%d (1 operand follows)\n", instr->flag);
         break;
       }
       
       case COIL_INSTRFMT_FLAG_BINARY: {
         coil_instrflag_t *instr = (coil_instrflag_t*)&instr_mem;
-        printf("  FLAG_BINARY instruction: flag=%d (2 operands follow)\n", instr->flag);
+        coilt_printf("  FLAG_BINARY instruction: flag=%d (2 operands follow)\n", instr->flag);
         break;
       }
       
       case COIL_INSTRFMT_FLAG_TENARY: {
         coil_instrflag_t *instr = (coil_instrflag_t*)&instr_mem;
-        printf("  FLAG_TENARY instruction: flag=%d (3 operands follow)\n", instr->flag);
+        coilt_printf("  FLAG_TENARY instruction: flag=%d (3 operands follow)\n", instr->flag);
         break;
       }
       
       default:
-        printf("  Unknown instruction format\n");
+        coilt_printf("  Unknown instruction format\n");
         break;
     }
     
@@ -320,12 +317,12 @@ int test_load_object(const char* filename) {
       
       new_pos = coil_operand_decode(&code_section, pos, &header, &offset);
       if (new_pos == 0) {
-        printf("Failed to decode operand header\n");
+        coilt_printf("Failed to decode operand header\n");
         break;
       }
       pos = new_pos;
       
-      printf("  Operand %d: type=%d, value_type=%d, modifier=%d\n", 
+      coilt_printf("  Operand %d: type=%d, value_type=%d, modifier=%d\n", 
              i, header.type, header.value_type, header.modifier);
       
       // Decode operand data based on type
@@ -336,12 +333,12 @@ int test_load_object(const char* filename) {
         new_pos = coil_operand_decode_data(&code_section, pos, &reg_id, 
                                         sizeof(reg_id), &valsize, &header);
         if (new_pos == 0) {
-          printf("Failed to decode register ID\n");
+          coilt_printf("Failed to decode register ID\n");
           break;
         }
         pos = new_pos;
         
-        printf("    Register: r%u\n", reg_id);
+        coilt_printf("    Register: r%u\n", reg_id);
       } else if (header.type == COIL_TYPEOP_IMM) {
         if (header.value_type == COIL_VAL_I32) {
           coil_i32_t value;
@@ -350,12 +347,12 @@ int test_load_object(const char* filename) {
           new_pos = coil_operand_decode_data(&code_section, pos, &value, 
                                           sizeof(value), &valsize, &header);
           if (new_pos == 0) {
-            printf("Failed to decode immediate value\n");
+            coilt_printf("Failed to decode immediate value\n");
             break;
           }
           pos = new_pos;
           
-          printf("    Immediate: %d\n", value);
+          coilt_printf("    Immediate: %d\n", value);
         } else {
           // Skip unknown type
           coil_size_t type_size = 0;
@@ -364,15 +361,15 @@ int test_load_object(const char* filename) {
           new_pos = coil_operand_decode_data(&code_section, pos, dummy, 
                                           sizeof(dummy), &type_size, &header);
           if (new_pos == 0) {
-            printf("Failed to decode operand data\n");
+            coilt_printf("Failed to decode operand data\n");
             break;
           }
           pos = new_pos;
           
-          printf("    Unknown type data (%zu bytes)\n", type_size);
+          coilt_printf("    Unknown type data (%zu bytes)\n", type_size);
         }
       } else if (header.type == COIL_TYPEOP_OFF) {
-        printf("    Offset: disp=%llu, index=%llu, scale=%llu\n",
+        coilt_printf("    Offset: disp=%llu, index=%llu, scale=%llu\n",
                (unsigned long long)offset.disp,
                (unsigned long long)offset.index,
                (unsigned long long)offset.scale);
@@ -384,7 +381,7 @@ int test_load_object(const char* filename) {
   coil_u16_t strtab_index;
   err = coil_obj_find_section(&obj, ".strtab", &strtab_index);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to find string table section: %s\n", coil_error_string(err));
+    coilt_printf("Failed to find string table section: %s\n", coil_error_string(err));
     coil_obj_cleanup(&obj);
     return 1;
   }
@@ -394,19 +391,19 @@ int test_load_object(const char* filename) {
   err = coil_obj_load_section(&obj, strtab_index, &strtab_section, 
                             COIL_SECT_MODE_R | COIL_SLOAD_VIEW);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to load string table section: %s\n", coil_error_string(err));
+    coilt_printf("Failed to load string table section: %s\n", coil_error_string(err));
     coil_obj_cleanup(&obj);
     return 1;
   }
   
-  printf("Loaded string table section with %zu bytes\n", strtab_section.size);
+  coilt_printf("Loaded string table section with %zu bytes\n", strtab_section.size);
   
   // Extract strings
   const char *str;
   if (strtab_section.size > 0) {
     err = coil_section_getstr(&strtab_section, 0, &str);
     if (err == COIL_ERR_GOOD) {
-      printf("First string in table: '%s'\n", str);
+      coilt_printf("First string in table: '%s'\n", str);
     }
   }
   
@@ -418,7 +415,7 @@ int test_load_object(const char* filename) {
 
 // Test memory management
 int test_memory() {
-  printf("\n--- Testing Memory Management ---\n");
+  coilt_printf("\n--- Testing Memory Management ---\n");
   
   // Test both coil and coilt memory functions
   
@@ -426,48 +423,48 @@ int test_memory() {
   coil_size_t page_size = coil_get_page_size();
   coil_size_t coilt_page_size = coilt_get_page_size();
   
-  printf("System page size (coil): %zu bytes\n", page_size);
-  printf("System page size (coilt): %zu bytes\n", coilt_page_size);
+  coilt_printf("System page size (coil): %zu bytes\n", page_size);
+  coilt_printf("System page size (coilt): %zu bytes\n", coilt_page_size);
   
   if (page_size != coilt_page_size) {
-    printf("Error: page sizes don't match!\n");
+    coilt_printf("Error: page sizes don't match!\n");
     return 1;
   }
   
   // Allocate aligned memory using coil wrapper
   void *ptr = coil_mmap_alloc(1024, page_size);
   if (ptr == NULL) {
-    printf("Failed to allocate memory\n");
+    coilt_printf("Failed to allocate memory\n");
     return 1;
   }
   
-  printf("Allocated 1024 bytes at %p using coil wrapper\n", ptr);
+  coilt_printf("Allocated 1024 bytes at %p using coil wrapper\n", ptr);
   
   // Free memory using coil wrapper
   coil_err_t err = coil_mmap_free(ptr, 1024);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to free memory: %s\n", coil_error_string(err));
+    coilt_printf("Failed to free memory: %s\n", coil_error_string(err));
     return 1;
   }
   
-  printf("Successfully freed memory using coil wrapper\n");
+  coilt_printf("Successfully freed memory using coil wrapper\n");
   
   // Test direct coilt functions
   void *ptr2 = coilt_malloc(512);
   if (ptr2 == NULL) {
-    printf("Failed to allocate memory using coilt_malloc\n");
+    coilt_printf("Failed to allocate memory using coilt_malloc\n");
     return 1;
   }
   
-  printf("Allocated 512 bytes at %p using coilt_malloc\n", ptr2);
+  coilt_printf("Allocated 512 bytes at %p using coilt_malloc\n", ptr2);
   
   // Test coilt_memset
   coilt_memset(ptr2, 'A', 512);
-  printf("Memory set to 'A' using coilt_memset\n");
+  coilt_printf("Memory set to 'A' using coilt_memset\n");
   
   // Test coilt_free
   coilt_free(ptr2);
-  printf("Successfully freed memory using coilt_free\n");
+  coilt_printf("Successfully freed memory using coilt_free\n");
   
   return 0;
 }
@@ -477,16 +474,16 @@ int test_sections() {
   coil_section_t sect;
   coil_err_t err;
   
-  printf("\n--- Testing Section Operations ---\n");
+  coilt_printf("\n--- Testing Section Operations ---\n");
   
   // Initialize section
   err = coil_section_init(&sect, 128, COIL_SECT_MODE_R | COIL_SECT_MODE_W);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to initialize section: %s\n", coil_error_string(err));
+    coilt_printf("Failed to initialize section: %s\n", coil_error_string(err));
     return 1;
   }
   
-  printf("Initialized section with capacity: %zu\n", sect.capacity);
+  coilt_printf("Initialized section with capacity: %zu\n", sect.capacity);
   
   // Write data
   const char *data = "Hello, COIL!";
@@ -494,12 +491,12 @@ int test_sections() {
   
   err = coil_section_write(&sect, (coil_byte_t*)data, coilt_strlen(data) + 1, &bytes_written);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to write data: %s\n", coil_error_string(err));
+    coilt_printf("Failed to write data: %s\n", coil_error_string(err));
     coil_section_cleanup(&sect);
     return 1;
   }
   
-  printf("Wrote %zu bytes to section\n", bytes_written);
+  coilt_printf("Wrote %zu bytes to section\n", bytes_written);
   
   // Reset read index
   coil_section_seek_read(&sect, 0);
@@ -510,44 +507,44 @@ int test_sections() {
   
   err = coil_section_read(&sect, (coil_byte_t*)buffer, sizeof(buffer), &bytes_read);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to read data: %s\n", coil_error_string(err));
+    coilt_printf("Failed to read data: %s\n", coil_error_string(err));
     coil_section_cleanup(&sect);
     return 1;
   }
   
-  printf("Read %zu bytes from section: '%s'\n", bytes_read, buffer);
+  coilt_printf("Read %zu bytes from section: '%s'\n", bytes_read, buffer);
   
   // Ensure capacity
   err = coil_section_ensure_capacity(&sect, 256);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to ensure capacity: %s\n", coil_error_string(err));
+    coilt_printf("Failed to ensure capacity: %s\n", coil_error_string(err));
     coil_section_cleanup(&sect);
     return 1;
   }
   
-  printf("Expanded section capacity to %zu bytes\n", sect.capacity);
+  coilt_printf("Expanded section capacity to %zu bytes\n", sect.capacity);
   
   // Compact section
   err = coil_section_compact(&sect);
   if (err != COIL_ERR_GOOD) {
-    printf("Failed to compact section: %s\n", coil_error_string(err));
+    coilt_printf("Failed to compact section: %s\n", coil_error_string(err));
     coil_section_cleanup(&sect);
     return 1;
   }
   
-  printf("Compacted section to %zu bytes\n", sect.capacity);
+  coilt_printf("Compacted section to %zu bytes\n", sect.capacity);
   
   // Test string handling
   const char *str_test = "Testing string functions from libcoilt";
   
   // Get string length using coilt function
   coil_size_t str_len = coilt_strlen(str_test);
-  printf("\nString length using coilt_strlen: %zu\n", str_len);
+  coilt_printf("\nString length using coilt_strlen: %zu\n", str_len);
   
   // Test string duplication
   char *str_dup = coilt_strdup(str_test);
   if (str_dup) {
-    printf("Duplicated string using coilt_strdup: '%s'\n", str_dup);
+    coilt_printf("Duplicated string using coilt_strdup: '%s'\n", str_dup);
     coilt_free(str_dup);
   }
   
@@ -568,9 +565,9 @@ int main(int argc, char **argv) {
   // Set custom error callback
   coil_error_set_callback(error_callback, NULL);
   
-  printf("COIL Library Test Program\n");
-  printf("========================\n");
-  printf("Using libcoilt version for core functionality\n");
+  coilt_printf("COIL Library Test Program\n");
+  coilt_printf("========================\n");
+  coilt_printf("Using libcoilt version for core functionality\n");
   
   // Run tests
   if (test_memory() != 0) {
@@ -589,7 +586,7 @@ int main(int argc, char **argv) {
     return 1;
   }
   
-  printf("\nAll tests completed successfully!\n");
+  coilt_printf("\nAll tests completed successfully!\n");
   
   // Shutdown error system
   coil_error_shutdown();

@@ -3,15 +3,6 @@
 
 #include <coilt.h>
 
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <sys/mman.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <errno.h>
-
 // Current COIL format version
 #define COIL_CURRENT_VERSION 1
 
@@ -94,7 +85,7 @@ void coil_obj_cleanup(coil_object_t *obj) {
   
   // Unmap memory if mapped
   if (obj->is_mapped && obj->memory != NULL) {
-    munmap(obj->memory, obj->header.file_size);
+    coilt_sys_munmap(obj->memory, obj->header.file_size);
   } else {
     // Otherwise free allocated memory
     if (obj->memory != NULL && !obj->is_mapped) {
@@ -118,7 +109,7 @@ void coil_obj_cleanup(coil_object_t *obj) {
   
   // Close file descriptor if open
   if (obj->fd >= 0) {
-    close(obj->fd);
+    coilt_sys_close(obj->fd);
   }
   
   // Clear the object structure
@@ -153,39 +144,41 @@ coil_err_t coil_obj_load_file(coil_object_t *obj, const char *filepath) {
   }
   
   // Open the file
-  obj->fd = open(filepath, O_RDONLY);
+  obj->fd = coilt_sys_open(filepath, O_RDONLY, 0);
   if (obj->fd < 0) {
     char error_msg[128];
-    snprintf(error_msg, sizeof(error_msg), "Failed to open file: %s", strerror(errno));
+    char err_buf[64];
+    coilt_strerror(coilt_get_errno(), err_buf, sizeof(err_buf));
+    coilt_snprintf(error_msg, sizeof(error_msg), "Failed to open file: %s", err_buf);
     return COIL_ERROR(COIL_ERR_IO, error_msg);
   }
   
   // Get file size
   struct stat st;
   if (fstat(obj->fd, &st) < 0) {
-    close(obj->fd);
+    coilt_sys_close(obj->fd);
     obj->fd = -1;
     return COIL_ERROR(COIL_ERR_IO, "Failed to get file size");
   }
   
   // Check if file is too small to be a valid COIL file
   if (st.st_size < (off_t)sizeof(coil_object_header_t)) {
-    close(obj->fd);
+    coilt_sys_close(obj->fd);
     obj->fd = -1;
     return COIL_ERROR(COIL_ERR_FORMAT, "File too small to be a valid COIL file");
   }
   
   // Read object header
-  ssize_t bytes_read = read(obj->fd, &obj->header, sizeof(coil_object_header_t));
+  coil_size_t bytes_read = coilt_sys_read(obj->fd, &obj->header, sizeof(coil_object_header_t));
   if (bytes_read != sizeof(coil_object_header_t)) {
-    close(obj->fd);
+    coilt_sys_close(obj->fd);
     obj->fd = -1;
     return COIL_ERROR(COIL_ERR_IO, "Failed to read object header");
   }
   
   // Verify magic number
-  if (memcmp(obj->header.magic, COIL_MAGIC, sizeof(COIL_MAGIC)) != 0) {
-    close(obj->fd);
+  if (coilt_memcmp(obj->header.magic, COIL_MAGIC, sizeof(COIL_MAGIC)) != 0) {
+    coilt_sys_close(obj->fd);
     obj->fd = -1;
     return COIL_ERROR(COIL_ERR_FORMAT, "Invalid magic number");
   }
@@ -201,17 +194,17 @@ coil_err_t coil_obj_load_file(coil_object_t *obj, const char *filepath) {
     size_t sectheaders_size = obj->header.section_count * sizeof(coil_section_header_t);
     obj->sectheaders = (coil_section_header_t*)coilt_malloc(sectheaders_size);
     if (obj->sectheaders == NULL) {
-      close(obj->fd);
+      coilt_sys_close(obj->fd);
       obj->fd = -1;
       return COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate memory for section headers");
     }
     
     // Read section headers
-    bytes_read = read(obj->fd, obj->sectheaders, sectheaders_size);
-    if (bytes_read != (ssize_t)sectheaders_size) {
+    bytes_read = coilt_sys_read(obj->fd, obj->sectheaders, sectheaders_size);
+    if (bytes_read != (coil_size_t)sectheaders_size) {
       coilt_free(obj->sectheaders);
       obj->sectheaders = NULL;
-      close(obj->fd);
+      coilt_sys_close(obj->fd);
       obj->fd = -1;
       return COIL_ERROR(COIL_ERR_IO, "Failed to read section headers");
     }
@@ -248,32 +241,34 @@ coil_err_t coil_obj_mmap(coil_object_t *obj, const char *filepath) {
   }
   
   // Open the file
-  obj->fd = open(filepath, O_RDONLY);
+  obj->fd = coilt_sys_open(filepath, O_RDONLY, 0);
   if (obj->fd < 0) {
     char error_msg[128];
-    snprintf(error_msg, sizeof(error_msg), "Failed to open file: %s", strerror(errno));
+    char err_buf[64];
+    coilt_strerror(coilt_get_errno(), err_buf, sizeof(err_buf));
+    coilt_snprintf(error_msg, sizeof(error_msg), "Failed to open file: %s", err_buf);
     return COIL_ERROR(COIL_ERR_IO, error_msg);
   }
   
   // Get file size
   struct stat st;
   if (fstat(obj->fd, &st) < 0) {
-    close(obj->fd);
+    coilt_sys_close(obj->fd);
     obj->fd = -1;
     return COIL_ERROR(COIL_ERR_IO, "Failed to get file size");
   }
   
   // Check if file is too small to be a valid COIL file
   if (st.st_size < (off_t)sizeof(coil_object_header_t)) {
-    close(obj->fd);
+    coilt_sys_close(obj->fd);
     obj->fd = -1;
     return COIL_ERROR(COIL_ERR_FORMAT, "File too small to be a valid COIL file");
   }
   
   // Memory map the entire file
-  obj->memory = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, obj->fd, 0);
-  if (obj->memory == MAP_FAILED) {
-    close(obj->fd);
+  obj->memory = coilt_sys_mmap(NULL, st.st_size, COILT_PROT_READ, COILT_MAP_PRIVATE, obj->fd, 0);
+  if (obj->memory == COILT_MAP_FAILED) {
+    coilt_sys_close(obj->fd);
     obj->fd = -1;
     return COIL_ERROR(COIL_ERR_NOMEM, "Failed to memory map file");
   }
@@ -284,11 +279,11 @@ coil_err_t coil_obj_mmap(coil_object_t *obj, const char *filepath) {
   coilt_memcpy(&obj->header, obj->memory, sizeof(coil_object_header_t));
   
   // Verify magic number
-  if (memcmp(obj->header.magic, COIL_MAGIC, sizeof(COIL_MAGIC)) != 0) {
-    munmap(obj->memory, st.st_size);
+  if (coilt_memcmp(obj->header.magic, COIL_MAGIC, sizeof(COIL_MAGIC)) != 0) {
+    coilt_sys_munmap(obj->memory, st.st_size);
     obj->memory = NULL;
     obj->is_mapped = 0;
-    close(obj->fd);
+    coilt_sys_close(obj->fd);
     obj->fd = -1;
     return COIL_ERROR(COIL_ERR_FORMAT, "Invalid magic number");
   }
@@ -323,9 +318,11 @@ coil_err_t coil_obj_munmap(coil_object_t *obj) {
   }
   
   // Unmap the memory
-  if (munmap(obj->memory, obj->header.file_size) != 0) {
+  if (coilt_sys_munmap(obj->memory, obj->header.file_size) != 0) {
     char error_msg[128];
-    snprintf(error_msg, sizeof(error_msg), "Failed to unmap memory: %s", strerror(errno));
+    char err_buf[64];
+    coilt_strerror(coilt_get_errno(), err_buf, sizeof(err_buf));
+    coilt_snprintf(error_msg, sizeof(error_msg), "Failed to unmap memory: %s", err_buf);
     return COIL_ERROR(COIL_ERR_IO, error_msg);
   }
   
@@ -338,7 +335,7 @@ coil_err_t coil_obj_munmap(coil_object_t *obj) {
   
   // Close file descriptor if open
   if (obj->fd >= 0) {
-    close(obj->fd);
+    coilt_sys_close(obj->fd);
     obj->fd = -1;
   }
   
@@ -363,10 +360,12 @@ coil_err_t coil_obj_save_file(coil_object_t *obj, const char *filepath) {
   }
   
   // Open or create the file
-  int fd = open(filepath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+  int fd = coilt_sys_open(filepath, O_WRONLY | O_CREAT | O_TRUNC, 0644);
   if (fd < 0) {
     char error_msg[128];
-    snprintf(error_msg, sizeof(error_msg), "Failed to create file: %s", strerror(errno));
+    char err_buf[64];
+    coilt_strerror(coilt_get_errno(), err_buf, sizeof(err_buf));
+    coilt_snprintf(error_msg, sizeof(error_msg), "Failed to create file: %s", err_buf);
     return COIL_ERROR(COIL_ERR_IO, error_msg);
   }
   
@@ -387,18 +386,18 @@ coil_err_t coil_obj_save_file(coil_object_t *obj, const char *filepath) {
   obj->header.file_size = file_size;
   
   // Write object header
-  ssize_t bytes_written = write(fd, &obj->header, sizeof(coil_object_header_t));
+  coil_size_t bytes_written = coilt_sys_write(fd, &obj->header, sizeof(coil_object_header_t));
   if (bytes_written != sizeof(coil_object_header_t)) {
-    close(fd);
+    coilt_sys_close(fd);
     return COIL_ERROR(COIL_ERR_IO, "Failed to write object header");
   }
   
   // Write section headers if any
   if (obj->header.section_count > 0) {
     size_t sectheaders_size = obj->header.section_count * sizeof(coil_section_header_t);
-    bytes_written = write(fd, obj->sectheaders, sectheaders_size);
-    if (bytes_written != (ssize_t)sectheaders_size) {
-      close(fd);
+    bytes_written = coilt_sys_write(fd, obj->sectheaders, sectheaders_size);
+    if (bytes_written != (coil_size_t)sectheaders_size) {
+      coilt_sys_close(fd);
       return COIL_ERROR(COIL_ERR_IO, "Failed to write section headers");
     }
   }
@@ -409,21 +408,21 @@ coil_err_t coil_obj_save_file(coil_object_t *obj, const char *filepath) {
     if (sect->data != NULL && sect->size > 0) {
       // Seek to section offset
       if (lseek(fd, obj->sectheaders[i].offset, SEEK_SET) == -1) {
-        close(fd);
+        coilt_sys_close(fd);
         return COIL_ERROR(COIL_ERR_IO, "Failed to seek to section offset");
       }
       
       // Write section data
-      bytes_written = write(fd, sect->data, sect->size);
-      if (bytes_written != (ssize_t)sect->size) {
-        close(fd);
+      bytes_written = coilt_sys_write(fd, sect->data, sect->size);
+      if (bytes_written != (coil_size_t)sect->size) {
+        coilt_sys_close(fd);
         return COIL_ERROR(COIL_ERR_IO, "Failed to write section data");
       }
     }
   }
   
   // Close the file
-  close(fd);
+  coilt_sys_close(fd);
   
   return COIL_ERR_GOOD;
 }
@@ -493,9 +492,9 @@ coil_err_t coil_obj_load_section(coil_object_t *obj, coil_u16_t index, coil_sect
   if (obj->is_mapped && (mode & COIL_SLOAD_VIEW) && !(mode & COIL_SECT_MODE_W)) {
     // Use direct pointer to memory-mapped data
     return coil_section_init_view(sect, 
-                                 obj->memory + header->offset, 
-                                 header->size, 
-                                 mode | COIL_SECT_MODE_R); // Force read mode
+                               obj->memory + header->offset, 
+                               header->size, 
+                               mode | COIL_SECT_MODE_R); // Force read mode
   }
   
   // For normal file I/O or when writing is needed, initialize with own memory
@@ -517,8 +516,8 @@ coil_err_t coil_obj_load_section(coil_object_t *obj, coil_u16_t index, coil_sect
       }
       
       // Read section data
-      ssize_t bytes_read = read(obj->fd, sect->data, header->size);
-      if (bytes_read < 0 || (coil_size_t)bytes_read != header->size) {
+      coil_size_t bytes_read = coilt_sys_read(obj->fd, sect->data, header->size);
+      if (bytes_read != header->size) {
         coil_section_cleanup(sect);
         return COIL_ERROR(COIL_ERR_IO, "Failed to read section data");
       }
@@ -568,7 +567,7 @@ coil_err_t coil_obj_load_section(coil_object_t *obj, coil_u16_t index, coil_sect
  * @return COIL_ERR_GOOD on success
  */
 coil_err_t coil_obj_create_section(coil_object_t *obj, coil_u8_t type, const char *name, 
-                                  coil_u16_t flags, coil_section_t *sect, coil_u16_t *index) {
+                                coil_u16_t flags, coil_section_t *sect, coil_u16_t *index) {
   // Validate parameters
   if (obj == NULL || name == NULL || index == NULL) {
     return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
