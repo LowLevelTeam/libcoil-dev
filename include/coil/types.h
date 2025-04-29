@@ -8,32 +8,11 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <coilt.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/**
- * @brief Basic fixed width types 
- * If you don't have stdint in your system remove the above include and change the stdint types to native C types
- */
-typedef unsigned char coil_u8_t;
-typedef uint16_t coil_u16_t;
-typedef uint32_t coil_u32_t;
-typedef uint64_t coil_u64_t;
-
-typedef char coil_i8_t;
-typedef int16_t coil_i16_t;
-typedef int32_t coil_i32_t;
-typedef int64_t coil_i64_t;
-
-typedef float coil_f32_t;
-typedef double coil_f64_t;
-
-typedef char coil_bit_t;     ///< boolean value
-typedef char coil_byte_t;    ///< byte value
-typedef char coil_char_t;    ///< character
-typedef size_t coil_size_t;  ///< size_t
 
 // -------------------------------- Object -------------------------------- //
 
@@ -97,14 +76,6 @@ typedef enum coil_section_mode_e {
   COIL_SECT_MODE_W = (1 << 1),  ///< Write access
   COIL_SECT_MODE_O = (1 << 2),  ///< Owned - If not set then the object owns the memory, do not resize, do not free
 } coil_section_mode_t;
-
-/**
- * @brief Section memory ownership flags
- */
-typedef enum coil_section_ownership_e {
-  COIL_SECT_OWN_NONE = 0,    ///< Memory owned elsewhere (mapped or borrowed)
-  COIL_SECT_OWN_SELF = 1     ///< Memory owned by this section (must be freed)
-} coil_section_ownership_t;
 
 // -------------------------------- Instructions -------------------------------- //
 

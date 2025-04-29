@@ -49,28 +49,6 @@ coil_err_t coil_mmap_free(void *ptr, coil_size_t size);
 coil_size_t coil_get_page_size(void);
 
 /**
-* @brief Align a value up to the nearest multiple of alignment
-* 
-* @param value Value to align
-* @param alignment Alignment value (must be power of 2)
-* @return coil_size_t Aligned value
-*/
-static inline coil_size_t coil_align_up(coil_size_t value, coil_size_t alignment) {
-    return (value + alignment - 1) & ~(alignment - 1);
-}
-
-/**
-* @brief Align a value down to the nearest multiple of alignment
-* 
-* @param value Value to align
-* @param alignment Alignment value (must be power of 2)
-* @return coil_size_t Aligned value
-*/
-static inline coil_size_t coil_align_down(coil_size_t value, coil_size_t alignment) {
-    return value & ~(alignment - 1);
-}
-
-/**
 * @brief Calculate the size of a section including alignment padding
 * 
 * @param size Base size

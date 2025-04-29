@@ -49,7 +49,7 @@ typedef struct coil_section {
   coil_size_t windex;          ///< Write index (offset for next write operation)
   
   int mode;                    ///< Access mode (COIL_SECT_MODE_*)
-  coil_section_ownership_t ownership;  ///< Memory ownership status
+  coil_ownership_t ownership;  ///< Memory ownership status
 } coil_section_t;
 
 /**

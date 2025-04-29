@@ -45,7 +45,7 @@ coil_err_t coil_section_init(coil_section_t *sect, coil_size_t capacity, int mod
     sect->rindex = 0;
     sect->windex = 0;
     sect->mode = mode;
-    sect->ownership = COIL_SECT_OWN_SELF; // We own this memory
+    sect->ownership = COILT_OWN_SELF; // We own this memory
     
     return COIL_ERR_GOOD;
 }
@@ -83,7 +83,7 @@ coil_err_t coil_section_init_view(coil_section_t *sect, coil_byte_t *byte, coil_
     sect->rindex = 0;
     sect->windex = 0;
     sect->mode = mode | COIL_SECT_MODE_O; // Always set the Owned bit
-    sect->ownership = COIL_SECT_OWN_NONE; // We don't own this memory
+    sect->ownership = COILT_OWN_NONE; // We don't own this memory
     
     return COIL_ERR_GOOD;
 }
@@ -99,7 +99,7 @@ void coil_section_cleanup(coil_section_t *sect) {
     }
     
     // Free data if we own it
-    if (sect->data != NULL && sect->ownership == COIL_SECT_OWN_SELF) {
+    if (sect->data != NULL && sect->ownership == COILT_OWN_SELF) {
         free(sect->data);
         sect->data = NULL;
     }
@@ -160,7 +160,7 @@ coil_err_t coil_section_compact(coil_section_t *sect) {
     }
     
     // Check if we're allowed to resize
-    if (sect->ownership != COIL_SECT_OWN_SELF) {
+    if (sect->ownership != COILT_OWN_SELF) {
         return COIL_ERROR(COIL_ERR_BADSTATE, "Cannot compact non-owned section");
     }
     
@@ -274,7 +274,7 @@ coil_err_t coil_section_write(coil_section_t *sect, coil_byte_t *buf, coil_size_
     // Check if we have enough capacity
     if (sect->windex + bufsize > sect->capacity) {
         // Try to resize if we own the memory
-        if (sect->ownership == COIL_SECT_OWN_SELF) {
+        if (sect->ownership == COILT_OWN_SELF) {
             coil_err_t err = coil_section_ensure_capacity(sect, sect->windex + bufsize);
             if (err != COIL_ERR_GOOD) {
                 return err;
