@@ -1,30 +1,49 @@
 /**
- * @file types.h
- * @brief Defines the standard enumerations and simple types used throughout the programs
- */
+* @file types.h
+* @brief Common enumerations, aliases and structures throughout the program
+*/
 
 #ifndef __COIL_INCLUDE_GUARD_TYPES_H
 #define __COIL_INCLUDE_GUARD_TYPES_H
-
-#include <stdint.h>
-#include <stddef.h>
-#include <coilt.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// -------------------------------- Object -------------------------------- //
+// -------------------------------- Base -------------------------------- //
 
 /**
- * @brief Magic number for COIL object files
- * "COIL" in ASCII
- */
+* @brief Basic fixed width types
+*/
+typedef unsigned char coil_u8_t;
+typedef uint16_t coil_u16_t;
+typedef uint32_t coil_u32_t;
+typedef uint64_t coil_u64_t;
+
+typedef char coil_i8_t;
+typedef int16_t coil_i16_t;
+typedef int32_t coil_i32_t;
+typedef int64_t coil_i64_t;
+
+typedef float coil_f32_t;
+typedef double coil_f64_t;
+
+typedef char coil_bit_t;   ///< boolean value
+typedef char coil_byte_t;  ///< byte value
+typedef char coil_char_t;  ///< character
+typedef size_t coil_size_t;  ///< size_t
+
+// -------------------------------- Section -------------------------------- //
+
+/**
+* @brief Magic number for COIL object files
+* "COIL" in ASCII
+*/
 #define COIL_MAGIC_BYTES {'C', 'O', 'I', 'L'}
 
 /**
- * @brief Section types
- */
+* @brief Section types
+*/
 typedef enum coil_section_type_e {
   COIL_SECTION_NULL = 0,        ///< Null section
   COIL_SECTION_PROGBITS = 1,    ///< Program space with data
@@ -36,8 +55,8 @@ typedef enum coil_section_type_e {
 } coil_section_type_t;
 
 /**
- * @brief Section flags
- */
+* @brief Section flags
+*/
 typedef enum coil_section_flag_e {
   COIL_SECTION_FLAG_NONE = 0,          ///< No flags
   COIL_SECTION_FLAG_WRITE = 1 << 0,    ///< Writable
@@ -48,8 +67,8 @@ typedef enum coil_section_flag_e {
 } coil_section_flag_t;
 
 /**
- * @brief Symbol types
- */
+* @brief Symbol types
+*/
 typedef enum coil_symbol_type_e {
   COIL_SYMBOL_NOTYPE = 0,      ///< Type not specified
   COIL_SYMBOL_OBJECT = 1,      ///< Data object
@@ -59,8 +78,8 @@ typedef enum coil_symbol_type_e {
 } coil_symbol_type_t;
 
 /**
- * @brief Symbol binding
- */
+* @brief Symbol binding
+*/
 typedef enum coil_symbol_binding_e {
   COIL_SYMBOL_LOCAL = 0,       ///< Local symbol
   COIL_SYMBOL_GLOBAL = 1,      ///< Global symbol
@@ -68,13 +87,12 @@ typedef enum coil_symbol_binding_e {
 } coil_symbol_binding_t;
 
 /**
- * @brief Section Mode 
- */
+* @brief Section Mode 
+*/
 typedef enum coil_section_mode_e {
-  COIL_SECT_MODE_N = 0,         ///< No access
-  COIL_SECT_MODE_R = (1 << 0),  ///< Read access
-  COIL_SECT_MODE_W = (1 << 1),  ///< Write access
-  COIL_SECT_MODE_O = (1 << 2),  ///< Owned - If not set then the object owns the memory, do not resize, do not free
+  COIL_SECT_MODE_CREATE, // New object (RW)
+  COIL_SECT_MODE_MODIFY, // Loaded object (RW)
+  COIL_SECT_MODE_VIEW,   // Loaded object (R)
 } coil_section_mode_t;
 
 // -------------------------------- Instructions -------------------------------- //
@@ -298,8 +316,33 @@ enum coil_modifier_e {
 };
 typedef uint8_t coil_modifier_t;
 
+// -------------------------------- Configuration -------------------------------- //
+
+typedef enum coil_pu_e {
+  COIL_PU_NONE = 0x00, // None/Unknown
+  COIL_PU_CPU = 0x01,
+  COIL_PU_GPU = 0x02,
+  // RESERVED
+} coil_pu_t;
+
+typedef enum coil_cpu_e {
+  COIL_CPU_NONE = 0x00, // None/Unknown
+  COIL_CPU_x86 = 0x01,
+  COIL_CPU_x86_32 = 0x02,
+  COIL_CPU_x86_64 = 0x03,
+  // RESERVED
+} coil_cpu_t;
+
+typedef enum coil_gpu_e {
+  COIL_GPU_NONE = 0x00, // None/Unknown
+  COIL_GPU_NV   = 0x01, // Nvidia GPUs
+  COIL_GPU_AMD  = 0x02, // AMD GPUs
+  COIL_GPU_INTL = 0x03, // INTEL GPUs
+  // RESERVED
+} coil_gpu_t;
+
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* __COIL_INCLUDE_GUARD_TYPES_H */
+#endif // __COIL_INCLUDE_GUARD_TYPES_H

@@ -1,16 +1,10 @@
 /**
 * @file obj.h
-* @brief Define the standard object file interface for COIL
-* 
-* This file provides the interface for interacting with COIL object files,
-* including loading, creating, and modifying object files and their sections.
+* @brief COIL Object functionality for libcoil-dev
 */
 
-#ifndef __COIL_INCLUDE_GUARD_OBJECT_H
-#define __COIL_INCLUDE_GUARD_OBJECT_H
-
-#include <coil/section.h>
-#include <coil/types.h>
+#ifndef __COIL_INCLUDE_GUARD_OBJ_H
+#define __COIL_INCLUDE_GUARD_OBJ_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -49,7 +43,7 @@ typedef struct coil_object {
 
   // Object Memory
   coil_byte_t *memory;                 ///< Memory for the object (may be memory mapped)
-  int fd;                              ///< File descriptor for memory mapping
+  coil_descriptor_t fd;                ///< File descriptor for memory mapping
   int is_mapped;                       ///< Flag indicating if memory is mapped
 } coil_object_t;
 
@@ -107,7 +101,7 @@ void coil_obj_cleanup(coil_object_t *obj);
 * @return COIL_ERR_IO if file cannot be opened or read
 * @return COIL_ERR_FORMAT if file format is invalid
 */
-coil_err_t coil_obj_load_file(coil_object_t *obj, const char *filepath);
+coil_err_t coil_obj_load_file(coil_object_t *obj, coil_descriptor_t fd);
 
 /**
 * @brief Load object from file using memory mapping
@@ -123,18 +117,7 @@ coil_err_t coil_obj_load_file(coil_object_t *obj, const char *filepath);
 * @return COIL_ERR_IO if file cannot be opened or mapped
 * @return COIL_ERR_FORMAT if file format is invalid
 */
-coil_err_t coil_obj_mmap(coil_object_t *obj, const char *filepath);
-
-/**
-* @brief Unmap a previously memory-mapped object
-* 
-* @param obj Object to unmap
-* 
-* @return COIL_ERR_GOOD on success
-* @return COIL_ERR_INVAL if obj is NULL
-* @return COIL_ERR_BADSTATE if object is not memory mapped
-*/
-coil_err_t coil_obj_munmap(coil_object_t *obj);
+coil_err_t coil_obj_mmap(coil_object_t *obj, coil_descriptor_t fd);
 
 /**
 * @brief Save object to file
@@ -146,7 +129,7 @@ coil_err_t coil_obj_munmap(coil_object_t *obj);
 * @return COIL_ERR_INVAL if obj or filepath is NULL
 * @return COIL_ERR_IO if file cannot be created or written
 */
-coil_err_t coil_obj_save_file(coil_object_t *obj, const char *filepath);
+coil_err_t coil_obj_save_file(coil_object_t *obj, coil_descriptor_t fd);
 
 /**
 * @brief Load a section by index
@@ -246,4 +229,4 @@ coil_u64_t coil_obj_hash_name(const char *name);
 }
 #endif
 
-#endif /* __COIL_INCLUDE_GUARD_OBJECT_H */
+#endif // __COIL_INCLUDE_GUARD_OBJ_H

@@ -1,16 +1,10 @@
 /**
 * @file instr.h
-* @brief Define the standard instruction interface for serialization and deserialization
-* 
-* This file provides functions for encoding and decoding COIL instructions and operands,
-* supporting the binary format of the COIL object file instruction sections.
+* @brief Instruction management functionality for libcoil-dev
 */
 
 #ifndef __COIL_INCLUDE_GUARD_INSTR_H
 #define __COIL_INCLUDE_GUARD_INSTR_H
-
-#include <coil/section.h>
-#include <coil/types.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -224,8 +218,6 @@ coil_size_t coil_operand_decode_data(coil_section_t *sect, coil_size_t pos,
 * @return coil_instrfmt_t instruction format
 */
 coil_instrfmt_t coil_instrfmt(coil_opcode_t op);
-
-
 
 #ifdef __cplusplus
 }
