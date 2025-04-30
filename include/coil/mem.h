@@ -6,6 +6,9 @@
 #ifndef __COIL_INCLUDE_GUARD_MEM_H
 #define __COIL_INCLUDE_GUARD_MEM_H
 
+#include <coil/types.h>
+#include <coil/err.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

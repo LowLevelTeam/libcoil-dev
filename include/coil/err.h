@@ -6,6 +6,8 @@
 #ifndef __COIL_INCLUDE_GUARD_ERR_H
 #define __COIL_INCLUDE_GUARD_ERR_H
 
+#include <coil/types.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

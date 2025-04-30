@@ -6,6 +6,8 @@
 #ifndef __COIL_INCLUDE_GUARD_OBJ_H
 #define __COIL_INCLUDE_GUARD_OBJ_H
 
+#include <coil/base.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
