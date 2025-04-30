@@ -51,7 +51,8 @@ typedef enum coil_section_type_e {
   COIL_SECTION_STRTAB = 3,      ///< String table
   COIL_SECTION_RELTAB = 4,      ///< Relocation entries
   COIL_SECTION_NOBITS = 5,      ///< Program space with no data (bss)
-  COIL_SECTION_DEBUG = 6        ///< Debug information
+  COIL_SECTION_DEBUG = 6,       ///< Debug information
+  COIL_SECTION_NATIVE = 7       ///< Native machine code section
 } coil_section_type_t;
 
 /**
@@ -63,7 +64,8 @@ typedef enum coil_section_flag_e {
   COIL_SECTION_FLAG_CODE = 1 << 1,     ///< Compile this section as COIL
   COIL_SECTION_FLAG_MERGE = 1 << 2,    ///< Might be merged
   COIL_SECTION_FLAG_ALLOC = 1 << 3,    ///< Occupies memory during execution
-  COIL_SECTION_FLAG_TLS = 1 << 4       ///< Thread-local storage
+  COIL_SECTION_FLAG_TLS = 1 << 4,      ///< Thread-local storage
+  COIL_SECTION_FLAG_NATIVE = 1 << 5    ///< Contains native machine code
 } coil_section_flag_t;
 
 /**
@@ -318,28 +320,110 @@ typedef uint8_t coil_modifier_t;
 
 // -------------------------------- Configuration -------------------------------- //
 
+/**
+* @brief Processing unit types
+*/
 typedef enum coil_pu_e {
-  COIL_PU_NONE = 0x00, // None/Unknown
-  COIL_PU_CPU = 0x01,
-  COIL_PU_GPU = 0x02,
+  COIL_PU_NONE = 0x00, ///< None/Unknown
+  COIL_PU_CPU = 0x01,  ///< Central Processing Unit
+  COIL_PU_GPU = 0x02,  ///< Graphics Processing Unit
+  COIL_PU_TPU = 0x03,  ///< Tensor Processing Unit
+  COIL_PU_NPU = 0x04,  ///< Neural Processing Unit
+  COIL_PU_DSP = 0x05,  ///< Digital Signal Processor
+  COIL_PU_FPGA = 0x06, ///< Field-Programmable Gate Array
   // RESERVED
 } coil_pu_t;
 
+/**
+* @brief CPU architecture types
+*/
 typedef enum coil_cpu_e {
-  COIL_CPU_NONE = 0x00, // None/Unknown
-  COIL_CPU_x86 = 0x01,
-  COIL_CPU_x86_32 = 0x02,
-  COIL_CPU_x86_64 = 0x03,
+  COIL_CPU_NONE = 0x00,    ///< None/Unknown
+  COIL_CPU_x86 = 0x01,     ///< Generic x86
+  COIL_CPU_x86_32 = 0x02,  ///< x86 32-bit
+  COIL_CPU_x86_64 = 0x03,  ///< x86 64-bit (AMD64/Intel64)
+  COIL_CPU_ARM = 0x04,     ///< Generic ARM
+  COIL_CPU_ARM32 = 0x05,   ///< ARM 32-bit
+  COIL_CPU_ARM64 = 0x06,   ///< ARM 64-bit (AArch64)
+  COIL_CPU_RISCV = 0x07,   ///< Generic RISC-V
+  COIL_CPU_RISCV32 = 0x08, ///< RISC-V 32-bit
+  COIL_CPU_RISCV64 = 0x09, ///< RISC-V 64-bit
+  COIL_CPU_PPC = 0x0A,     ///< PowerPC
+  COIL_CPU_PPC64 = 0x0B,   ///< PowerPC 64-bit
+  COIL_CPU_MIPS = 0x0C,    ///< MIPS
+  COIL_CPU_MIPS64 = 0x0D,  ///< MIPS 64-bit
+  COIL_CPU_WASM = 0x0E,    ///< WebAssembly
   // RESERVED
 } coil_cpu_t;
 
+/**
+* @brief GPU architecture types
+*/
 typedef enum coil_gpu_e {
-  COIL_GPU_NONE = 0x00, // None/Unknown
-  COIL_GPU_NV   = 0x01, // Nvidia GPUs
-  COIL_GPU_AMD  = 0x02, // AMD GPUs
-  COIL_GPU_INTL = 0x03, // INTEL GPUs
+  COIL_GPU_NONE = 0x00,  ///< None/Unknown
+  COIL_GPU_NV = 0x01,    ///< NVIDIA GPUs (Generic)
+  COIL_GPU_NV_PTX = 0x02, ///< NVIDIA PTX
+  COIL_GPU_NV_CUDA = 0x03, ///< NVIDIA CUDA
+  COIL_GPU_AMD = 0x04,   ///< AMD GPUs (Generic)
+  COIL_GPU_AMD_GCN = 0x05, ///< AMD GCN Architecture
+  COIL_GPU_AMD_RDNA = 0x06, ///< AMD RDNA Architecture
+  COIL_GPU_INTL = 0x07,  ///< Intel GPUs (Generic)
+  COIL_GPU_INTL_GEN9 = 0x08, ///< Intel Gen9 Graphics
+  COIL_GPU_INTL_XE = 0x09, ///< Intel Xe Graphics
+  COIL_GPU_VULKAN = 0x0A, ///< Vulkan SPIR-V
+  COIL_GPU_OPENCL = 0x0B, ///< OpenCL
+  COIL_GPU_METAL = 0x0C, ///< Apple Metal
   // RESERVED
 } coil_gpu_t;
+
+/**
+* @brief Feature flags for x86 architecture
+*/
+typedef enum coil_cpu_x86_feature_e {
+  COIL_CPU_X86_MMX = 1 << 0,      ///< MMX Instructions
+  COIL_CPU_X86_SSE = 1 << 1,      ///< SSE Instructions
+  COIL_CPU_X86_SSE2 = 1 << 2,     ///< SSE2 Instructions
+  COIL_CPU_X86_SSE3 = 1 << 3,     ///< SSE3 Instructions
+  COIL_CPU_X86_SSSE3 = 1 << 4,    ///< SSSE3 Instructions
+  COIL_CPU_X86_SSE4_1 = 1 << 5,   ///< SSE4.1 Instructions
+  COIL_CPU_X86_SSE4_2 = 1 << 6,   ///< SSE4.2 Instructions
+  COIL_CPU_X86_AVX = 1 << 7,      ///< AVX Instructions
+  COIL_CPU_X86_AVX2 = 1 << 8,     ///< AVX2 Instructions
+  COIL_CPU_X86_AVX512F = 1 << 9,  ///< AVX-512 Foundation
+  COIL_CPU_X86_FMA = 1 << 10,     ///< FMA Instructions
+  COIL_CPU_X86_AES = 1 << 11,     ///< AES Instructions
+  COIL_CPU_X86_PCLMUL = 1 << 12,  ///< PCLMULQDQ Instructions
+  COIL_CPU_X86_SHA = 1 << 13,     ///< SHA Instructions
+  // RESERVED
+} coil_cpu_x86_feature_t;
+
+/**
+* @brief Feature flags for ARM architecture
+*/
+typedef enum coil_cpu_arm_feature_e {
+  COIL_CPU_ARM_NEON = 1 << 0,     ///< NEON SIMD Instructions
+  COIL_CPU_ARM_VFP = 1 << 1,      ///< Vector Floating Point
+  COIL_CPU_ARM_CRYPTO = 1 << 2,   ///< Cryptography Extensions
+  COIL_CPU_ARM_CRC = 1 << 3,      ///< CRC32 Instructions
+  COIL_CPU_ARM_SVE = 1 << 4,      ///< Scalable Vector Extension
+  COIL_CPU_ARM_SVE2 = 1 << 5,     ///< Scalable Vector Extension 2
+  COIL_CPU_ARM_DOTPROD = 1 << 6,  ///< Dot Product Instructions
+  COIL_CPU_ARM_MATMUL = 1 << 7,   ///< Matrix Multiplication Instructions
+  // RESERVED
+} coil_cpu_arm_feature_t;
+
+/**
+* @brief File format types for native code output
+*/
+typedef enum coil_native_format_e {
+  COIL_NATIVE_FORMAT_NONE = 0,   ///< No specific format
+  COIL_NATIVE_FORMAT_ELF = 1,    ///< Executable and Linkable Format (Linux/Unix)
+  COIL_NATIVE_FORMAT_PE = 2,     ///< Portable Executable (Windows)
+  COIL_NATIVE_FORMAT_MACHO = 3,  ///< Mach Object (macOS/iOS)
+  COIL_NATIVE_FORMAT_WASM = 4,   ///< WebAssembly
+  COIL_NATIVE_FORMAT_RAW = 5,    ///< Raw binary (no container format)
+  // RESERVED
+} coil_native_format_t;
 
 #ifdef __cplusplus
 }
