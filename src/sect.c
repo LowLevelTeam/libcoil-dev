@@ -58,9 +58,10 @@ void coil_section_cleanup(coil_section_t *sect) {
   // Only free if we own the memory (not in VIEW mode)
   if (sect->mode != COIL_SECT_MODE_VIEW && sect->data != NULL) {
     coil_free(sect->data);
+    sect->data = NULL;
   }
   
-  coil_memset(sect, 0, sizeof(coil_section_t));
+  // coil_memset(sect, 0, sizeof(coil_section_t));
 }
 
 /**

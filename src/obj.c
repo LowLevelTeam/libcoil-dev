@@ -57,11 +57,7 @@ void coil_obj_cleanup(coil_object_t *obj) {
   // Free sections and their data
   if (obj->sections != NULL) {
     for (coil_u16_t i = 0; i < obj->loaded_count; i++) {
-      // Only free sections that aren't VIEW mode
-      if (obj->sections[i].mode != COIL_SECT_MODE_VIEW && obj->sections[i].data != NULL) {
-        coil_free(obj->sections[i].data);
-        obj->sections[i].data = NULL;
-      }
+      coil_section_cleanup(obj->sections + i);
     }
     coil_free(obj->sections);
   }
