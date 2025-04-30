@@ -9,23 +9,6 @@
 #include <unistd.h>
 
 /**
-* @brief Open File at descriptor
-*/
-coil_err_t coil_open_file(coil_descriptor_t *fd, const char *path) {
-  if (path == NULL || fd == NULL) {
-    return COIL_ERROR(COIL_ERR_INVAL, "Path or descriptor pointer is NULL");
-  }
-  
-  int open_fd = open(path, O_RDWR | O_CREAT, 0644);
-  if (open_fd < 0) {
-    return COIL_ERROR(COIL_ERR_IO, "Failed to open file");
-  }
-  
-  *fd = open_fd;
-  return COIL_ERR_GOOD;
-}
-
-/**
 * @brief Close descriptor
 */
 coil_err_t coil_close(coil_descriptor_t fd) {

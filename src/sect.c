@@ -345,6 +345,11 @@ coil_err_t coil_section_load(coil_section_t *sect, coil_size_t capacity, coil_de
     return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
   }
   
+  // Use a reasonable minimum capacity
+  if (capacity == 0) {
+    capacity = 1024;
+  }
+  
   // Initialize the section
   coil_err_t err = coil_section_init(sect, capacity);
   if (err != COIL_ERR_GOOD) {
@@ -356,13 +361,18 @@ coil_err_t coil_section_load(coil_section_t *sect, coil_size_t capacity, coil_de
   
   // Read data from file
   coil_size_t bytesread;
-  err = coil_read(fd, sect->data, sect->capacity, &bytesread);
+  err = coil_read(fd, sect->data, capacity, &bytesread);
   if (err != COIL_ERR_GOOD) {
     coil_section_cleanup(sect);
     return COIL_ERROR(COIL_ERR_IO, "Failed to read section data");
   }
   
+  // Update section size
   sect->size = bytesread;
+  
+  // Reset read/write indices
+  sect->rindex = 0;
+  sect->windex = bytesread;
   
   return COIL_ERR_GOOD;
 }
@@ -373,6 +383,11 @@ coil_err_t coil_section_load(coil_section_t *sect, coil_size_t capacity, coil_de
 coil_err_t coil_section_serialize(coil_section_t *sect, coil_descriptor_t fd) {
   if (sect == NULL) {
     return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
+  }
+  
+  // Handle empty sections gracefully
+  if (sect->data == NULL || sect->size == 0) {
+    return COIL_ERR_GOOD;  // Nothing to write
   }
   
   coil_size_t byteswritten;

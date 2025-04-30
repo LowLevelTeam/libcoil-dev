@@ -76,7 +76,7 @@ static int test_memory_utils() {
   // Test memmove with overlapping regions
   char overlap[20] = "abcdefghijklmnopqrs";
   coil_memmove(overlap + 5, overlap, 10);
-  TEST_ASSERT(strcmp(overlap + 5, "abcdefghij") == 0, "memmove should handle overlapping regions");
+  TEST_ASSERT(memcmp(overlap + 5, "abcdefghij", 10) == 0, "memmove should handle overlapping regions");
   
   return 0;
 }

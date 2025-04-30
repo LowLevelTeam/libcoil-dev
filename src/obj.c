@@ -229,6 +229,40 @@ coil_err_t coil_obj_load_section(coil_object_t *obj, coil_u16_t index,
   // Get section header
   coil_section_header_t *header = &obj->sectheaders[index];
   
+  // Check if section is already loaded in memory
+  if (obj->sections != NULL && index < obj->loaded_count && obj->sections[index].data != NULL) {
+    // Section is already loaded, create a copy
+    coil_section_t *src_sect = &obj->sections[index];
+    
+    // Initialize the destination section
+    coil_err_t err = coil_section_init(sect, src_sect->size > 0 ? src_sect->size : 1024);
+    if (err != COIL_ERR_GOOD) {
+      return err;
+    }
+    
+    // Copy the data
+    if (src_sect->size > 0) {
+      coil_size_t bytes_written;
+      err = coil_section_write(sect, src_sect->data, src_sect->size, &bytes_written);
+      if (err != COIL_ERR_GOOD) {
+        coil_section_cleanup(sect);
+        return err;
+      }
+    }
+    
+    // Copy metadata
+    sect->name = header->name;
+    sect->mode = COIL_SECT_MODE_MODIFY;
+    
+    // Copy native code metadata if present
+    if (header->has_native) {
+      sect->has_native = 1;
+      coil_memcpy(&sect->native, &header->native, sizeof(coil_native_meta_t));
+    }
+    
+    return COIL_ERR_GOOD;
+  }
+  
   // Allocate sections array if needed
   if (obj->sections == NULL) {
     obj->sections = (coil_section_t *)coil_calloc(
@@ -239,38 +273,95 @@ coil_err_t coil_obj_load_section(coil_object_t *obj, coil_u16_t index,
     }
   }
   
-  // Seek to section data
-  coil_err_t err = coil_seek(obj->fd, header->offset, SEEK_SET);
-  if (err != COIL_ERR_GOOD) {
-    return err;
-  }
-  
-  // Load the section
-  if (mode & COIL_SLOAD_VIEW) {
-    // TODO: Implement view mode (would need memory mapping)
-    return COIL_ERROR(COIL_ERR_NOTSUP, "View mode not yet supported");
+  // If we have a valid file descriptor, load from file
+  if (obj->fd >= 0) {
+    // Get section size
+    coil_size_t section_size = header->size;
+    if (section_size == 0) {
+      // Create an empty section if size is zero
+      coil_err_t err = coil_section_init(sect, 1024);
+      if (err != COIL_ERR_GOOD) {
+        return err;
+      }
+      sect->mode = COIL_SECT_MODE_MODIFY;
+    } else {
+      // Initialize the section with enough space
+      coil_err_t err = coil_section_init(sect, section_size);
+      if (err != COIL_ERR_GOOD) {
+        return err;
+      }
+      sect->mode = COIL_SECT_MODE_MODIFY;
+      
+      // Seek to section data
+      err = coil_seek(obj->fd, header->offset, SEEK_SET);
+      if (err != COIL_ERR_GOOD) {
+        coil_section_cleanup(sect);
+        return err;
+      }
+      
+      // Read the section data
+      coil_size_t bytes_read;
+      err = coil_read(obj->fd, sect->data, section_size, &bytes_read);
+      if (err != COIL_ERR_GOOD) {
+        coil_section_cleanup(sect);
+        return COIL_ERROR(COIL_ERR_IO, "Failed to read section data");
+      }
+      
+      // Update section size based on actual bytes read
+      sect->size = bytes_read;
+      
+      // If we didn't read the expected amount of data, that's a warning but not fatal
+      if (bytes_read != section_size) {
+        coil_log(COIL_LEVEL_WARNING, "Section data incomplete: expected %zu bytes, got %zu", 
+                section_size, bytes_read);
+      }
+    }
   } else {
-    // Copy mode
-    err = coil_section_load(sect, header->size, obj->fd);
+    // No file descriptor, initialize an empty section
+    coil_err_t err = coil_section_init(sect, 1024);
     if (err != COIL_ERR_GOOD) {
       return err;
     }
-    
-    // Copy section information
-    sect->name = header->name;
-    
-    // Copy native code metadata if present
-    if (header->has_native) {
-      sect->has_native = 1;
-      coil_memcpy(&sect->native, &header->native, sizeof(coil_native_meta_t));
-    }
+    sect->mode = COIL_SECT_MODE_MODIFY;
+  }
+  
+  // Copy section information
+  sect->name = header->name;
+  
+  // Copy native code metadata if present
+  if (header->has_native) {
+    sect->has_native = 1;
+    coil_memcpy(&sect->native, &header->native, sizeof(coil_native_meta_t));
   }
   
   // Store in sections array
   if (index >= obj->loaded_count) {
     obj->loaded_count = index + 1;
   }
-  coil_memcpy(&obj->sections[index], sect, sizeof(coil_section_t));
+  
+  // Make a copy for the object's internal sections array
+  coil_section_t *obj_sect = &obj->sections[index];
+  if (obj_sect->data == NULL) {
+    coil_err_t err = coil_section_init(obj_sect, sect->capacity);
+    if (err != COIL_ERR_GOOD) {
+      // Non-fatal error, just log it
+      coil_log(COIL_LEVEL_WARNING, "Failed to initialize internal section copy");
+    } else {
+      // Copy data if any
+      if (sect->size > 0) {
+        coil_memcpy(obj_sect->data, sect->data, sect->size);
+        obj_sect->size = sect->size;
+      }
+      
+      // Copy metadata
+      obj_sect->name = sect->name;
+      obj_sect->mode = COIL_SECT_MODE_MODIFY;
+      obj_sect->has_native = sect->has_native;
+      if (sect->has_native) {
+        coil_memcpy(&obj_sect->native, &sect->native, sizeof(coil_native_meta_t));
+      }
+    }
+  }
   
   return COIL_ERR_GOOD;
 }
@@ -443,7 +534,15 @@ coil_err_t coil_obj_save_file(coil_object_t *obj, coil_descriptor_t fd) {
   coil_u64_t data_offset = header_size + sectheaders_size;
   for (coil_u16_t i = 0; i < obj->header.section_count; i++) {
     obj->sectheaders[i].offset = data_offset;
-    data_offset += obj->sectheaders[i].size;
+    
+    // Get section size (either from section or header)
+    coil_size_t size = obj->sectheaders[i].size;
+    if (obj->sections != NULL && i < obj->loaded_count && obj->sections[i].data != NULL) {
+      size = obj->sections[i].size;
+      obj->sectheaders[i].size = size; // Update header with actual size
+    }
+    
+    data_offset += size;
   }
   
   // Update total file size
@@ -465,8 +564,9 @@ coil_err_t coil_obj_save_file(coil_object_t *obj, coil_descriptor_t fd) {
   }
   
   // Write section data
-  for (coil_u16_t i = 0; i < obj->loaded_count; i++) {
-    if (i < obj->header.section_count) {
+  for (coil_u16_t i = 0; i < obj->header.section_count; i++) {
+    // Only write sections that have data
+    if (obj->sections != NULL && i < obj->loaded_count && obj->sections[i].data != NULL && obj->sections[i].size > 0) {
       // Seek to section offset
       err = coil_seek(fd, obj->sectheaders[i].offset, SEEK_SET);
       if (err != COIL_ERR_GOOD) {

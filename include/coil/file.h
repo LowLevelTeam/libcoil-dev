@@ -19,11 +19,6 @@ extern "C" {
 typedef int coil_descriptor_t;
 
 /**
-* @brief Open File at descriptor
-*/
-coil_err_t coil_open_file(coil_descriptor_t *fd, const char *path);
-
-/**
 * @brief Close descriptor
 */
 coil_err_t coil_close(coil_descriptor_t fd);
