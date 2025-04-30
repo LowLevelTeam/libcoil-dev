@@ -7,6 +7,7 @@
 #define __COIL_INCLUDE_GUARD_OBJ_H
 
 #include <coil/base.h>
+#include <coil/sect.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -202,6 +203,10 @@ coil_err_t coil_obj_load_native(coil_object_t *obj, coil_u16_t index,
 * @return COIL_ERR_GOOD on success
 * @return COIL_ERR_INVAL if obj is NULL or parameters are invalid
 * @return COIL_ERR_NOMEM if memory allocation fails
+*
+* @note This function transfers ownership of the section data to the object.
+*       After this call, the 'sect' parameter will have its data field set to NULL,
+*       and the object becomes responsible for freeing the data memory.
 */
 coil_err_t coil_obj_create_section(coil_object_t *obj, coil_u8_t type, const char *name, 
                                  coil_u16_t flags, coil_section_t *sect, coil_u16_t *index);
@@ -277,6 +282,9 @@ coil_err_t coil_obj_find_section_by_hash(coil_object_t *obj, coil_u64_t name_has
 * @return COIL_ERR_GOOD on success
 * @return COIL_ERR_INVAL if parameters are invalid
 * @return COIL_ERR_NOTFOUND if section index is out of range
+*
+* @note This function transfers ownership of the section data to the object,
+*       similar to coil_obj_create_section.
 */
 coil_err_t coil_obj_update_section(coil_object_t *obj, coil_u16_t index, coil_section_t *sect);
 

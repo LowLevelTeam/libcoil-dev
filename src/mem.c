@@ -4,6 +4,7 @@
 */
 
 #include <coil/base.h>
+#include "srcdeps.h"
 
 /**
 * @brief Get system page size
@@ -19,7 +20,7 @@ coil_size_t coil_get_page_size(void) {
 void* coil_mmap(coil_size_t size, coil_size_t alignment) {
   // Validate inputs
   if (size == 0) {
-    coil_error_set(COIL_ERR_INVAL);
+    COIL_ERROR(COIL_ERR_INVAL, "Size cannot be zero");
     return NULL;
   }
   
@@ -37,7 +38,7 @@ void* coil_mmap(coil_size_t size, coil_size_t alignment) {
                   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
   
   if (ptr == MAP_FAILED) {
-    coil_error_set(COIL_ERR_NOMEM);
+    COIL_ERROR(COIL_ERR_NOMEM, "Memory mapping failed");
     return NULL;
   }
   
@@ -49,14 +50,14 @@ void* coil_mmap(coil_size_t size, coil_size_t alignment) {
 */
 coil_err_t coil_munmap(void *ptr, coil_size_t size) {
   if (ptr == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Pointer is NULL");
   }
   
   coil_size_t page_size = coil_get_page_size();
   coil_size_t aligned_size = coil_aligned_size(size, page_size);
   
   if (munmap(ptr, aligned_size) != 0) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Failed to unmap memory");
   }
   
   return COIL_ERR_GOOD;
@@ -67,13 +68,13 @@ coil_err_t coil_munmap(void *ptr, coil_size_t size) {
 */
 void* coil_malloc(coil_size_t size) {
   if (size == 0) {
-    coil_error_set(COIL_ERR_INVAL);
+    COIL_ERROR(COIL_ERR_INVAL, "Size cannot be zero");
     return NULL;
   }
   
   void *ptr = malloc(size);
   if (ptr == NULL) {
-    coil_error_set(COIL_ERR_NOMEM);
+    COIL_ERROR(COIL_ERR_NOMEM, "Memory allocation failed");
   }
   
   return ptr;
@@ -84,13 +85,13 @@ void* coil_malloc(coil_size_t size) {
 */
 void* coil_calloc(coil_size_t nmemb, coil_size_t size) {
   if (nmemb == 0 || size == 0) {
-    coil_error_set(COIL_ERR_INVAL);
+    COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters for calloc");
     return NULL;
   }
   
   void *ptr = calloc(nmemb, size);
   if (ptr == NULL) {
-    coil_error_set(COIL_ERR_NOMEM);
+    COIL_ERROR(COIL_ERR_NOMEM, "Memory allocation failed");
   }
   
   return ptr;
@@ -107,7 +108,7 @@ void* coil_realloc(void *ptr, coil_size_t size) {
   
   void *new_ptr = realloc(ptr, size);
   if (new_ptr == NULL && size > 0) {
-    coil_error_set(COIL_ERR_NOMEM);
+    COIL_ERROR(COIL_ERR_NOMEM, "Memory reallocation failed");
   }
   
   return new_ptr;
@@ -125,7 +126,7 @@ void coil_free(void *ptr) {
 */
 void* coil_memcpy(void *dest, const void *src, coil_size_t n) {
   if (dest == NULL || src == NULL) {
-    coil_error_set(COIL_ERR_INVAL);
+    COIL_ERROR(COIL_ERR_INVAL, "Invalid source or destination pointer");
     return NULL;
   }
   
@@ -137,7 +138,7 @@ void* coil_memcpy(void *dest, const void *src, coil_size_t n) {
 */
 void* coil_memmove(void *dest, const void *src, coil_size_t n) {
   if (dest == NULL || src == NULL) {
-    coil_error_set(COIL_ERR_INVAL);
+    COIL_ERROR(COIL_ERR_INVAL, "Invalid source or destination pointer");
     return NULL;
   }
   
@@ -149,7 +150,7 @@ void* coil_memmove(void *dest, const void *src, coil_size_t n) {
 */
 void* coil_memset(void *s, int c, coil_size_t n) {
   if (s == NULL) {
-    coil_error_set(COIL_ERR_INVAL);
+    COIL_ERROR(COIL_ERR_INVAL, "Invalid pointer");
     return NULL;
   }
   
@@ -161,7 +162,7 @@ void* coil_memset(void *s, int c, coil_size_t n) {
 */
 int coil_memcmp(const void *s1, const void *s2, coil_size_t n) {
   if (s1 == NULL || s2 == NULL) {
-    coil_error_set(COIL_ERR_INVAL);
+    COIL_ERROR(COIL_ERR_INVAL, "Invalid pointers for comparison");
     return 0;
   }
   

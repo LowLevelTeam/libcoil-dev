@@ -33,5 +33,7 @@
 
 # build
 build/
+bin/
+lib/
 __*
 *.coil

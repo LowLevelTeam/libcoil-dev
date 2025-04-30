@@ -1,4 +1,5 @@
 #include <coil/instr.h>
+#include "srcdeps.h"
 
 /**
 * @brief Encode an instruction header
@@ -224,7 +225,7 @@ coil_size_t coil_instr_decode(coil_section_t *sect, coil_size_t pos, coil_instrm
       }
       
       coil_instrflag_t *instr = (coil_instrflag_t*)instrmem;
-      coilt_memcpy(instr, sect->data + pos, sizeof(coil_instrflag_t));
+      coil_memcpy(instr, sect->data + pos, sizeof(coil_instrflag_t));
       return pos + sizeof(coil_instrflag_t);
     }
 
@@ -236,7 +237,7 @@ coil_size_t coil_instr_decode(coil_section_t *sect, coil_size_t pos, coil_instrm
       }
       
       coil_instrval_t *instr = (coil_instrval_t*)instrmem;
-      coilt_memcpy(instr, sect->data + pos, sizeof(coil_instrval_t));
+      coil_memcpy(instr, sect->data + pos, sizeof(coil_instrval_t));
       return pos + sizeof(coil_instrval_t);
     }
 
@@ -269,7 +270,7 @@ coil_size_t coil_operand_decode(coil_section_t *sect, coil_size_t pos, coil_oper
   }
   
   // Copy operand header
-  coilt_memcpy(header, sect->data + pos, sizeof(coil_operand_header_t));
+  coil_memcpy(header, sect->data + pos, sizeof(coil_operand_header_t));
   pos += sizeof(coil_operand_header_t);
   
   // If this is an offset operand, decode the offset
@@ -281,11 +282,11 @@ coil_size_t coil_operand_decode(coil_section_t *sect, coil_size_t pos, coil_oper
     }
     
     // Copy offset data
-    coilt_memcpy(offset, sect->data + pos, sizeof(coil_offset_t));
+    coil_memcpy(offset, sect->data + pos, sizeof(coil_offset_t));
     pos += sizeof(coil_offset_t);
   } else {
     // Clear offset
-    coilt_memset(offset, 0, sizeof(coil_offset_t));
+    coil_memset(offset, 0, sizeof(coil_offset_t));
   }
   
   // Return updated position
@@ -374,7 +375,7 @@ coil_size_t coil_operand_decode_data(coil_section_t *sect, coil_size_t pos, void
   
   // Copy the data
   if (type_size > 0) {
-    coilt_memcpy(data, sect->data + pos, type_size);
+    coil_memcpy(data, sect->data + pos, type_size);
   }
   
   // Set the actual size

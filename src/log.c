@@ -5,6 +5,7 @@
 
 #include <coil/log.h>
 #include <coil/deps.h>
+#include "srcdeps.h"
 
 /**
 * @brief Log level names

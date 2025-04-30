@@ -10,6 +10,9 @@
 extern "C" {
 #endif
 
+#include <stdint.h>
+#include <stddef.h>
+
 // -------------------------------- Base -------------------------------- //
 
 /**

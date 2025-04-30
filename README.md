@@ -1,189 +1,151 @@
-# COIL - Computer Oriented Intermediate Language
+# libcoil-dev - COIL Development Library
 
-COIL (Computer Oriented Intermediate Language) is a modern toolchain for compilation, optimization, and cross-platform development. It provides a unified approach to generating machine code for diverse hardware targets while maintaining portability.
+The COIL Development Library (libcoil-dev) provides a comprehensive API for working with the COIL (Computer Oriented Intermediate Language) format, supporting manipulation of intermediate representations, native code integration, and cross-platform development.
 
 ## Overview
 
-COIL is a comprehensive toolchain that provides a platform-independent intermediate representation for code compilation and optimization. Similar to LLVM's approach, COIL defines a binary machine language that serves as a common format between front-end compilers and back-end machine code generators.
+libcoil-dev is the core library for the COIL toolchain, providing functionality to:
 
-The COIL project's key features include:
-- A well-defined intermediate representation for compiled code
-- Cross-platform compilation and optimization
-- Support for multiple processing units (CPU, GPU, etc.) and architectures
-- Embedding of native machine code with metadata for specific targets
-- A complete toolchain from source code to executable binaries
+- Read, write, and manipulate COIL files and intermediate representations
+- Support native code embedding with architecture metadata
+- Define a clean API for processing COIL instructions and sections
+- Enable cross-platform compilation and optimization
 
-## Architecture
+This library serves as the foundation for other COIL tools, including:
+- COIL C Compiler (ccc)
+- COIL Object Processor (cop)
+- COIL Latent Linker (cll)
 
-COIL follows a streamlined, cross-platform compilation process:
+## Features
 
-```
-Source Code → COIL C Compiler (ccc) → COIL IR Files (.coil) → COIL Object Processor (COP) → COIL Native Objects (.coilo) → COIL Latent Linker (cll) → Executable
-```
+- **COIL File Format**: API for reading and writing the COIL intermediate representation format
+- **Native Code Support**: Ability to embed native machine code with architecture metadata
+- **Cross-Platform Targeting**: Support for multiple processing units and architectures
+- **Instruction Set**: Complete API for COIL instruction encoding and decoding
+- **Memory Management**: Optimized memory handling for sections and objects
+- **Error Handling**: Comprehensive error reporting and handling
 
-In this architecture:
-1. Front-end compilers like CCC translate source code to the COIL intermediate representation
-2. COP processes COIL IR into native machine code, but preserves it in the cross-platform COIL Object format (.coilo)
-3. CLL handles the final transformation to platform-specific executable formats, managing all native object format complexities
+## Library Structure
 
-## Native Code Support
+The library is organized into several modules:
 
-COIL introduces a powerful approach to handling native code across multiple platforms:
+- **Base**: Common types, memory operations, and utilities
+- **Error Handling**: Error codes and reporting
+- **File I/O**: File operations and descriptor management
+- **Logging**: Configurable logging system
+- **Sections**: Section management for different types of content
+- **Objects**: COIL object format management
+- **Instructions**: Instruction encoding and decoding
 
-### Double Value Architecture Specification
-
-COIL uses a dual-level specification for target architectures:
-1. **Processing Unit (PU)**: The type of processor (CPU, GPU, TPU, etc.)
-2. **Architecture**: The specific architecture within that PU category (x86-64, ARM64, NVIDIA PTX, etc.)
-
-This approach allows COIL to:
-- Support a wide range of hardware targets
-- Clearly separate platform-specific code
-- Enable cross-compilation between different architectures
-- Expand to new processing units as they emerge
-
-### Native Code in COIL Objects
-
-COIL object files can contain native machine code alongside the IR:
-- Each section can have associated metadata specifying its target PU and architecture
-- Multiple native code sections can exist for different targets
-- Feature flags allow fine-grained control over architecture-specific optimizations
-
-The `.coilo` extension is used for COIL object files that contain native code, though the underlying format is the same as regular COIL files with additional metadata.
-
-## Components
-
-### Libraries
-
-- **libcoil**: Core library for reading, writing, and manipulating COIL files and objects with native code support.
-- **libcop**: API for the COIL Object Processor functionality, translating COIL IR to native code.
-- **libcll**: API for the COIL Latent Linker functionality, handling native object formats internally.
-
-### Tools
-
-- **ccc (COIL C Compiler)**: Front-end compiler that translates C code to COIL intermediate representation.
-- **cop (COIL Object Processor)**: Processes COIL IR files into COIL objects containing native machine code (.coilo).
-- **cll (COIL Latent Linker)**: Transforms COIL objects into platform-specific executables for various targets.
-
-## File Formats
-
-- **.coil**: The COIL intermediate representation file format
-- **.coilo**: COIL object file format that contains native machine code with architecture metadata
-
-## Supported Platforms
-
-### Processing Units
-- CPU (Central Processing Unit)
-- GPU (Graphics Processing Unit)
-- TPU (Tensor Processing Unit)
-- NPU (Neural Processing Unit)
-- DSP (Digital Signal Processor)
-- FPGA (Field-Programmable Gate Array)
-
-### CPU Architectures
-- x86 (32-bit and 64-bit)
-- ARM (32-bit and 64-bit)
-- RISC-V (32-bit and 64-bit)
-- PowerPC
-- MIPS
-- WebAssembly
-
-### GPU Architectures
-- NVIDIA (PTX, CUDA)
-- AMD (GCN, RDNA)
-- Intel (Gen9, Xe)
-- Vulkan (SPIR-V)
-- OpenCL
-- Metal
-
-## Getting Started
+## Building
 
 ### Prerequisites
 
-- make
 - C99 compatible compiler
-- Git
+- make
+- git (for obtaining the source)
 
-### Build
+### Build Commands
 
 ```bash
-git clone https://github.com/coil-project/coil.git
-cd coil
-mkdir build && cd build
-cmake ..
+# Clone the repository
+git clone https://github.com/coil-project/libcoil-dev.git
+cd libcoil-dev
+
+# Build the library
 make
+
+# Run tests
+make check
+
+# Install the library (may require sudo)
+make install
 ```
 
-### Example Usage
+### Build Options
 
-#### Basic Compilation
+- `DEBUG=1`: Enable debug build with additional logging and symbols
+- `PREFIX=/custom/path`: Set custom installation prefix (default: /usr/local)
 
-```bash
-# Compile C to COIL IR
-ccc -o program.coil program.c
+## Usage Examples
 
-# Process COIL IR to COIL object with native code
-cop -o program.coilo program.coil
+### Basic COIL Object Creation
 
-# Link to executable for the current platform
-cll -o program program.coilo
+```c
+#include <coil/obj.h>
+#include <coil/sect.h>
+
+int main() {
+  // Initialize object
+  coil_object_t obj;
+  coil_obj_init(&obj, COIL_OBJ_INIT_DEFAULT);
+  
+  // Create a section
+  coil_section_t sect;
+  coil_section_init(&sect, 1024);
+  
+  // Write data to section
+  const char *data = "Hello, COIL!";
+  coil_section_write(&sect, (coil_byte_t *)data, strlen(data), NULL);
+  
+  // Add section to object
+  coil_u16_t index;
+  coil_obj_create_section(&obj, COIL_SECTION_PROGBITS, ".data", 
+                         COIL_SECTION_FLAG_NONE, &sect, &index);
+  
+  // Save object to file
+  int fd = open("output.coil", O_RDWR | O_CREAT | O_TRUNC, 0644);
+  coil_obj_save_file(&obj, fd);
+  close(fd);
+  
+  // Cleanup
+  coil_section_cleanup(&sect);
+  coil_obj_cleanup(&obj);
+  
+  return 0;
+}
 ```
 
-#### Cross-Platform Compilation
+### Instruction Encoding
 
-```bash
-# Compile for a specific target
-cop --pu=CPU --arch=x86-64 -o program_x86_64.coilo program.coil
+```c
+#include <coil/instr.h>
 
-# Compile for multiple targets in a single object
-cop --pu=CPU --arch=x86-64 --pu=CPU --arch=ARM64 -o program_multi.coilo program.coil
-
-# Link to executable for Windows x86-32
-cll -o program.exe --format=PE --pu=CPU --arch=x86-32 program.coilo
+// Create a simple instruction sequence
+void encode_instructions(coil_section_t *sect) {
+  // NOP instruction
+  coil_instr_encode(sect, COIL_OP_NOP);
+  
+  // MOV instruction with operands
+  coil_instrflag_encode(sect, COIL_OP_MOV, COIL_INSTRFLAG_NONE);
+  
+  // Register operand (destination)
+  coil_operand_encode(sect, COIL_TYPEOP_REG, COIL_VAL_I32, COIL_MOD_NONE);
+  coil_u32_t reg_dest = 0; // EAX
+  coil_operand_encode_data(sect, &reg_dest, sizeof(reg_dest));
+  
+  // Immediate operand (source)
+  coil_operand_encode(sect, COIL_TYPEOP_IMM, COIL_VAL_I32, COIL_MOD_CONST);
+  coil_i32_t value = 42;
+  coil_operand_encode_data(sect, &value, sizeof(value));
+}
 ```
 
-## Advanced Features
+## API Documentation
 
-### Per-Section Architecture Targeting
-
-COIL allows different sections of code to target different architectures:
-
-```bash
-# Create a COIL object with mixed architecture sections
-cop --section=.text --pu=CPU --arch=x86-64 \
-    --section=.gpu_code --pu=GPU --arch=NV_CUDA \
-    -o mixed_program.coilo program.coil
-```
-
-### Feature-Specific Optimizations
-
-Enable specific architecture features for optimized code:
-
-```bash
-# Generate code optimized for AVX2
-cop --pu=CPU --arch=x86-64 --features=AVX2 -o program_avx2.coilo program.coil
-
-# Generate code for ARM with NEON SIMD
-cop --pu=CPU --arch=ARM64 --features=NEON -o program_neon.coilo program.coil
-```
-
-## Development Status
-
-The COIL project is currently in active development:
-
-- ✅ libcoil: COIL file format reading and writing support with native code capabilities
-- 🔄 COP: Implementation with multiple target architecture support
-- 🔄 CLL: Design phase with native object format support integrated
+Detailed API documentation is available in the [docs/](docs/) directory, including:
+- [API Reference](docs/api-reference.md)
+- [File Format Specification](docs/file-format.md)
+- [Instruction Set](docs/instructions.md)
 
 ## License
 
-This project is licensed under [LICENSE](LICENSE) - see the file for details.
+This project is licensed under the terms of the [LICENSE](LICENSE) file.
 
-## Documentation
+## Contributing
 
-See the [docs/](docs/) directory for detailed documentation including:
-- Architecture documentation
-- API references
-- File format specifications
-- Developer guides
-- Example code
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to contribute to the project.
+
+## Contact
+
+For questions or support, please open an issue on the [GitHub repository](https://github.com/coil-project/libcoil-dev/issues).

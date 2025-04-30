@@ -40,6 +40,18 @@ typedef enum coil_error_level_e {
 
 const char *coil_strerr(coil_err_t code);
 
+/**
+* @brief Set the last error code
+*
+* @param code Error code to set
+*/
+void coil_error_set(coil_err_t code);
+
+/**
+* @brief Get the last error code
+*/
+coil_err_t coil_error_get_last(void);
+
 #ifdef __cplusplus
 }
 #endif

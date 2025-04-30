@@ -4,6 +4,7 @@
 */
 
 #include <coil/err.h>
+#include "srcdeps.h"
 
 /**
 * @brief Error message strings corresponding to coil_err_t values
@@ -24,7 +25,7 @@ static const char *coil_error_strings[] = {
 /**
 * @brief Last error code
 */
-static __thread coil_err_t coil_last_error = COIL_ERR_GOOD;
+__thread coil_err_t coil_last_error = COIL_ERR_GOOD;
 
 /**
 * @brief Get string description for an error code
@@ -50,8 +51,6 @@ void coil_error_set(coil_err_t code) {
 
 /**
 * @brief Get the last error code
-*
-* @return coil_err_t Last error code
 */
 coil_err_t coil_error_get_last(void) {
   return coil_last_error;

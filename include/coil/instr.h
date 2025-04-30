@@ -7,6 +7,7 @@
 #define __COIL_INCLUDE_GUARD_INSTR_H
 
 #include <coil/base.h>
+#include <coil/sect.h>
 
 #ifdef __cplusplus
 extern "C" {

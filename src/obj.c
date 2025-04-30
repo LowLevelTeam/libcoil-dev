@@ -6,6 +6,7 @@
 #include <coil/base.h>
 #include <coil/obj.h>
 #include <coil/sect.h>
+#include "srcdeps.h"
 
 /**
 * @brief COIL magic bytes for object files
@@ -22,7 +23,7 @@ static const coil_u8_t COIL_MAGIC[4] = COIL_MAGIC_BYTES;
 */
 coil_err_t coil_obj_init(coil_object_t *obj, int flags) {
   if (obj == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Object pointer is NULL");
   }
   
   // Zero initialize the object
@@ -56,7 +57,11 @@ void coil_obj_cleanup(coil_object_t *obj) {
   // Free sections and their data
   if (obj->sections != NULL) {
     for (coil_u16_t i = 0; i < obj->loaded_count; i++) {
-      coil_section_cleanup(&obj->sections[i]);
+      // Only free sections that aren't VIEW mode
+      if (obj->sections[i].mode != COIL_SECT_MODE_VIEW && obj->sections[i].data != NULL) {
+        coil_free(obj->sections[i].data);
+        obj->sections[i].data = NULL;
+      }
     }
     coil_free(obj->sections);
   }
@@ -88,7 +93,7 @@ void coil_obj_cleanup(coil_object_t *obj) {
 coil_err_t coil_obj_set_native_defaults(coil_object_t *obj, coil_pu_t pu, coil_u8_t arch, 
                                       coil_u32_t features) {
   if (obj == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Object pointer is NULL");
   }
   
   obj->default_pu = pu;
@@ -104,7 +109,7 @@ coil_err_t coil_obj_set_native_defaults(coil_object_t *obj, coil_pu_t pu, coil_u
 */
 coil_err_t coil_obj_load_file(coil_object_t *obj, coil_descriptor_t fd) {
   if (obj == NULL || fd < 0) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Invalid object pointer or file descriptor");
   }
   
   // Initialize object
@@ -119,12 +124,12 @@ coil_err_t coil_obj_load_file(coil_object_t *obj, coil_descriptor_t fd) {
                           sizeof(coil_object_header_t), &bytesread);
   
   if (err != COIL_ERR_GOOD || bytesread != sizeof(coil_object_header_t)) {
-    return COIL_ERR_IO;
+    return COIL_ERROR(COIL_ERR_IO, "Failed to read object header");
   }
   
   // Verify magic
   if (coil_memcmp(obj->header.magic, COIL_MAGIC, sizeof(COIL_MAGIC)) != 0) {
-    return COIL_ERR_FORMAT;
+    return COIL_ERROR(COIL_ERR_FORMAT, "Invalid object format (magic mismatch)");
   }
   
   // Read section headers if present
@@ -134,7 +139,7 @@ coil_err_t coil_obj_load_file(coil_object_t *obj, coil_descriptor_t fd) {
     obj->sectheaders = (coil_section_header_t *)coil_malloc(headers_size);
     
     if (obj->sectheaders == NULL) {
-      return COIL_ERR_NOMEM;
+      return COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate memory for section headers");
     }
     
     // Read section headers
@@ -143,11 +148,19 @@ coil_err_t coil_obj_load_file(coil_object_t *obj, coil_descriptor_t fd) {
     if (err != COIL_ERR_GOOD || bytesread != headers_size) {
       coil_free(obj->sectheaders);
       obj->sectheaders = NULL;
-      return COIL_ERR_IO;
+      return COIL_ERROR(COIL_ERR_IO, "Failed to read section headers");
     }
   }
   
   return COIL_ERR_GOOD;
+}
+
+/**
+* @brief Load object from file using memory mapping
+*/
+coil_err_t coil_obj_mmap(coil_object_t *obj, coil_descriptor_t fd) {
+  // Not implemented yet
+  return COIL_ERROR(COIL_ERR_NOTSUP, "Memory mapping not yet supported");
 }
 
 /**
@@ -175,7 +188,7 @@ coil_u64_t coil_obj_hash_name(const char *name) {
 */
 coil_err_t coil_obj_find_section(coil_object_t *obj, const char *name, coil_u16_t *index) {
   if (obj == NULL || name == NULL || index == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
   }
   
   // Calculate name hash
@@ -189,7 +202,7 @@ coil_err_t coil_obj_find_section(coil_object_t *obj, const char *name, coil_u16_
 */
 coil_err_t coil_obj_find_section_by_hash(coil_object_t *obj, coil_u64_t name_hash, coil_u16_t *index) {
   if (obj == NULL || index == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
   }
   
   // Search through section headers
@@ -200,7 +213,7 @@ coil_err_t coil_obj_find_section_by_hash(coil_object_t *obj, coil_u64_t name_has
     }
   }
   
-  return COIL_ERR_NOTFOUND;
+  return COIL_ERROR(COIL_ERR_NOTFOUND, "Section not found");
 }
 
 /**
@@ -209,12 +222,12 @@ coil_err_t coil_obj_find_section_by_hash(coil_object_t *obj, coil_u64_t name_has
 coil_err_t coil_obj_load_section(coil_object_t *obj, coil_u16_t index, 
                               coil_section_t *sect, int mode) {
   if (obj == NULL || sect == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
   }
   
   // Check if index is valid
   if (index >= obj->header.section_count) {
-    return COIL_ERR_NOTFOUND;
+    return COIL_ERROR(COIL_ERR_NOTFOUND, "Section index out of range");
   }
   
   // Get section header
@@ -226,7 +239,7 @@ coil_err_t coil_obj_load_section(coil_object_t *obj, coil_u16_t index,
         obj->header.section_count, sizeof(coil_section_t));
     
     if (obj->sections == NULL) {
-      return COIL_ERR_NOMEM;
+      return COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate memory for sections");
     }
   }
   
@@ -239,7 +252,7 @@ coil_err_t coil_obj_load_section(coil_object_t *obj, coil_u16_t index,
   // Load the section
   if (mode & COIL_SLOAD_VIEW) {
     // TODO: Implement view mode (would need memory mapping)
-    return COIL_ERR_NOTSUP;
+    return COIL_ERROR(COIL_ERR_NOTSUP, "View mode not yet supported");
   } else {
     // Copy mode
     err = coil_section_load(sect, header->size, obj->fd);
@@ -272,7 +285,7 @@ coil_err_t coil_obj_load_section(coil_object_t *obj, coil_u16_t index,
 coil_err_t coil_obj_create_section(coil_object_t *obj, coil_u8_t type, const char *name, 
                                 coil_u16_t flags, coil_section_t *sect, coil_u16_t *index) {
   if (obj == NULL || name == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
   }
   
   // Calculate name hash
@@ -281,7 +294,7 @@ coil_err_t coil_obj_create_section(coil_object_t *obj, coil_u8_t type, const cha
   // Check if section already exists
   coil_u16_t existing_index;
   if (coil_obj_find_section_by_hash(obj, name_hash, &existing_index) == COIL_ERR_GOOD) {
-    return COIL_ERR_EXISTS;
+    return COIL_ERROR(COIL_ERR_EXISTS, "Section already exists");
   }
   
   // Grow section headers array
@@ -297,7 +310,7 @@ coil_err_t coil_obj_create_section(coil_object_t *obj, coil_u8_t type, const cha
   }
   
   if (new_headers == NULL) {
-    return COIL_ERR_NOMEM;
+    return COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate memory for section headers");
   }
   
   obj->sectheaders = new_headers;
@@ -338,14 +351,22 @@ coil_err_t coil_obj_create_section(coil_object_t *obj, coil_u8_t type, const cha
     }
     
     if (new_sections == NULL) {
-      return COIL_ERR_NOMEM;
+      return COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate memory for sections");
     }
     
     obj->sections = new_sections;
     
-    // Copy section data
+    // Copy section data with ownership transfer
     coil_section_t *new_sect = &obj->sections[new_index];
+    
+    // Do a shallow copy first
     coil_memcpy(new_sect, sect, sizeof(coil_section_t));
+    
+    // Mark the original section as no longer owning the data
+    // to avoid double-free issues
+    sect->data = NULL;
+    sect->capacity = 0;
+    sect->size = 0;
     
     if (new_index >= obj->loaded_count) {
       obj->loaded_count = new_index + 1;
@@ -368,12 +389,12 @@ coil_err_t coil_obj_create_section(coil_object_t *obj, coil_u8_t type, const cha
 */
 coil_err_t coil_obj_update_section(coil_object_t *obj, coil_u16_t index, coil_section_t *sect) {
   if (obj == NULL || sect == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
   }
   
   // Check if index is valid
   if (index >= obj->header.section_count) {
-    return COIL_ERR_NOTFOUND;
+    return COIL_ERROR(COIL_ERR_NOTFOUND, "Section index out of range");
   }
   
   // Update section header
@@ -392,11 +413,19 @@ coil_err_t coil_obj_update_section(coil_object_t *obj, coil_u16_t index, coil_se
   if (obj->sections != NULL && index < obj->loaded_count) {
     coil_section_t *dest_sect = &obj->sections[index];
     
-    // Clean up existing section
-    coil_section_cleanup(dest_sect);
+    // Clean up existing section's data (not using coil_section_cleanup to avoid NULL pointer issues)
+    if (dest_sect->mode != COIL_SECT_MODE_VIEW && dest_sect->data != NULL) {
+      coil_free(dest_sect->data);
+      dest_sect->data = NULL;
+    }
     
     // Copy new section
     coil_memcpy(dest_sect, sect, sizeof(coil_section_t));
+    
+    // Mark the original section as no longer owning the data
+    sect->data = NULL;
+    sect->capacity = 0;
+    sect->size = 0;
   }
   
   return COIL_ERR_GOOD;
@@ -407,7 +436,7 @@ coil_err_t coil_obj_update_section(coil_object_t *obj, coil_u16_t index, coil_se
 */
 coil_err_t coil_obj_save_file(coil_object_t *obj, coil_descriptor_t fd) {
   if (obj == NULL || fd < 0) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
   }
   
   // Calculate file layout
@@ -428,14 +457,14 @@ coil_err_t coil_obj_save_file(coil_object_t *obj, coil_descriptor_t fd) {
   coil_size_t written;
   coil_err_t err = coil_write(fd, (coil_byte_t *)&obj->header, header_size, &written);
   if (err != COIL_ERR_GOOD || written != header_size) {
-    return COIL_ERR_IO;
+    return COIL_ERROR(COIL_ERR_IO, "Failed to write object header");
   }
   
   // Write section headers
   if (obj->header.section_count > 0) {
     err = coil_write(fd, (coil_byte_t *)obj->sectheaders, sectheaders_size, &written);
     if (err != COIL_ERR_GOOD || written != sectheaders_size) {
-      return COIL_ERR_IO;
+      return COIL_ERROR(COIL_ERR_IO, "Failed to write section headers");
     }
   }
   
@@ -451,7 +480,7 @@ coil_err_t coil_obj_save_file(coil_object_t *obj, coil_descriptor_t fd) {
       // Write section data
       err = coil_section_serialize(&obj->sections[i], fd);
       if (err != COIL_ERR_GOOD) {
-        return err;
+        return COIL_ERROR(COIL_ERR_IO, "Failed to write section data");
       }
     }
   }
@@ -467,7 +496,7 @@ coil_err_t coil_obj_create_native_section(coil_object_t *obj, const char *name,
                                        coil_pu_t pu, coil_u8_t arch, coil_u32_t features,
                                        coil_u16_t *index) {
   if (obj == NULL || name == NULL || data == NULL || size == 0) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
   }
   
   // Create a temporary section
@@ -482,7 +511,7 @@ coil_err_t coil_obj_create_native_section(coil_object_t *obj, const char *name,
   err = coil_section_write(&sect, data, size, &written);
   if (err != COIL_ERR_GOOD) {
     coil_section_cleanup(&sect);
-    return err;
+    return COIL_ERROR(COIL_ERR_IO, "Failed to write native code to section");
   }
   
   // Set native code metadata
@@ -496,7 +525,7 @@ coil_err_t coil_obj_create_native_section(coil_object_t *obj, const char *name,
   err = coil_obj_create_section(obj, COIL_SECTION_NATIVE, name, 
                              COIL_SECTION_FLAG_NATIVE, &sect, index);
   
-  // Clean up temporary section
+  // Clean up temporary section (its data has been transferred to the object)
   coil_section_cleanup(&sect);
   
   return err;
@@ -509,17 +538,17 @@ coil_err_t coil_obj_load_native(coil_object_t *obj, coil_u16_t index,
                               coil_byte_t **data, coil_size_t *size, 
                               coil_native_meta_t *meta) {
   if (obj == NULL || data == NULL || size == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
   }
   
   // Check if index is valid
   if (index >= obj->header.section_count) {
-    return COIL_ERR_NOTFOUND;
+    return COIL_ERROR(COIL_ERR_NOTFOUND, "Section index out of range");
   }
   
   // Check if section has native code
   if (!obj->sectheaders[index].has_native) {
-    return COIL_ERR_NOTFOUND;
+    return COIL_ERROR(COIL_ERR_NOTFOUND, "Section does not contain native code");
   }
   
   // Load section if not already loaded
@@ -552,17 +581,21 @@ coil_err_t coil_obj_load_native(coil_object_t *obj, coil_u16_t index,
 */
 coil_err_t coil_obj_delete_section(coil_object_t *obj, coil_u16_t index) {
   if (obj == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Object pointer is NULL");
   }
   
   // Check if index is valid
   if (index >= obj->header.section_count) {
-    return COIL_ERR_NOTFOUND;
+    return COIL_ERROR(COIL_ERR_NOTFOUND, "Section index out of range");
   }
   
   // Free section data if loaded
   if (obj->sections != NULL && index < obj->loaded_count) {
-    coil_section_cleanup(&obj->sections[index]);
+    // Free memory but don't call section_cleanup (which would double-free in some cases)
+    if (obj->sections[index].mode != COIL_SECT_MODE_VIEW && obj->sections[index].data != NULL) {
+      coil_free(obj->sections[index].data);
+      obj->sections[index].data = NULL;
+    }
   }
   
   // Shift section headers down

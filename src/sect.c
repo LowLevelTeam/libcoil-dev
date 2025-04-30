@@ -5,6 +5,7 @@
 
 #include <coil/base.h>
 #include <coil/sect.h>
+#include "srcdeps.h"
 
 /**
 * @brief Initial capacity for sections when none is specified
@@ -19,7 +20,7 @@ static coil_err_t coil_section_resize(coil_section_t *sect, coil_size_t new_capa
 */
 coil_err_t coil_section_init(coil_section_t *sect, coil_size_t capacity) {
   if (sect == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
   }
   
   // Use default capacity if none provided
@@ -34,7 +35,7 @@ coil_err_t coil_section_init(coil_section_t *sect, coil_size_t capacity) {
   // Allocate memory for data
   sect->data = (coil_byte_t *)coil_malloc(capacity);
   if (sect->data == NULL) {
-    return COIL_ERR_NOMEM;
+    return COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate memory for section data");
   }
   
   sect->capacity = capacity;
@@ -68,12 +69,12 @@ void coil_section_cleanup(coil_section_t *sect) {
 coil_err_t coil_section_set_native(coil_section_t *sect, coil_pu_t pu, coil_u8_t arch,
                                    coil_u32_t features, coil_u64_t offset, coil_u64_t size) {
   if (sect == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
   }
   
   // Validate offset and size
   if (offset + size > sect->size) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Native code offset and size exceed section size");
   }
   
   // Set native metadata
@@ -92,11 +93,11 @@ coil_err_t coil_section_set_native(coil_section_t *sect, coil_pu_t pu, coil_u8_t
 */
 coil_err_t coil_section_get_native_data(coil_section_t *sect, coil_byte_t **data, coil_size_t *size) {
   if (sect == NULL || data == NULL || size == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
   }
   
   if (!sect->has_native) {
-    return COIL_ERR_NOTFOUND;
+    return COIL_ERROR(COIL_ERR_NOTFOUND, "Section does not contain native code");
   }
   
   *data = sect->data + sect->native.native_offset;
@@ -110,7 +111,7 @@ coil_err_t coil_section_get_native_data(coil_section_t *sect, coil_byte_t **data
 */
 coil_err_t coil_section_clear_native(coil_section_t *sect) {
   if (sect == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
   }
   
   sect->has_native = 0;
@@ -124,12 +125,12 @@ coil_err_t coil_section_clear_native(coil_section_t *sect) {
 */
 coil_err_t coil_section_ensure_capacity(coil_section_t *sect, coil_size_t min_capacity) {
   if (sect == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
   }
   
   // If we're in VIEW mode, we can't resize
   if (sect->mode == COIL_SECT_MODE_VIEW) {
-    return COIL_ERR_BADSTATE;
+    return COIL_ERROR(COIL_ERR_BADSTATE, "Cannot resize section in VIEW mode");
   }
   
   // If we already have enough capacity, we're done
@@ -153,7 +154,7 @@ static coil_err_t coil_section_resize(coil_section_t *sect, coil_size_t new_capa
   // Allocate new buffer
   coil_byte_t *new_data = (coil_byte_t *)coil_malloc(new_capacity);
   if (new_data == NULL) {
-    return COIL_ERR_NOMEM;
+    return COIL_ERROR(COIL_ERR_NOMEM, "Failed to allocate memory for section resize");
   }
   
   // Copy existing data
@@ -180,12 +181,12 @@ static coil_err_t coil_section_resize(coil_section_t *sect, coil_size_t new_capa
 coil_err_t coil_section_write(coil_section_t *sect, coil_byte_t *buf, 
                            coil_size_t bufsize, coil_size_t *byteswritten) {
   if (sect == NULL || buf == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
   }
   
   // Check if section is writable
   if (sect->mode == COIL_SECT_MODE_VIEW) {
-    return COIL_ERR_BADSTATE;
+    return COIL_ERROR(COIL_ERR_BADSTATE, "Cannot write to section in VIEW mode");
   }
   
   // Ensure we have enough capacity
@@ -216,7 +217,7 @@ coil_err_t coil_section_write(coil_section_t *sect, coil_byte_t *buf,
 coil_err_t coil_section_read(coil_section_t *sect, coil_byte_t *buf, 
                           coil_size_t bufsize, coil_size_t *bytesread) {
   if (sect == NULL || buf == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
   }
   
   // Calculate how many bytes we can actually read
@@ -241,7 +242,7 @@ coil_err_t coil_section_read(coil_section_t *sect, coil_byte_t *buf,
 */
 coil_err_t coil_section_putstr(coil_section_t *sect, const char *str) {
   if (sect == NULL || str == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
   }
   
   coil_size_t len = strlen(str) + 1; // Include null terminator
@@ -253,12 +254,12 @@ coil_err_t coil_section_putstr(coil_section_t *sect, const char *str) {
 */
 coil_err_t coil_section_getstr(coil_section_t *sect, coil_u64_t offset, const char **str) {
   if (sect == NULL || str == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
   }
   
   // Check if offset is valid
   if (offset >= sect->size) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Offset out of bounds");
   }
   
   // Set the string pointer
@@ -272,12 +273,12 @@ coil_err_t coil_section_getstr(coil_section_t *sect, coil_u64_t offset, const ch
 */
 coil_err_t coil_section_compact(coil_section_t *sect) {
   if (sect == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
   }
   
   // If we're in VIEW mode or have no data, we can't/shouldn't compact
   if (sect->mode == COIL_SECT_MODE_VIEW || sect->data == NULL) {
-    return COIL_ERR_BADSTATE;
+    return COIL_ERROR(COIL_ERR_BADSTATE, "Cannot compact section in VIEW mode");
   }
   
   // If size matches capacity, nothing to do
@@ -294,7 +295,7 @@ coil_err_t coil_section_compact(coil_section_t *sect) {
 */
 coil_err_t coil_section_reset(coil_section_t *sect) {
   if (sect == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
   }
   
   sect->rindex = 0;
@@ -308,11 +309,11 @@ coil_err_t coil_section_reset(coil_section_t *sect) {
 */
 coil_err_t coil_section_seek_read(coil_section_t *sect, coil_size_t pos) {
   if (sect == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
   }
   
   if (pos > sect->size) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Position exceeds section size");
   }
   
   sect->rindex = pos;
@@ -324,11 +325,11 @@ coil_err_t coil_section_seek_read(coil_section_t *sect, coil_size_t pos) {
 */
 coil_err_t coil_section_seek_write(coil_section_t *sect, coil_size_t pos) {
   if (sect == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
   }
   
   if (pos > sect->size) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Position exceeds section size");
   }
   
   sect->windex = pos;
@@ -340,7 +341,7 @@ coil_err_t coil_section_seek_write(coil_section_t *sect, coil_size_t pos) {
 */
 coil_err_t coil_section_load(coil_section_t *sect, coil_size_t capacity, coil_descriptor_t fd) {
   if (sect == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
   }
   
   // Initialize the section
@@ -357,7 +358,7 @@ coil_err_t coil_section_load(coil_section_t *sect, coil_size_t capacity, coil_de
   err = coil_read(fd, sect->data, sect->capacity, &bytesread);
   if (err != COIL_ERR_GOOD) {
     coil_section_cleanup(sect);
-    return err;
+    return COIL_ERROR(COIL_ERR_IO, "Failed to read section data");
   }
   
   sect->size = bytesread;
@@ -370,9 +371,19 @@ coil_err_t coil_section_load(coil_section_t *sect, coil_size_t capacity, coil_de
 */
 coil_err_t coil_section_serialize(coil_section_t *sect, coil_descriptor_t fd) {
   if (sect == NULL) {
-    return COIL_ERR_INVAL;
+    return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
   }
   
   coil_size_t byteswritten;
-  return coil_write(fd, sect->data, sect->size, &byteswritten);
+  coil_err_t err = coil_write(fd, sect->data, sect->size, &byteswritten);
+  
+  if (err != COIL_ERR_GOOD) {
+    return err;
+  }
+  
+  if (byteswritten != sect->size) {
+    return COIL_ERROR(COIL_ERR_IO, "Failed to write all section data");
+  }
+  
+  return COIL_ERR_GOOD;
 }
