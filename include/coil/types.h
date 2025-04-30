@@ -55,7 +55,7 @@ typedef enum coil_section_type_e {
   COIL_SECTION_RELTAB = 4,      ///< Relocation entries
   COIL_SECTION_NOBITS = 5,      ///< Program space with no data (bss)
   COIL_SECTION_DEBUG = 6,       ///< Debug information
-  COIL_SECTION_NATIVE = 7       ///< Native machine code section
+  COIL_SECTION_TARGET = 7       ///< Section with specific target architecture
 } coil_section_type_t;
 
 /**
@@ -68,7 +68,7 @@ typedef enum coil_section_flag_e {
   COIL_SECTION_FLAG_MERGE = 1 << 2,    ///< Might be merged
   COIL_SECTION_FLAG_ALLOC = 1 << 3,    ///< Occupies memory during execution
   COIL_SECTION_FLAG_TLS = 1 << 4,      ///< Thread-local storage
-  COIL_SECTION_FLAG_NATIVE = 1 << 5    ///< Contains native machine code
+  COIL_SECTION_FLAG_TARGET = 1 << 5    ///< Contains code for specific target architecture
 } coil_section_flag_t;
 
 /**
@@ -321,7 +321,7 @@ enum coil_modifier_e {
 };
 typedef uint8_t coil_modifier_t;
 
-// -------------------------------- Configuration -------------------------------- //
+// -------------------------------- Target Configuration -------------------------------- //
 
 /**
 * @brief Processing unit types

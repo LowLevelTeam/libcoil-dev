@@ -38,22 +38,14 @@ static int test_object_init_cleanup() {
   TEST_ASSERT(obj.header.section_count == 0, "Section count should be zero");
   TEST_ASSERT(obj.fd == -1, "File descriptor should be invalid");
   
-  // Clean up the object
-  coil_obj_cleanup(&obj);
-  
-  // Initialize with native flag
-  err = coil_obj_init(&obj, COIL_OBJ_INIT_NATIVE);
-  TEST_ASSERT(err == COIL_ERR_GOOD, "Object initialization with native flag should succeed");
-  TEST_ASSERT(obj.header.has_native == 1, "has_native flag should be set");
-  
-  // Set native defaults
-  err = coil_obj_set_native_defaults(&obj, COIL_PU_CPU, COIL_CPU_x86_64, COIL_CPU_X86_AVX2);
-  TEST_ASSERT(err == COIL_ERR_GOOD, "Setting native defaults should succeed");
+  // Set target defaults
+  err = coil_obj_set_target_defaults(&obj, COIL_PU_CPU, COIL_CPU_x86_64, COIL_CPU_X86_AVX2);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Setting target defaults should succeed");
   TEST_ASSERT(obj.default_pu == COIL_PU_CPU, "Default PU should be set");
   TEST_ASSERT(obj.default_arch == COIL_CPU_x86_64, "Default architecture should be set");
   TEST_ASSERT(obj.default_features == COIL_CPU_X86_AVX2, "Default features should be set");
   
-  // Clean up
+  // Clean up the object
   coil_obj_cleanup(&obj);
   
   return 0;
@@ -141,24 +133,134 @@ static int test_object_sections() {
 }
 
 /**
-* @brief Test native code section creation
+* @brief Test target metadata system
 */
-static int test_native_section() {
-  printf("  Testing native code section...\n");
+static int test_target_metadata() {
+  printf("  Testing target metadata...\n");
   
-  // Initialize an object with native flag
+  // Initialize an object
   coil_object_t obj;
-  coil_err_t err = coil_obj_init(&obj, COIL_OBJ_INIT_NATIVE);
+  coil_err_t err = coil_obj_init(&obj, COIL_OBJ_INIT_DEFAULT);
   TEST_ASSERT(err == COIL_ERR_GOOD, "Object initialization should succeed");
   
-  // Create some fake native code
-  const char *native_code = "This is fake x86-64 native code";
-  coil_size_t code_len = strlen(native_code);
+  // Set target defaults for x86_64
+  err = coil_obj_set_target_defaults(&obj, COIL_PU_CPU, COIL_CPU_x86_64, COIL_CPU_X86_AVX2);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Setting target defaults should succeed");
   
-  // TODO...
-
-  // Clean up the object
+  // Create a section
+  coil_section_t sect;
+  err = coil_section_init(&sect, 1024);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Section initialization should succeed");
+  
+  // Write some data to the section
+  const char *test_data = "This is a test section with x86_64 target metadata";
+  coil_size_t test_len = strlen(test_data);
+  coil_size_t bytes_written;
+  
+  err = coil_section_write(&sect, (coil_byte_t *)test_data, test_len, &bytes_written);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Section write should succeed");
+  
+  // Add the section to the object with x86_64 target metadata
+  coil_u16_t sect_index;
+  err = coil_obj_create_section(&obj, COIL_SECTION_PROGBITS, ".text", 
+                              COIL_SECTION_FLAG_CODE, &sect, &sect_index);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Creating section should succeed");
+  
+  // Verify target metadata
+  TEST_ASSERT(obj.sectheaders[sect_index].pu == COIL_PU_CPU, "Section PU should match default");
+  TEST_ASSERT(obj.sectheaders[sect_index].raw_arch == COIL_CPU_x86_64, "Section architecture should match default");
+  TEST_ASSERT(obj.sectheaders[sect_index].features == COIL_CPU_X86_AVX2, "Section features should match default");
+  
+  // Set different target defaults (for ARM64)
+  err = coil_obj_set_target_defaults(&obj, COIL_PU_CPU, COIL_CPU_ARM64, COIL_CPU_ARM_NEON);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Setting ARM64 target defaults should succeed");
+  
+  // Create another section
+  coil_section_t sect2;
+  err = coil_section_init(&sect2, 1024);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Section initialization should succeed");
+  
+  // Write some data to the section
+  const char *test_data2 = "This is another test section with ARM64 target metadata";
+  coil_size_t test_len2 = strlen(test_data2);
+  
+  err = coil_section_write(&sect2, (coil_byte_t *)test_data2, test_len2, &bytes_written);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Section write should succeed");
+  
+  // Add the section to the object with ARM64 target metadata
+  coil_u16_t sect_index2;
+  err = coil_obj_create_section(&obj, COIL_SECTION_PROGBITS, ".arm_code", 
+                              COIL_SECTION_FLAG_CODE, &sect2, &sect_index2);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Creating section should succeed");
+  
+  // Verify target metadata
+  TEST_ASSERT(obj.sectheaders[sect_index2].pu == COIL_PU_CPU, "Section PU should match ARM default");
+  TEST_ASSERT(obj.sectheaders[sect_index2].raw_arch == COIL_CPU_ARM64, "Section architecture should match ARM default");
+  TEST_ASSERT(obj.sectheaders[sect_index2].features == COIL_CPU_ARM_NEON, "Section features should match ARM default");
+  
+  // Set target defaults for GPU code
+  coil_u64_t gpu_features = 0x1234; // Some arbitrary feature flags for GPU
+  err = coil_obj_set_target_defaults(&obj, COIL_PU_GPU, COIL_GPU_NV_CU, gpu_features);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Setting GPU target defaults should succeed");
+  
+  // Create a third section
+  coil_section_t sect3;
+  err = coil_section_init(&sect3, 1024);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Section initialization should succeed");
+  
+  // Write some data to the section
+  const char *test_data3 = "This is a test section with GPU target metadata";
+  coil_size_t test_len3 = strlen(test_data3);
+  
+  err = coil_section_write(&sect3, (coil_byte_t *)test_data3, test_len3, &bytes_written);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Section write should succeed");
+  
+  // Add the section to the object with GPU target metadata
+  coil_u16_t sect_index3;
+  err = coil_obj_create_section(&obj, COIL_SECTION_PROGBITS, ".cuda", 
+                              COIL_SECTION_FLAG_CODE, &sect3, &sect_index3);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Creating section should succeed");
+  
+  // Verify target metadata
+  TEST_ASSERT(obj.sectheaders[sect_index3].pu == COIL_PU_GPU, "Section PU should match GPU default");
+  TEST_ASSERT(obj.sectheaders[sect_index3].raw_arch == COIL_GPU_NV_CU, "Section architecture should match GPU default");
+  TEST_ASSERT(obj.sectheaders[sect_index3].features == gpu_features, "Section features should match GPU default");
+  
+  // Test file I/O with target metadata
+  int fd = open(TEST_OBJECT_FILE, O_RDWR | O_CREAT | O_TRUNC, 0644);
+  TEST_ASSERT(fd >= 0, "File open should succeed");
+  
+  // Save the object to file
+  err = coil_obj_save_file(&obj, fd);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Saving object should succeed");
+  close(fd);
+  
+  // Load the object from file
+  coil_object_t loaded_obj;
+  fd = open(TEST_OBJECT_FILE, O_RDONLY);
+  TEST_ASSERT(fd >= 0, "File open for reading should succeed");
+  
+  err = coil_obj_load_file(&loaded_obj, fd);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Loading object should succeed");
+  
+  // Verify target metadata in loaded sections
+  TEST_ASSERT(loaded_obj.sectheaders[sect_index].pu == COIL_PU_CPU, "Loaded CPU section PU should match");
+  TEST_ASSERT(loaded_obj.sectheaders[sect_index].raw_arch == COIL_CPU_x86_64, "Loaded CPU section architecture should match");
+  TEST_ASSERT(loaded_obj.sectheaders[sect_index].features == COIL_CPU_X86_AVX2, "Loaded CPU section features should match");
+  
+  TEST_ASSERT(loaded_obj.sectheaders[sect_index2].pu == COIL_PU_CPU, "Loaded ARM section PU should match");
+  TEST_ASSERT(loaded_obj.sectheaders[sect_index2].raw_arch == COIL_CPU_ARM64, "Loaded ARM section architecture should match");
+  TEST_ASSERT(loaded_obj.sectheaders[sect_index2].features == COIL_CPU_ARM_NEON, "Loaded ARM section features should match");
+  
+  TEST_ASSERT(loaded_obj.sectheaders[sect_index3].pu == COIL_PU_GPU, "Loaded GPU section PU should match");
+  TEST_ASSERT(loaded_obj.sectheaders[sect_index3].raw_arch == COIL_GPU_NV_CU, "Loaded GPU section architecture should match");
+  TEST_ASSERT(loaded_obj.sectheaders[sect_index3].features == gpu_features, "Loaded GPU section features should match");
+  
+  // Clean up
+  close(fd);
+  coil_section_cleanup(&sect3);
   coil_obj_cleanup(&obj);
+  coil_obj_cleanup(&loaded_obj);
   
   return 0;
 }
@@ -251,7 +353,7 @@ int test_object() {
   // Run individual test functions
   result |= test_object_init_cleanup();
   result |= test_object_sections();
-  result |= test_native_section();
+  result |= test_target_metadata();
   result |= test_object_file_io();
   
   // Clean up test file

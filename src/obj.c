@@ -35,11 +35,6 @@ coil_err_t coil_obj_init(coil_object_t *obj, int flags) {
   obj->header.section_count = 0;
   obj->header.file_size = sizeof(coil_object_header_t);
   
-  // Set native code flag if requested
-  if (flags & COIL_OBJ_INIT_NATIVE) {
-    obj->header.has_native = 1;
-  }
-  
   // Set file descriptor to invalid
   obj->fd = -1;
   
@@ -87,10 +82,10 @@ void coil_obj_cleanup(coil_object_t *obj) {
 }
 
 /**
-* @brief Set the default native code settings for an object
+* @brief Set the default target metadata for an object
 */
-coil_err_t coil_obj_set_native_defaults(coil_object_t *obj, coil_pu_t pu, coil_u8_t arch, 
-                                      coil_u32_t features) {
+coil_err_t coil_obj_set_target_defaults(coil_object_t *obj, coil_pu_t pu, coil_u8_t arch, 
+                                      coil_u64_t features) {
   if (obj == NULL) {
     return COIL_ERROR(COIL_ERR_INVAL, "Object pointer is NULL");
   }
@@ -98,7 +93,6 @@ coil_err_t coil_obj_set_native_defaults(coil_object_t *obj, coil_pu_t pu, coil_u
   obj->default_pu = pu;
   obj->default_arch = arch;
   obj->default_features = features;
-  obj->header.has_native = 1;
   
   return COIL_ERR_GOOD;
 }
@@ -314,7 +308,7 @@ coil_err_t coil_obj_unmap(coil_object_t *obj) {
     }
   }
   
-  // Copy native defaults
+  // Copy target defaults
   temp_obj.default_pu = obj->default_pu;
   temp_obj.default_arch = obj->default_arch;
   temp_obj.default_features = obj->default_features;
@@ -736,6 +730,11 @@ coil_err_t coil_obj_create_section(coil_object_t *obj, coil_u8_t type, const cha
   header->name = name_hash;
   header->type = type;
   header->flags = flags;
+  
+  // Set target metadata from defaults
+  header->pu = obj->default_pu;
+  header->raw_arch = obj->default_arch;
+  header->features = obj->default_features;
   
   // If section data is provided, copy it
   if (sect != NULL) {

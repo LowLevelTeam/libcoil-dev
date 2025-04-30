@@ -15,7 +15,8 @@ extern "C" {
 /**
 * @brief Section header
 * 
-* Contains metadata about a section stored in an object file
+* Contains metadata about a section stored in an object file, including target metadata
+* for compilation and execution on different processing units and architectures.
 */
 typedef struct coil_section_header {
   coil_u64_t name;             ///< Offset into string table for name
@@ -23,10 +24,9 @@ typedef struct coil_section_header {
   coil_u64_t offset;           ///< Data location
   coil_u16_t flags;            ///< Section flags
   coil_u8_t type;              ///< Section type
-  coil_pu_t pu;                ///< Processing unit type (CPU, GPU, etc.)
-  coil_u8_t raw_arch;          ///< Raw architecture value
-  coil_u64_t features;         ///< Feature flags for the specific architecture
-  coil_u8_t has_native;        ///< Flag indicating if section contains native code
+  coil_pu_t pu;                ///< Target processing unit type (CPU, GPU, etc.)
+  coil_u8_t raw_arch;          ///< Target architecture
+  coil_u64_t features;         ///< Feature flags for the target architecture
 } coil_section_header_t;
 
 /**

@@ -23,8 +23,7 @@ typedef struct coil_object_header {
   coil_u16_t version;          ///< Format version
   coil_u16_t section_count;    ///< Section Count
   coil_u64_t file_size;        ///< Complete object size
-  coil_u8_t has_native;        ///< Flag indicating if object contains native code sections
-  coil_u8_t reserved[7];       ///< Reserved for future use
+  coil_u8_t reserved[8];       ///< Reserved for future use
 } coil_object_header_t;
 
 /**
@@ -51,10 +50,10 @@ typedef struct coil_object {
   coil_descriptor_t fd;                ///< File descriptor for memory mapping
   int is_mapped;                       ///< Flag indicating if memory is mapped
   
-  // Native code metadata
-  coil_pu_t default_pu;                ///< Default processing unit for native code
-  coil_u8_t default_arch;              ///< Default architecture for native code
-  coil_u32_t default_features;         ///< Default feature flags for native code
+  // Default target metadata for new sections
+  coil_pu_t default_pu;                ///< Default processing unit for target
+  coil_u8_t default_arch;              ///< Default architecture for target
+  coil_u64_t default_features;         ///< Default feature flags for target
 } coil_object_t;
 
 /**
@@ -63,7 +62,6 @@ typedef struct coil_object {
 typedef enum coil_obj_init_flag_e {
   COIL_OBJ_INIT_DEFAULT = 0,      ///< Default initialization
   COIL_OBJ_INIT_EMPTY = 1 << 0,   ///< Initialize as empty object (for creation)
-  COIL_OBJ_INIT_NATIVE = 1 << 1,  ///< Initialize as native object (.coilo)
 } coil_obj_init_flag_t;
 
 /**
@@ -99,7 +97,7 @@ coil_err_t coil_obj_init(coil_object_t *obj, int flags);
 void coil_obj_cleanup(coil_object_t *obj);
 
 /**
-* @brief Set the default native code settings for an object
+* @brief Set the default target metadata for sections in an object
 *
 * @param obj Object to configure
 * @param pu Default processing unit
@@ -109,8 +107,8 @@ void coil_obj_cleanup(coil_object_t *obj);
 * @return COIL_ERR_GOOD on success
 * @return COIL_ERR_INVAL if obj is NULL
 */
-coil_err_t coil_obj_set_native_defaults(coil_object_t *obj, coil_pu_t pu, coil_u8_t arch, 
-                                        coil_u32_t features);
+coil_err_t coil_obj_set_target_defaults(coil_object_t *obj, coil_pu_t pu, coil_u8_t arch, 
+                                        coil_u64_t features);
 
 /**
 * @brief Load object from file using normal file I/O

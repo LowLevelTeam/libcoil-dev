@@ -1,13 +1,13 @@
 # libcoil-dev - COIL Development Library
 
-The COIL Development Library (libcoil-dev) provides a comprehensive API for working with the COIL (Computer Oriented Intermediate Language) format, supporting manipulation of intermediate representations, native code integration, and cross-platform development.
+The COIL Development Library (libcoil-dev) provides a comprehensive API for working with the COIL (Computer Oriented Intermediate Language) format, supporting manipulation of intermediate representations, target-specific code, and cross-platform development.
 
 ## Overview
 
 libcoil-dev is the core library for the COIL toolchain, providing functionality to:
 
 - Read, write, and manipulate COIL files and intermediate representations
-- Support native code embedding with architecture metadata
+- Support target-specific code with comprehensive architecture metadata
 - Define a clean API for processing COIL instructions and sections
 - Enable cross-platform compilation and optimization
 
@@ -19,7 +19,7 @@ This library serves as the foundation for other COIL tools, including:
 ## Features
 
 - **COIL File Format**: API for reading and writing the COIL intermediate representation format
-- **Native Code Support**: Ability to embed native machine code with architecture metadata
+- **Target Metadata System**: Ability to associate target architecture metadata with sections for optimal code generation
 - **Cross-Platform Targeting**: Support for multiple processing units and architectures
 - **Instruction Set**: Complete API for COIL instruction encoding and decoding
 - **Memory Management**: Optimized memory handling for sections and objects
@@ -80,6 +80,9 @@ int main() {
   coil_object_t obj;
   coil_obj_init(&obj, COIL_OBJ_INIT_DEFAULT);
   
+  // Set target defaults (x86_64 with AVX2)
+  coil_obj_set_target_defaults(&obj, COIL_PU_CPU, COIL_CPU_x86_64, COIL_CPU_X86_AVX2);
+  
   // Create a section
   coil_section_t sect;
   coil_section_init(&sect, 1024);
@@ -100,6 +103,57 @@ int main() {
   
   // Cleanup
   coil_section_cleanup(&sect);
+  coil_obj_cleanup(&obj);
+  
+  return 0;
+}
+```
+
+### Creating Target-Specific Sections
+
+```c
+#include <coil/obj.h>
+#include <coil/sect.h>
+
+int main() {
+  // Initialize object
+  coil_object_t obj;
+  coil_obj_init(&obj, COIL_OBJ_INIT_DEFAULT);
+  
+  // Create an x86_64 specific section
+  coil_obj_set_target_defaults(&obj, COIL_PU_CPU, COIL_CPU_x86_64, 
+                              COIL_CPU_X86_AVX2 | COIL_CPU_X86_SSE4_2);
+  
+  coil_section_t x86_sect;
+  coil_section_init(&x86_sect, 1024);
+  coil_section_write(&x86_sect, (coil_byte_t *)"x86_64 code", 11, NULL);
+  
+  coil_u16_t x86_index;
+  coil_obj_create_section(&obj, COIL_SECTION_TARGET, ".x86_code", 
+                         COIL_SECTION_FLAG_CODE | COIL_SECTION_FLAG_TARGET, 
+                         &x86_sect, &x86_index);
+  
+  // Create an ARM64 specific section
+  coil_obj_set_target_defaults(&obj, COIL_PU_CPU, COIL_CPU_ARM64, 
+                              COIL_CPU_ARM_NEON | COIL_CPU_ARM_SVE);
+  
+  coil_section_t arm_sect;
+  coil_section_init(&arm_sect, 1024);
+  coil_section_write(&arm_sect, (coil_byte_t *)"ARM64 code", 10, NULL);
+  
+  coil_u16_t arm_index;
+  coil_obj_create_section(&obj, COIL_SECTION_TARGET, ".arm_code", 
+                         COIL_SECTION_FLAG_CODE | COIL_SECTION_FLAG_TARGET, 
+                         &arm_sect, &arm_index);
+  
+  // Save object to file
+  int fd = open("multi_target.coil", O_RDWR | O_CREAT | O_TRUNC, 0644);
+  coil_obj_save_file(&obj, fd);
+  close(fd);
+  
+  // Cleanup
+  coil_section_cleanup(&x86_sect);
+  coil_section_cleanup(&arm_sect);
   coil_obj_cleanup(&obj);
   
   return 0;
@@ -137,6 +191,7 @@ Detailed API documentation is available in the [docs/](docs/) directory, includi
 - [API Reference](docs/api-reference.md)
 - [File Format Specification](docs/file-format.md)
 - [Instruction Set](docs/instructions.md)
+- [Target Metadata System](docs/target-metadata.md)
 
 ## License
 
