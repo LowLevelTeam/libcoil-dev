@@ -150,43 +150,54 @@ static int test_section_string_ops() {
 }
 
 /**
-* @brief Test section target architecture metadata
+* @brief Test section target architecture metadata and native machine code
 */
 static int test_section_target_metadata() {
-  printf("  Testing section target architecture metadata...\n");
+  printf("  Testing section target architecture metadata and native code...\n");
   
-  // Create a section with target metadata for x86_64
+  // Create a section with target metadata for x86_64 native machine code
   coil_section_header_t header;
   memset(&header, 0, sizeof(header));
   
-  header.name = coil_obj_hash_name(".text");
-  header.type = COIL_SECTION_TARGET;
-  header.flags = COIL_SECTION_FLAG_CODE | COIL_SECTION_FLAG_TARGET;
+  header.name = coil_obj_hash_name(".x86_native");
+  header.type = COIL_SECTION_PROGBITS;  // PROGBITS can contain data, including native code
+  header.flags = COIL_SECTION_FLAG_CODE | COIL_SECTION_FLAG_TARGET;  // TARGET flag indicates native machine code
   header.pu = COIL_PU_CPU;
   header.raw_arch = COIL_CPU_x86_64;
   header.features = COIL_CPU_X86_AVX2 | COIL_CPU_X86_SSE4_2;
   
-  // Create another section with target metadata for ARM64
+  // Create another section with target metadata for ARM64 native machine code
   coil_section_header_t header2;
   memset(&header2, 0, sizeof(header2));
   
-  header2.name = coil_obj_hash_name(".arm_code");
-  header2.type = COIL_SECTION_TARGET;
-  header2.flags = COIL_SECTION_FLAG_CODE | COIL_SECTION_FLAG_TARGET;
+  header2.name = coil_obj_hash_name(".arm_native");
+  header2.type = COIL_SECTION_PROGBITS;
+  header2.flags = COIL_SECTION_FLAG_CODE | COIL_SECTION_FLAG_TARGET;  // TARGET flag indicates native machine code
   header2.pu = COIL_PU_CPU;
   header2.raw_arch = COIL_CPU_ARM64;
   header2.features = COIL_CPU_ARM_NEON | COIL_CPU_ARM_SVE;
   
-  // Create a third section with GPU target metadata
+  // Create a third section with GPU target metadata for CUDA native code
   coil_section_header_t header3;
   memset(&header3, 0, sizeof(header3));
   
-  header3.name = coil_obj_hash_name(".cuda");
-  header3.type = COIL_SECTION_TARGET;
-  header3.flags = COIL_SECTION_FLAG_CODE | COIL_SECTION_FLAG_TARGET;
+  header3.name = coil_obj_hash_name(".cuda_native");
+  header3.type = COIL_SECTION_PROGBITS;
+  header3.flags = COIL_SECTION_FLAG_CODE | COIL_SECTION_FLAG_TARGET;  // TARGET flag indicates native machine code
   header3.pu = COIL_PU_GPU;
   header3.raw_arch = COIL_GPU_NV_CU;
   header3.features = 0x1234; // Arbitrary GPU features
+  
+  // Create a fourth section for COIL code with target metadata (but not native code)
+  coil_section_header_t header4;
+  memset(&header4, 0, sizeof(header4));
+  
+  header4.name = coil_obj_hash_name(".coil_code");
+  header4.type = COIL_SECTION_PROGBITS;
+  header4.flags = COIL_SECTION_FLAG_CODE;  // No TARGET flag - indicates COIL code, not native
+  header4.pu = COIL_PU_CPU;  // Target metadata still applies for compilation
+  header4.raw_arch = COIL_CPU_x86_64;
+  header4.features = COIL_CPU_X86_AVX2;
   
   // Write them to a file for testing
   int fd = open(TEST_SECTION_FILE, O_RDWR | O_CREAT | O_TRUNC, 0644);
@@ -220,21 +231,21 @@ static int test_section_target_metadata() {
   
   // Verify the loaded headers
   TEST_ASSERT(loaded_header.name == header.name, "x86_64 section name hash should match");
-  TEST_ASSERT(loaded_header.type == COIL_SECTION_TARGET, "x86_64 section type should match");
+  TEST_ASSERT(loaded_header.type & COIL_SECTION_TARGET, "x86_64 section type should match");
   TEST_ASSERT(loaded_header.flags == (COIL_SECTION_FLAG_CODE | COIL_SECTION_FLAG_TARGET), "x86_64 section flags should match");
   TEST_ASSERT(loaded_header.pu == COIL_PU_CPU, "x86_64 section PU should match");
   TEST_ASSERT(loaded_header.raw_arch == COIL_CPU_x86_64, "x86_64 section architecture should match");
   TEST_ASSERT(loaded_header.features == (COIL_CPU_X86_AVX2 | COIL_CPU_X86_SSE4_2), "x86_64 section features should match");
   
   TEST_ASSERT(loaded_header2.name == header2.name, "ARM64 section name hash should match");
-  TEST_ASSERT(loaded_header2.type == COIL_SECTION_TARGET, "ARM64 section type should match");
+  TEST_ASSERT(loaded_header2.type & COIL_SECTION_TARGET, "ARM64 section type should match");
   TEST_ASSERT(loaded_header2.flags == (COIL_SECTION_FLAG_CODE | COIL_SECTION_FLAG_TARGET), "ARM64 section flags should match");
   TEST_ASSERT(loaded_header2.pu == COIL_PU_CPU, "ARM64 section PU should match");
   TEST_ASSERT(loaded_header2.raw_arch == COIL_CPU_ARM64, "ARM64 section architecture should match");
   TEST_ASSERT(loaded_header2.features == (COIL_CPU_ARM_NEON | COIL_CPU_ARM_SVE), "ARM64 section features should match");
   
   TEST_ASSERT(loaded_header3.name == header3.name, "GPU section name hash should match");
-  TEST_ASSERT(loaded_header3.type == COIL_SECTION_TARGET, "GPU section type should match");
+  TEST_ASSERT(loaded_header3.type & COIL_SECTION_TARGET, "GPU section type should match");
   TEST_ASSERT(loaded_header3.flags == (COIL_SECTION_FLAG_CODE | COIL_SECTION_FLAG_TARGET), "GPU section flags should match");
   TEST_ASSERT(loaded_header3.pu == COIL_PU_GPU, "GPU section PU should match");
   TEST_ASSERT(loaded_header3.raw_arch == COIL_GPU_NV_CU, "GPU section architecture should match");

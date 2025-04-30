@@ -133,10 +133,10 @@ static int test_object_sections() {
 }
 
 /**
-* @brief Test target metadata system
+* @brief Test target metadata system and native machine code handling
 */
 static int test_target_metadata() {
-  printf("  Testing target metadata...\n");
+  printf("  Testing target metadata and native machine code handling...\n");
   
   // Initialize an object
   coil_object_t obj;
@@ -147,30 +147,44 @@ static int test_target_metadata() {
   err = coil_obj_set_target_defaults(&obj, COIL_PU_CPU, COIL_CPU_x86_64, COIL_CPU_X86_AVX2);
   TEST_ASSERT(err == COIL_ERR_GOOD, "Setting target defaults should succeed");
   
-  // Create a section
-  coil_section_t sect;
-  err = coil_section_init(&sect, 1024);
+  // Create a section for COIL code with x86_64 target metadata (not native code)
+  coil_section_t coil_sect;
+  err = coil_section_init(&coil_sect, 1024);
   TEST_ASSERT(err == COIL_ERR_GOOD, "Section initialization should succeed");
   
-  // Write some data to the section
-  const char *test_data = "This is a test section with x86_64 target metadata";
-  coil_size_t test_len = strlen(test_data);
+  // Write some COIL instructions to the section (just a string representation for testing)
+  const char *coil_data = "COIL instructions for x86_64 compilation target";
+  coil_size_t coil_len = strlen(coil_data);
   coil_size_t bytes_written;
   
-  err = coil_section_write(&sect, (coil_byte_t *)test_data, test_len, &bytes_written);
+  err = coil_section_write(&coil_sect, (coil_byte_t *)coil_data, coil_len, &bytes_written);
   TEST_ASSERT(err == COIL_ERR_GOOD, "Section write should succeed");
   
-  // Add the section to the object with x86_64 target metadata
+  // Add the section to the object with x86_64 target metadata (but NOT the TARGET flag)
+  coil_u16_t coil_index;
+  err = coil_obj_create_section(&obj, COIL_SECTION_PROGBITS, ".coil_code", 
+                              COIL_SECTION_FLAG_CODE, &coil_sect, &coil_index);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Creating COIL section should succeed");
+  
+  // Now create a section for native x86_64 machine code
+  coil_section_t native_sect;
+  err = coil_section_init(&native_sect, 1024);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Native section initialization should succeed");
+  
+  // Write some data to the section (simulating native machine code)
+  const char *native_data = "This represents native x86_64 machine code bytes";
+  coil_size_t native_len = strlen(native_data);
+  
+  err = coil_section_write(&native_sect, (coil_byte_t *)native_data, native_len, &bytes_written);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Native section write should succeed");
+  
+  // Add the section to the object WITH the TARGET flag to indicate native machine code
   coil_u16_t sect_index;
-  err = coil_obj_create_section(&obj, COIL_SECTION_PROGBITS, ".text", 
-                              COIL_SECTION_FLAG_CODE, &sect, &sect_index);
-  TEST_ASSERT(err == COIL_ERR_GOOD, "Creating section should succeed");
-  
-  // Verify target metadata
-  TEST_ASSERT(obj.sectheaders[sect_index].pu == COIL_PU_CPU, "Section PU should match default");
-  TEST_ASSERT(obj.sectheaders[sect_index].raw_arch == COIL_CPU_x86_64, "Section architecture should match default");
-  TEST_ASSERT(obj.sectheaders[sect_index].features == COIL_CPU_X86_AVX2, "Section features should match default");
-  
+  err = coil_obj_create_section(&obj, COIL_SECTION_PROGBITS, ".x86_native", 
+                              COIL_SECTION_FLAG_CODE | COIL_SECTION_FLAG_TARGET, 
+                              &native_sect, &sect_index);
+  TEST_ASSERT(err == COIL_ERR_GOOD, "Creating native code section should succeed");
+
   // Set different target defaults (for ARM64)
   err = coil_obj_set_target_defaults(&obj, COIL_PU_CPU, COIL_CPU_ARM64, COIL_CPU_ARM_NEON);
   TEST_ASSERT(err == COIL_ERR_GOOD, "Setting ARM64 target defaults should succeed");

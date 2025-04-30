@@ -49,13 +49,13 @@ typedef size_t coil_size_t;  ///< size_t
 */
 typedef enum coil_section_type_e {
   COIL_SECTION_NULL = 0,        ///< Null section
-  COIL_SECTION_PROGBITS = 1,    ///< Program space with data
+  COIL_SECTION_PROGBITS = 1,    ///< Program space with data (can store either COIL or native code with target metadata)
   COIL_SECTION_SYMTAB = 2,      ///< Symbol table
   COIL_SECTION_STRTAB = 3,      ///< String table
   COIL_SECTION_RELTAB = 4,      ///< Relocation entries
   COIL_SECTION_NOBITS = 5,      ///< Program space with no data (bss)
   COIL_SECTION_DEBUG = 6,       ///< Debug information
-  COIL_SECTION_TARGET = 7       ///< Section with specific target architecture
+  COIL_SECTION_TARGET = 7       ///< Section with specific target architecture (explicitly for native machine code)
 } coil_section_type_t;
 
 /**
@@ -64,11 +64,12 @@ typedef enum coil_section_type_e {
 typedef enum coil_section_flag_e {
   COIL_SECTION_FLAG_NONE = 0,          ///< No flags
   COIL_SECTION_FLAG_WRITE = 1 << 0,    ///< Writable
-  COIL_SECTION_FLAG_CODE = 1 << 1,     ///< Compile this section as COIL
+  COIL_SECTION_FLAG_CODE = 1 << 1,     ///< Executable code section (used for both COIL and native code)
   COIL_SECTION_FLAG_MERGE = 1 << 2,    ///< Might be merged
   COIL_SECTION_FLAG_ALLOC = 1 << 3,    ///< Occupies memory during execution
   COIL_SECTION_FLAG_TLS = 1 << 4,      ///< Thread-local storage
-  COIL_SECTION_FLAG_TARGET = 1 << 5    ///< Contains code for specific target architecture
+  COIL_SECTION_FLAG_TARGET = 1 << 5,   ///< Contains native machine code for a specific target architecture
+  COIL_SECTION_FLAG_NATIVE = 1 << 5    ///< Alias for TARGET flag (backwards compatibility)
 } coil_section_flag_t;
 
 /**

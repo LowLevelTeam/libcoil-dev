@@ -20,10 +20,23 @@ This library serves as the foundation for other COIL tools, including:
 
 - **COIL File Format**: API for reading and writing the COIL intermediate representation format
 - **Target Metadata System**: Ability to associate target architecture metadata with sections for optimal code generation
+- **Native Machine Code Support**: Store and manage native machine code with proper architecture metadata
 - **Cross-Platform Targeting**: Support for multiple processing units and architectures
 - **Instruction Set**: Complete API for COIL instruction encoding and decoding
 - **Memory Management**: Optimized memory handling for sections and objects
 - **Error Handling**: Comprehensive error reporting and handling
+
+## Native Machine Code and Target Metadata
+
+The COIL object format supports both intermediate COIL code and native machine code through its target metadata system:
+
+- **DATA Sections with Target Metadata**: When a section has both the `COIL_SECTION_FLAG_TARGET` flag and target metadata set (PU, architecture, feature flags), the section is interpreted as containing native machine code for that target. This allows embedding and executing native code with proper architecture awareness.
+
+- **Dual Use of Target Metadata**: Target metadata serves two purposes:
+  1. For COIL code sections: Provides compilation target information for the COIL compiler
+  2. For native code sections: Provides execution environment information for proper loading and execution
+
+- **Multiple Target Support**: A single COIL object can contain multiple sections targeting different architectures, enabling multi-architecture binaries and libraries.
 
 ## Library Structure
 
@@ -182,6 +195,92 @@ void encode_instructions(coil_section_t *sect) {
   coil_operand_encode(sect, COIL_TYPEOP_IMM, COIL_VAL_I32, COIL_MOD_CONST);
   coil_i32_t value = 42;
   coil_operand_encode_data(sect, &value, sizeof(value));
+}
+```
+
+### Working with COIL Code and Native Machine Code
+
+```c
+#include <coil/obj.h>
+#include <coil/sect.h>
+
+int main() {
+  // Initialize object
+  coil_object_t obj;
+  coil_obj_init(&obj, COIL_OBJ_INIT_DEFAULT);
+  
+  // 1. Create a section with COIL code for x86_64 target
+  // Set target information that will be used for compilation
+  coil_obj_set_target_defaults(&obj, COIL_PU_CPU, COIL_CPU_x86_64, 
+                              COIL_CPU_X86_AVX2 | COIL_CPU_X86_SSE4_2);
+  
+  coil_section_t coil_sect;
+  coil_section_init(&coil_sect, 1024);
+  
+  // Add COIL instructions using the COIL instruction encoding API
+  // (Simplified for example)
+  coil_instr_encode(&coil_sect, COIL_OP_NOP);
+  coil_instrflag_encode(&coil_sect, COIL_OP_MOV, COIL_INSTRFLAG_NONE);
+  
+  // Add to object as COIL code section (no TARGET flag)
+  coil_u16_t coil_index;
+  coil_obj_create_section(&obj, COIL_SECTION_PROGBITS, ".coil_code", 
+                         COIL_SECTION_FLAG_CODE, // No TARGET flag - this is COIL code
+                         &coil_sect, &coil_index);
+  
+  // 2. Create a section with native x86_64 machine code
+  coil_section_t x86_native;
+  coil_section_init(&x86_native, 1024);
+  
+  // Add pre-compiled native machine code bytes (example)
+  // In a real scenario, this would be actual machine code bytes for x86_64
+  unsigned char x86_machine_code[] = {
+    0x48, 0x89, 0xf8,       // mov rax, rdi
+    0x48, 0x83, 0xc0, 0x01, // add rax, 1
+    0xc3                    // ret
+  };
+  coil_section_write(&x86_native, x86_machine_code, sizeof(x86_machine_code), NULL);
+  
+  // Add to object as native code section WITH the TARGET flag
+  coil_u16_t x86_index;
+  coil_obj_create_section(&obj, COIL_SECTION_PROGBITS, ".x86_native", 
+                         COIL_SECTION_FLAG_CODE | COIL_SECTION_FLAG_TARGET, // TARGET flag indicates native code
+                         &x86_native, &x86_index);
+  
+  // 3. Create a section with native ARM64 machine code
+  coil_obj_set_target_defaults(&obj, COIL_PU_CPU, COIL_CPU_ARM64, 
+                              COIL_CPU_ARM_NEON | COIL_CPU_ARM_SVE);
+  
+  coil_section_t arm_native;
+  coil_section_init(&arm_native, 1024);
+  
+  // Add pre-compiled ARM64 machine code bytes (example)
+  // In a real scenario, this would be actual machine code bytes for ARM64
+  unsigned char arm_machine_code[] = {
+    0x8b, 0x00, 0x00, 0x91, // add x11, x0, #0
+    0x20, 0x00, 0x80, 0xd2, // mov x0, #1
+    0xc0, 0x03, 0x5f, 0xd6  // ret
+  };
+  coil_section_write(&arm_native, arm_machine_code, sizeof(arm_machine_code), NULL);
+  
+  // Add to object as native ARM code section WITH the TARGET flag
+  coil_u16_t arm_index;
+  coil_obj_create_section(&obj, COIL_SECTION_PROGBITS, ".arm_native", 
+                         COIL_SECTION_FLAG_CODE | COIL_SECTION_FLAG_TARGET, // TARGET flag indicates native code
+                         &arm_native, &arm_index);
+  
+  // Save object to file
+  int fd = open("multi_target.coil", O_RDWR | O_CREAT | O_TRUNC, 0644);
+  coil_obj_save_file(&obj, fd);
+  close(fd);
+  
+  // Cleanup
+  coil_section_cleanup(&coil_sect);
+  coil_section_cleanup(&x86_native);
+  coil_section_cleanup(&arm_native);
+  coil_obj_cleanup(&obj);
+  
+  return 0;
 }
 ```
 
