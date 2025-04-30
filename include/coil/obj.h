@@ -49,7 +49,6 @@ typedef struct coil_object {
   int is_mapped;                       ///< Flag indicating if memory is mapped
   
   // Native code metadata
-  coil_native_format_t native_format;  ///< Native format when outputting to executable
   coil_pu_t default_pu;                ///< Default processing unit for native code
   coil_u8_t default_arch;              ///< Default architecture for native code
   coil_u32_t default_features;         ///< Default feature flags for native code
@@ -109,7 +108,7 @@ void coil_obj_cleanup(coil_object_t *obj);
 * @return COIL_ERR_INVAL if obj is NULL
 */
 coil_err_t coil_obj_set_native_defaults(coil_object_t *obj, coil_pu_t pu, coil_u8_t arch, 
-                                        coil_u32_t features, coil_native_format_t format);
+                                        coil_u32_t features);
 
 /**
 * @brief Load object from file using normal file I/O
@@ -154,23 +153,6 @@ coil_err_t coil_obj_mmap(coil_object_t *obj, coil_descriptor_t fd);
 * @return COIL_ERR_IO if file cannot be created or written
 */
 coil_err_t coil_obj_save_file(coil_object_t *obj, coil_descriptor_t fd);
-
-/**
-* @brief Export object to native executable format
-* 
-* @param obj Object to export
-* @param filepath Path to the file to create or overwrite
-* @param format Output format (COIL_NATIVE_FORMAT_*)
-* @param pu Target processing unit (COIL_PU_*)
-* @param arch Target architecture (depends on PU)
-* 
-* @return COIL_ERR_GOOD on success
-* @return COIL_ERR_INVAL if parameters are invalid
-* @return COIL_ERR_IO if file cannot be created or written
-* @return COIL_ERR_NOTSUP if format, PU or arch is not supported
-*/
-coil_err_t coil_obj_export_native(coil_object_t *obj, coil_descriptor_t fd, 
-                                  coil_native_format_t format, coil_pu_t pu, coil_u8_t arch);
 
 /**
 * @brief Load a section by index

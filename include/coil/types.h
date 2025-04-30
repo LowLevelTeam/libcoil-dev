@@ -338,21 +338,22 @@ typedef enum coil_pu_e {
 * @brief CPU architecture types
 */
 typedef enum coil_cpu_e {
-  COIL_CPU_NONE = 0x00,    ///< None/Unknown
-  COIL_CPU_x86 = 0x01,     ///< Generic x86
-  COIL_CPU_x86_32 = 0x02,  ///< x86 32-bit
-  COIL_CPU_x86_64 = 0x03,  ///< x86 64-bit (AMD64/Intel64)
-  COIL_CPU_ARM = 0x04,     ///< Generic ARM
-  COIL_CPU_ARM32 = 0x05,   ///< ARM 32-bit
-  COIL_CPU_ARM64 = 0x06,   ///< ARM 64-bit (AArch64)
-  COIL_CPU_RISCV = 0x07,   ///< Generic RISC-V
-  COIL_CPU_RISCV32 = 0x08, ///< RISC-V 32-bit
-  COIL_CPU_RISCV64 = 0x09, ///< RISC-V 64-bit
-  COIL_CPU_PPC = 0x0A,     ///< PowerPC
-  COIL_CPU_PPC64 = 0x0B,   ///< PowerPC 64-bit
-  COIL_CPU_MIPS = 0x0C,    ///< MIPS
-  COIL_CPU_MIPS64 = 0x0D,  ///< MIPS 64-bit
-  COIL_CPU_WASM = 0x0E,    ///< WebAssembly
+  COIL_CPU_NONE = 0x00,     ///< None/Unknown
+  COIL_CPU_x86 = 0x01,      ///< x86 16 bit
+  COIL_CPU_x86_32 = 0x02,   ///< x86 32-bit
+  COIL_CPU_x86_64 = 0x03,   ///< x86 64-bit (AMD64/Intel64)
+  COIL_CPU_ARMT = 0x04,     ///< Generic Thumb
+  COIL_CPU_ARM32 = 0x05,    ///< ARM 32-bit
+  COIL_CPU_ARM64 = 0x06,    ///< ARM 64-bit (AArch64)
+  COIL_CPU_RISCV32 = 0x08,  ///< RISC-V 32-bit
+  COIL_CPU_RISCV64 = 0x09,  ///< RISC-V 64-bit
+  COIL_CPU_RISCV128 = 0x09, ///< RISC-V 128-bit
+  COIL_CPU_PPC32 = 0x0A,    ///< PowerPC 32-bit
+  COIL_CPU_PPC64 = 0x0B,    ///< PowerPC 64-bit
+  COIL_CPU_MIPS32 = 0x0C,   ///< MIPS 32-bit
+  COIL_CPU_MIPS64 = 0x0D,   ///< MIPS 64-bit
+  COIL_CPU_WASM32 = 0x0E,   ///< WebAssembly 32
+  COIL_CPU_WASM64 = 0x0F,   ///< WebAssembly 64
   // RESERVED
 } coil_cpu_t;
 
@@ -360,19 +361,12 @@ typedef enum coil_cpu_e {
 * @brief GPU architecture types
 */
 typedef enum coil_gpu_e {
-  COIL_GPU_NONE = 0x00,  ///< None/Unknown
-  COIL_GPU_NV = 0x01,    ///< NVIDIA GPUs (Generic)
-  COIL_GPU_NV_PTX = 0x02, ///< NVIDIA PTX
-  COIL_GPU_NV_CUDA = 0x03, ///< NVIDIA CUDA
-  COIL_GPU_AMD = 0x04,   ///< AMD GPUs (Generic)
-  COIL_GPU_AMD_GCN = 0x05, ///< AMD GCN Architecture
-  COIL_GPU_AMD_RDNA = 0x06, ///< AMD RDNA Architecture
-  COIL_GPU_INTL = 0x07,  ///< Intel GPUs (Generic)
+  COIL_GPU_NONE = 0x00,      ///< None/Unknown
+  COIL_GPU_NV_CU = 0x01,     ///< NVIDIA CUDA Architecture (SASS)
+  COIL_GPU_AMD_GCN = 0x05,   ///< AMD GCN Architecture
+  COIL_GPU_AMD_RDNA = 0x06,  ///< AMD RDNA Architecture
   COIL_GPU_INTL_GEN9 = 0x08, ///< Intel Gen9 Graphics
-  COIL_GPU_INTL_XE = 0x09, ///< Intel Xe Graphics
-  COIL_GPU_VULKAN = 0x0A, ///< Vulkan SPIR-V
-  COIL_GPU_OPENCL = 0x0B, ///< OpenCL
-  COIL_GPU_METAL = 0x0C, ///< Apple Metal
+  COIL_GPU_INTL_XE = 0x09,   ///< Intel Xe Graphics
   // RESERVED
 } coil_gpu_t;
 
@@ -411,19 +405,6 @@ typedef enum coil_cpu_arm_feature_e {
   COIL_CPU_ARM_MATMUL = 1 << 7,   ///< Matrix Multiplication Instructions
   // RESERVED
 } coil_cpu_arm_feature_t;
-
-/**
-* @brief File format types for native code output
-*/
-typedef enum coil_native_format_e {
-  COIL_NATIVE_FORMAT_NONE = 0,   ///< No specific format
-  COIL_NATIVE_FORMAT_ELF = 1,    ///< Executable and Linkable Format (Linux/Unix)
-  COIL_NATIVE_FORMAT_PE = 2,     ///< Portable Executable (Windows)
-  COIL_NATIVE_FORMAT_MACHO = 3,  ///< Mach Object (macOS/iOS)
-  COIL_NATIVE_FORMAT_WASM = 4,   ///< WebAssembly
-  COIL_NATIVE_FORMAT_RAW = 5,    ///< Raw binary (no container format)
-  // RESERVED
-} coil_native_format_t;
 
 #ifdef __cplusplus
 }
