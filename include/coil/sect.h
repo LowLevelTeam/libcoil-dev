@@ -63,6 +63,10 @@ typedef struct coil_section {
   
   coil_native_meta_t native;   ///< Native code metadata
   int has_native;              ///< Flag indicating if section contains native code
+  
+  int is_mapped;               ///< Flag indicating if section is memory mapped
+  coil_size_t map_size;        ///< Original size of mapped memory (may differ from size due to alignment)
+  void *map_base;              ///< Base address of mapped memory (may differ from data due to alignment)
 } coil_section_t;
 
 // -------------------------------- Section Operations -------------------------------- //
@@ -264,18 +268,27 @@ coil_err_t coil_section_serialize(coil_section_t *sect, coil_descriptor_t fd);
 *
 * @param sect Pointer to section to populate
 * @param capacity The beginning capacity
+* @param fd File descriptor to read from
 * 
-* @return coil_err_t COIL_ERR_GOOD on success, COIL_ERR_NOMEM if memory allocation fails
+* @return coil_err_t COIL_ERR_GOOD on success
+* @return coil_err_t COIL_ERR_NOMEM if memory allocation fails
+* @return coil_err_t COIL_ERR_IO if reading fails
 */
 coil_err_t coil_section_load(coil_section_t *sect, coil_size_t capacity, coil_descriptor_t fd);
 
 /**
 * @brief Load coil section view (memory mapped) (COIL_SECT_MODE_VIEW)
 *
+* Creates a view of a file segment using memory mapping. This provides direct
+* read-only access to file data without copying it to memory.
+*
 * @param sect Pointer to section to populate
-* @param capacity The beginning capacity
+* @param capacity Number of bytes to map (0 for all remaining bytes in file)
+* @param fd File descriptor to map
 * 
-* @return coil_err_t COIL_ERR_GOOD on success, COIL_ERR_NOMEM if memory allocation fails
+* @return coil_err_t COIL_ERR_GOOD on success
+* @return coil_err_t COIL_ERR_IO if memory mapping fails
+* @return coil_err_t COIL_ERR_INVAL for invalid parameters
 */
 coil_err_t coil_section_loadv(coil_section_t *sect, coil_size_t capacity, coil_descriptor_t fd);
 

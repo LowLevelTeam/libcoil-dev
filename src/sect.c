@@ -55,13 +55,24 @@ void coil_section_cleanup(coil_section_t *sect) {
     return;
   }
   
-  // Only free if we own the memory (not in VIEW mode)
-  if (sect->mode != COIL_SECT_MODE_VIEW && sect->data != NULL) {
-    coil_free(sect->data);
+  if (sect->data != NULL) {
+    // Handling depends on section mode and mapping status
+    if (sect->is_mapped && sect->map_base != NULL) {
+      // Unmap memory-mapped section
+      munmap(sect->map_base, sect->map_size);
+      sect->map_base = NULL;
+      sect->map_size = 0;
+    } else if (sect->mode != COIL_SECT_MODE_VIEW) {
+      // For CREATE or MODIFY modes, we own the memory and need to free it
+      coil_free(sect->data);
+    }
+    
+    // In all cases, set data to NULL to avoid double-free
     sect->data = NULL;
   }
   
-  // coil_memset(sect, 0, sizeof(coil_section_t));
+  // Reset is_mapped flag
+  sect->is_mapped = 0;
 }
 
 /**
@@ -373,6 +384,64 @@ coil_err_t coil_section_load(coil_section_t *sect, coil_size_t capacity, coil_de
   // Reset read/write indices
   sect->rindex = 0;
   sect->windex = bytesread;
+  
+  return COIL_ERR_GOOD;
+}
+
+/**
+* @brief Load coil section view (memory mapped)
+*/
+coil_err_t coil_section_loadv(coil_section_t *sect, coil_size_t capacity, coil_descriptor_t fd) {
+  if (sect == NULL) {
+    return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
+  }
+  
+  // Get current file position
+  off_t current_pos = lseek(fd, 0, SEEK_CUR);
+  if (current_pos == -1) {
+    return COIL_ERROR(COIL_ERR_IO, "Failed to get current file position");
+  }
+  
+  // Get file size
+  off_t file_size = lseek(fd, 0, SEEK_END);
+  if (file_size == -1) {
+    return COIL_ERROR(COIL_ERR_IO, "Failed to determine file size");
+  }
+  
+  // Calculate remaining bytes in file
+  coil_size_t remaining = file_size - current_pos;
+  
+  // Use specified capacity or remaining bytes
+  coil_size_t map_size = (capacity > 0 && capacity < remaining) ? capacity : remaining;
+  
+  // For mmap to work correctly with offsets, we need to align to page boundaries
+  coil_size_t page_size = coil_get_page_size();
+  off_t page_offset = current_pos % page_size;
+  off_t aligned_offset = current_pos - page_offset;
+  coil_size_t aligned_size = map_size + page_offset;
+  
+  // Return to original position
+  if (lseek(fd, current_pos, SEEK_SET) == -1) {
+    return COIL_ERROR(COIL_ERR_IO, "Failed to seek back to original position");
+  }
+  
+  // Map the section data with page alignment
+  void *mapped_data = mmap(NULL, aligned_size, PROT_READ, MAP_PRIVATE, fd, aligned_offset);
+  if (mapped_data == MAP_FAILED) {
+    return COIL_ERROR(COIL_ERR_IO, "Failed to memory map section data");
+  }
+  
+  // Initialize section
+  coil_memset(sect, 0, sizeof(coil_section_t));
+  sect->data = (coil_byte_t *)mapped_data + page_offset; // Adjust for page alignment
+  sect->size = map_size;
+  sect->capacity = map_size;
+  sect->mode = COIL_SECT_MODE_VIEW;
+  
+  // Track memory mapping information
+  sect->is_mapped = 1;
+  sect->map_size = aligned_size;
+  sect->map_base = mapped_data;
   
   return COIL_ERR_GOOD;
 }

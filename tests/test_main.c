@@ -16,6 +16,7 @@ extern int test_file();
 extern int test_section();
 extern int test_object();
 extern int test_instr();
+extern int test_mmap();
 
 /**
 * @brief Run all test suites and report results
@@ -74,6 +75,13 @@ int main(int argc, char *argv[]) {
     failed++;
   } else {
     printf("Instruction module tests PASSED\n");
+  }
+  
+  if (test_mmap() != 0) {
+    printf("Memory mapping tests FAILED\n");
+    failed++;
+  } else {
+    printf("Memory mapping tests PASSED\n");
   }
   
   // Print summary

@@ -105,7 +105,6 @@ void coil_obj_cleanup(coil_object_t *obj);
 * @param pu Default processing unit
 * @param arch Default architecture
 * @param features Default feature flags
-* @param format Output format for native code
 *
 * @return COIL_ERR_GOOD on success
 * @return COIL_ERR_INVAL if obj is NULL
@@ -120,11 +119,11 @@ coil_err_t coil_obj_set_native_defaults(coil_object_t *obj, coil_pu_t pu, coil_u
 * until specifically requested via coil_obj_load_section.
 * 
 * @param obj Object to populate
-* @param filepath Path to the file to load
+* @param fd File descriptor for the file to load
 * 
 * @return COIL_ERR_GOOD on success
-* @return COIL_ERR_INVAL if obj or filepath is NULL
-* @return COIL_ERR_IO if file cannot be opened or read
+* @return COIL_ERR_INVAL if obj or fd is invalid
+* @return COIL_ERR_IO if file cannot be read
 * @return COIL_ERR_FORMAT if file format is invalid
 */
 coil_err_t coil_obj_load_file(coil_object_t *obj, coil_descriptor_t fd);
@@ -132,28 +131,43 @@ coil_err_t coil_obj_load_file(coil_object_t *obj, coil_descriptor_t fd);
 /**
 * @brief Load object from file using memory mapping
 * 
-* Maps the file directly into memory for read-only access.
-* Any modifications will require copying the data first.
+* Maps the file directly into memory for read/write access.
+* This can provide performance benefits for large files.
 * 
 * @param obj Object to populate
-* @param filepath Path to the file to map
+* @param fd File descriptor for the file to map
 * 
 * @return COIL_ERR_GOOD on success
-* @return COIL_ERR_INVAL if obj or filepath is NULL
-* @return COIL_ERR_IO if file cannot be opened or mapped
+* @return COIL_ERR_INVAL if obj or fd is invalid
+* @return COIL_ERR_IO if file cannot be mapped
 * @return COIL_ERR_FORMAT if file format is invalid
 */
 coil_err_t coil_obj_mmap(coil_object_t *obj, coil_descriptor_t fd);
 
 /**
+* @brief Convert a memory-mapped object to a regular object
+*
+* This function copies all data from the memory-mapped object to a regular
+* object with standard memory allocation. After conversion, the object
+* is no longer tied to the file mapping.
+*
+* @param obj Object to convert
+*
+* @return COIL_ERR_GOOD on success
+* @return COIL_ERR_INVAL if obj is NULL
+* @return COIL_ERR_NOMEM if memory allocation fails
+*/
+coil_err_t coil_obj_unmap(coil_object_t *obj);
+
+/**
 * @brief Save object to file
 * 
 * @param obj Object to save
-* @param filepath Path to the file to create or overwrite
+* @param fd File descriptor for the file to create or overwrite
 * 
 * @return COIL_ERR_GOOD on success
-* @return COIL_ERR_INVAL if obj or filepath is NULL
-* @return COIL_ERR_IO if file cannot be created or written
+* @return COIL_ERR_INVAL if obj or fd is invalid
+* @return COIL_ERR_IO if file cannot be written
 */
 coil_err_t coil_obj_save_file(coil_object_t *obj, coil_descriptor_t fd);
 
