@@ -13,23 +13,6 @@ extern "C" {
 #endif
 
 /**
-* @brief Native code metadata structure
-*
-* Contains information about the native machine code in a section
-*/
-typedef struct coil_native_meta {
-  coil_pu_t pu;              ///< Processing unit type (CPU, GPU, etc.)
-  union {
-    coil_cpu_t cpu_arch;     ///< CPU architecture when pu is COIL_PU_CPU
-    coil_gpu_t gpu_arch;     ///< GPU architecture when pu is COIL_PU_GPU
-    coil_u8_t raw_arch;      ///< Raw architecture value for direct access
-  };
-  coil_u32_t features;       ///< Feature flags for the specific architecture
-  coil_u64_t native_size;    ///< Size of native code in bytes
-  coil_u64_t native_offset;  ///< Offset to native code within section data
-} coil_native_meta_t;
-
-/**
 * @brief Section header
 * 
 * Contains metadata about a section stored in an object file
@@ -40,8 +23,10 @@ typedef struct coil_section_header {
   coil_u64_t offset;           ///< Data location
   coil_u16_t flags;            ///< Section flags
   coil_u8_t type;              ///< Section type
+  coil_pu_t pu;                ///< Processing unit type (CPU, GPU, etc.)
+  coil_u8_t raw_arch;          ///< Raw architecture value
+  coil_u64_t features;         ///< Feature flags for the specific architecture
   coil_u8_t has_native;        ///< Flag indicating if section contains native code
-  coil_native_meta_t native;   ///< Native code metadata (valid if has_native is non-zero)
 } coil_section_header_t;
 
 /**
@@ -60,10 +45,7 @@ typedef struct coil_section {
   coil_size_t windex;          ///< Write index (offset for next write operation)
 
   coil_section_mode_t mode;    ///< Section access mode
-  
-  coil_native_meta_t native;   ///< Native code metadata
-  int has_native;              ///< Flag indicating if section contains native code
-  
+
   int is_mapped;               ///< Flag indicating if section is memory mapped
   coil_size_t map_size;        ///< Original size of mapped memory (may differ from size due to alignment)
   void *map_base;              ///< Base address of mapped memory (may differ from data due to alignment)
@@ -89,45 +71,6 @@ coil_err_t coil_section_init(coil_section_t *sect, coil_size_t capacity);
 * @param sect Pointer to section
 */
 void coil_section_cleanup(coil_section_t *sect);
-
-/**
-* @brief Set native code metadata for a section
-*
-* @param sect Pointer to section
-* @param pu Processing unit type (COIL_PU_*)
-* @param arch Architecture value (depends on PU type)
-* @param features Feature flags for the specific architecture
-* @param offset Offset to native code within section data
-* @param size Size of native code in bytes
-*
-* @return coil_err_t COIL_ERR_GOOD on success
-* @return coil_err_t COIL_ERR_INVAL if sect is NULL or parameters are invalid
-*/
-coil_err_t coil_section_set_native(coil_section_t *sect, coil_pu_t pu, coil_u8_t arch,
-                                   coil_u32_t features, coil_u64_t offset, coil_u64_t size);
-
-/**
-* @brief Get native code data from a section
-*
-* @param sect Pointer to section
-* @param data Pointer to receive native code data
-* @param size Pointer to receive native code size
-*
-* @return coil_err_t COIL_ERR_GOOD on success
-* @return coil_err_t COIL_ERR_INVAL if parameters are invalid
-* @return coil_err_t COIL_ERR_NOTFOUND if section doesn't contain native code
-*/
-coil_err_t coil_section_get_native_data(coil_section_t *sect, coil_byte_t **data, coil_size_t *size);
-
-/**
-* @brief Clear native code metadata from a section
-*
-* @param sect Pointer to section
-*
-* @return coil_err_t COIL_ERR_GOOD on success
-* @return coil_err_t COIL_ERR_INVAL if sect is NULL
-*/
-coil_err_t coil_section_clear_native(coil_section_t *sect);
 
 /**
 * @brief Write into section data from user provided buffer

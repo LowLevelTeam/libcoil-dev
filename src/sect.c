@@ -42,7 +42,6 @@ coil_err_t coil_section_init(coil_section_t *sect, coil_size_t capacity) {
   sect->size = 0;
   sect->rindex = 0;
   sect->windex = 0;
-  sect->has_native = 0;
   
   return COIL_ERR_GOOD;
 }
@@ -73,63 +72,6 @@ void coil_section_cleanup(coil_section_t *sect) {
   
   // Reset is_mapped flag
   sect->is_mapped = 0;
-}
-
-/**
-* @brief Set native code metadata for a section
-*/
-coil_err_t coil_section_set_native(coil_section_t *sect, coil_pu_t pu, coil_u8_t arch,
-                                   coil_u32_t features, coil_u64_t offset, coil_u64_t size) {
-  if (sect == NULL) {
-    return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
-  }
-  
-  // Validate offset and size
-  if (offset + size > sect->size) {
-    return COIL_ERROR(COIL_ERR_INVAL, "Native code offset and size exceed section size");
-  }
-  
-  // Set native metadata
-  sect->has_native = 1;
-  sect->native.pu = pu;
-  sect->native.raw_arch = arch;
-  sect->native.features = features;
-  sect->native.native_offset = offset;
-  sect->native.native_size = size;
-  
-  return COIL_ERR_GOOD;
-}
-
-/**
-* @brief Get native code data from a section
-*/
-coil_err_t coil_section_get_native_data(coil_section_t *sect, coil_byte_t **data, coil_size_t *size) {
-  if (sect == NULL || data == NULL || size == NULL) {
-    return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
-  }
-  
-  if (!sect->has_native) {
-    return COIL_ERROR(COIL_ERR_NOTFOUND, "Section does not contain native code");
-  }
-  
-  *data = sect->data + sect->native.native_offset;
-  *size = sect->native.native_size;
-  
-  return COIL_ERR_GOOD;
-}
-
-/**
-* @brief Clear native code metadata from a section
-*/
-coil_err_t coil_section_clear_native(coil_section_t *sect) {
-  if (sect == NULL) {
-    return COIL_ERROR(COIL_ERR_INVAL, "Section pointer is NULL");
-  }
-  
-  sect->has_native = 0;
-  coil_memset(&sect->native, 0, sizeof(coil_native_meta_t));
-  
-  return COIL_ERR_GOOD;
 }
 
 /**

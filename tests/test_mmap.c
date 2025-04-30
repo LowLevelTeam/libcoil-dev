@@ -81,11 +81,6 @@ static int create_test_object_file() {
       err = coil_obj_load_section(&obj, sect_index, &native_sect, COIL_SECT_MODE_MODIFY);
       TEST_ASSERT(err == COIL_ERR_GOOD, "Loading section should succeed");
       
-      // Set native metadata
-      err = coil_section_set_native(&native_sect, COIL_PU_CPU, COIL_CPU_x86_64, 
-                                   COIL_CPU_X86_AVX2, 0, section_len);
-      TEST_ASSERT(err == COIL_ERR_GOOD, "Setting native metadata should succeed");
-      
       // Update the section
       err = coil_obj_update_section(&obj, sect_index, &native_sect);
       TEST_ASSERT(err == COIL_ERR_GOOD, "Updating section should succeed");
@@ -175,17 +170,6 @@ static int test_object_mmap() {
   const char *expected_content = "This is section 1 content - Testing memory mapping functionality";
   TEST_ASSERT(sect.size == strlen(expected_content), "Section size should match expected content length");
   TEST_ASSERT(memcmp(sect.data, expected_content, sect.size) == 0, "Section content should match");
-  
-  // Test loading native section
-  coil_byte_t *native_data;
-  coil_size_t native_size;
-  coil_native_meta_t native_meta;
-  
-  err = coil_obj_load_native(&obj, 3, &native_data, &native_size, &native_meta);
-  TEST_ASSERT(err == COIL_ERR_GOOD, "Loading native code should succeed");
-  TEST_ASSERT(native_meta.pu == COIL_PU_CPU, "Native PU should be CPU");
-  TEST_ASSERT(native_meta.raw_arch == COIL_CPU_x86_64, "Native arch should be x86_64");
-  TEST_ASSERT(native_meta.features == COIL_CPU_X86_AVX2, "Native features should match");
   
   // Test converting from memory-mapped to regular object
   err = coil_obj_unmap(&obj);

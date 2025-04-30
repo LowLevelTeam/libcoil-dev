@@ -187,24 +187,6 @@ coil_err_t coil_obj_save_file(coil_object_t *obj, coil_descriptor_t fd);
 coil_err_t coil_obj_load_section(coil_object_t *obj, coil_u16_t index, coil_section_t *sect, int mode);
 
 /**
-* @brief Load native code from a section
-*
-* @param obj Object containing the section
-* @param index Section index
-* @param data Pointer to receive native code data
-* @param size Pointer to receive native code size
-* @param meta Pointer to receive native metadata (can be NULL)
-*
-* @return COIL_ERR_GOOD on success
-* @return COIL_ERR_INVAL if parameters are invalid
-* @return COIL_ERR_NOTFOUND if section index is out of range or doesn't contain native code
-* @return COIL_ERR_IO if native code data cannot be read
-*/
-coil_err_t coil_obj_load_native(coil_object_t *obj, coil_u16_t index, 
-                               coil_byte_t **data, coil_size_t *size, 
-                               coil_native_meta_t *meta);
-
-/**
 * @brief Create a new section in the object
 * 
 * @param obj Object to add section to
@@ -222,29 +204,7 @@ coil_err_t coil_obj_load_native(coil_object_t *obj, coil_u16_t index,
 *       After this call, the 'sect' parameter will have its data field set to NULL,
 *       and the object becomes responsible for freeing the data memory.
 */
-coil_err_t coil_obj_create_section(coil_object_t *obj, coil_u8_t type, const char *name, 
-                                 coil_u16_t flags, coil_section_t *sect, coil_u16_t *index);
-
-/**
-* @brief Create a new native code section in the object
-*
-* @param obj Object to add section to
-* @param name Section name
-* @param data Native code data
-* @param size Size of native code data
-* @param pu Processing unit type (COIL_PU_*)
-* @param arch Architecture (depends on PU type)
-* @param features Feature flags for the specific architecture
-* @param index Pointer to store the new section index
-*
-* @return COIL_ERR_GOOD on success
-* @return COIL_ERR_INVAL if parameters are invalid
-* @return COIL_ERR_NOMEM if memory allocation fails
-*/
-coil_err_t coil_obj_create_native_section(coil_object_t *obj, const char *name,
-                                        coil_byte_t *data, coil_size_t size,
-                                        coil_pu_t pu, coil_u8_t arch, coil_u32_t features,
-                                        coil_u16_t *index);
+coil_err_t coil_obj_create_section(coil_object_t *obj, coil_u8_t type, const char *name, coil_u16_t flags, coil_section_t *sect, coil_u16_t *index);
 
 /**
 * @brief Delete a section from the object

@@ -306,14 +306,10 @@ coil_err_t coil_obj_unmap(coil_object_t *obj) {
         // Copy section data
         coil_memcpy(dst->data, src->data, src->size);
         dst->size = src->size;
-        
+
         // Copy metadata
         dst->name = src->name;
         dst->mode = COIL_SECT_MODE_MODIFY;  // Switch to modify mode
-        dst->has_native = src->has_native;
-        if (src->has_native) {
-          coil_memcpy(&dst->native, &src->native, sizeof(coil_native_meta_t));
-        }
       }
     }
   }
@@ -406,94 +402,6 @@ coil_err_t coil_obj_save_file(coil_object_t *obj, coil_descriptor_t fd) {
         return COIL_ERROR(COIL_ERR_IO, "Failed to write section data");
       }
     }
-  }
-  
-  return COIL_ERR_GOOD;
-}
-
-/**
-* @brief Create a new native code section in the object
-*/
-coil_err_t coil_obj_create_native_section(coil_object_t *obj, const char *name,
-                                       coil_byte_t *data, coil_size_t size,
-                                       coil_pu_t pu, coil_u8_t arch, coil_u32_t features,
-                                       coil_u16_t *index) {
-  if (obj == NULL || name == NULL || data == NULL || size == 0) {
-    return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
-  }
-  
-  // Create a temporary section
-  coil_section_t sect;
-  coil_err_t err = coil_section_init(&sect, size);
-  if (err != COIL_ERR_GOOD) {
-    return err;
-  }
-  
-  // Write native code to section
-  coil_size_t written;
-  err = coil_section_write(&sect, data, size, &written);
-  if (err != COIL_ERR_GOOD) {
-    coil_section_cleanup(&sect);
-    return COIL_ERROR(COIL_ERR_IO, "Failed to write native code to section");
-  }
-  
-  // Set native code metadata
-  err = coil_section_set_native(&sect, pu, arch, features, 0, size);
-  if (err != COIL_ERR_GOOD) {
-    coil_section_cleanup(&sect);
-    return err;
-  }
-  
-  // Create section in object
-  err = coil_obj_create_section(obj, COIL_SECTION_NATIVE, name, 
-                             COIL_SECTION_FLAG_NATIVE, &sect, index);
-  
-  // Clean up temporary section (its data has been transferred to the object)
-  coil_section_cleanup(&sect);
-  
-  return err;
-}
-
-/**
-* @brief Load native code from a section
-*/
-coil_err_t coil_obj_load_native(coil_object_t *obj, coil_u16_t index, 
-                              coil_byte_t **data, coil_size_t *size, 
-                              coil_native_meta_t *meta) {
-  if (obj == NULL || data == NULL || size == NULL) {
-    return COIL_ERROR(COIL_ERR_INVAL, "Invalid parameters");
-  }
-  
-  // Check if index is valid
-  if (index >= obj->header.section_count) {
-    return COIL_ERROR(COIL_ERR_NOTFOUND, "Section index out of range");
-  }
-  
-  // Check if section has native code
-  if (!obj->sectheaders[index].has_native) {
-    return COIL_ERROR(COIL_ERR_NOTFOUND, "Section does not contain native code");
-  }
-  
-  // Load section if not already loaded
-  if (obj->sections == NULL || index >= obj->loaded_count || 
-      obj->sections[index].data == NULL) {
-    
-    coil_section_t sect;
-    coil_err_t err = coil_obj_load_section(obj, index, &sect, COIL_SLOAD_DEFAULT);
-    if (err != COIL_ERR_GOOD) {
-      return err;
-    }
-  }
-  
-  // Get native code data
-  coil_err_t err = coil_section_get_native_data(&obj->sections[index], data, size);
-  if (err != COIL_ERR_GOOD) {
-    return err;
-  }
-  
-  // Copy metadata if requested
-  if (meta != NULL) {
-    coil_memcpy(meta, &obj->sections[index].native, sizeof(coil_native_meta_t));
   }
   
   return COIL_ERR_GOOD;
@@ -648,12 +556,6 @@ coil_err_t coil_obj_load_section(coil_object_t *obj, coil_u16_t index,
     sect->name = header->name;
     sect->mode = section_mode;
     
-    // Copy native code metadata if present
-    if (header->has_native) {
-      sect->has_native = 1;
-      coil_memcpy(&sect->native, &header->native, sizeof(coil_native_meta_t));
-    }
-    
     return COIL_ERR_GOOD;
   }
   
@@ -676,12 +578,6 @@ coil_err_t coil_obj_load_section(coil_object_t *obj, coil_u16_t index,
     sect->capacity = header->size;
     sect->mode = COIL_SECT_MODE_VIEW;  // Explicitly set to VIEW mode
     sect->name = header->name;
-    
-    // Copy native code metadata if present
-    if (header->has_native) {
-      sect->has_native = 1;
-      coil_memcpy(&sect->native, &header->native, sizeof(coil_native_meta_t));
-    }
     
     // Create a copy for the object's internal sections array if needed
     if (obj->sections) {
@@ -763,12 +659,6 @@ coil_err_t coil_obj_load_section(coil_object_t *obj, coil_u16_t index,
   // Copy section information
   sect->name = header->name;
   
-  // Copy native code metadata if present
-  if (header->has_native) {
-    sect->has_native = 1;
-    coil_memcpy(&sect->native, &header->native, sizeof(coil_native_meta_t));
-  }
-  
   // Store in sections array
   if (index >= obj->loaded_count) {
     obj->loaded_count = index + 1;
@@ -796,10 +686,6 @@ coil_err_t coil_obj_load_section(coil_object_t *obj, coil_u16_t index,
         // Copy metadata
         obj_sect->name = sect->name;
         obj_sect->mode = sect->mode;
-        obj_sect->has_native = sect->has_native;
-        if (sect->has_native) {
-          coil_memcpy(&obj_sect->native, &sect->native, sizeof(coil_native_meta_t));
-        }
       }
     }
   }
@@ -856,12 +742,6 @@ coil_err_t coil_obj_create_section(coil_object_t *obj, coil_u8_t type, const cha
     // Set size and offset (will be updated during save)
     header->size = sect->size;
     header->offset = 0; // Will be calculated during save
-    
-    // Copy native code metadata if present
-    if (sect->has_native) {
-      header->has_native = 1;
-      coil_memcpy(&header->native, &sect->native, sizeof(coil_native_meta_t));
-    }
     
     // Grow sections array
     coil_section_t *new_sections;
@@ -928,14 +808,6 @@ coil_err_t coil_obj_update_section(coil_object_t *obj, coil_u16_t index, coil_se
   // Update section header
   coil_section_header_t *header = &obj->sectheaders[index];
   header->size = sect->size;
-  
-  // Update native code metadata if present
-  if (sect->has_native) {
-    header->has_native = 1;
-    coil_memcpy(&header->native, &sect->native, sizeof(coil_native_meta_t));
-  } else {
-    header->has_native = 0;
-  }
   
   // Update section data if loaded
   if (obj->sections != NULL && index < obj->loaded_count) {
