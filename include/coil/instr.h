@@ -196,6 +196,8 @@ coil_size_t coil_operand_decode(coil_section_t *sect, coil_size_t pos,
 * @brief Decode operand data
 *
 * Header must already be decoded to determine the value type
+* valsize is set before possible failures and can be used to create a
+* backup case for a too small buffer (not set on COIL_ERR_INVAL)
 *
 * @param sect Section containing the encoded data
 * @param pos Current position in the section

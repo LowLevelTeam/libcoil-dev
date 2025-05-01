@@ -361,9 +361,12 @@ coil_size_t coil_operand_decode_data(coil_section_t *sect, coil_size_t pos, void
   // Get the size of the value type
   coil_size_t type_size = coil_value_type_size(header->value_type);
   
+  // Set the actual size
+  *valsize = type_size;
+
   // Check if the buffer is large enough
   if (datasize < type_size) {
-    COIL_ERROR(COIL_ERR_INVAL, "Buffer too small for the value type");
+    COIL_ERROR(COIL_ERR_NOMEM, "Buffer too small for the value type");
     return 0;
   }
   
@@ -377,9 +380,6 @@ coil_size_t coil_operand_decode_data(coil_section_t *sect, coil_size_t pos, void
   if (type_size > 0) {
     coil_memcpy(data, sect->data + pos, type_size);
   }
-  
-  // Set the actual size
-  *valsize = type_size;
   
   // Return updated position
   return pos + type_size;
