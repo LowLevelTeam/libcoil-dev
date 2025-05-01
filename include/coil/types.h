@@ -152,22 +152,37 @@ enum coil_opcode_e {
   // Reserved: 07-0F
 
   // Memory Operations (0x10-0x1F)
-  COIL_OP_MOV  = 0x10,    ///< Copy value from source to destination
-  COIL_OP_PUSH = 0x11,    ///< Push onto stack
-  COIL_OP_POP  = 0x12,    ///< Pop from stack
-  COIL_OP_LEA  = 0x13,    ///< Load effective address
-  // Reserved: 14-2F
+  COIL_OP_MOV    = 0x10,  ///< Copy value from source to destination
+  COIL_OP_PUSH   = 0x11,  ///< Push onto stack
+  COIL_OP_POP    = 0x12,  ///< Pop from stack
+  COIL_OP_LEA    = 0x13,  ///< Load effective address
+  COIL_OP_PUSHFD = 0x14,  ///< Push Flag Register
+  COIL_OP_POPFD  = 0x15,  ///< Pop Flag Register
+  COIL_OP_PUSHA  = 0x16,  ///< Push Flag Register
+  COIL_OP_POPA   = 0x17,  ///< Pop Flag Register
+  COIL_OP_VAR    = 0x18,  ///< Define a Variable
+  COIL_OP_SCOPE  = 0x19,  ///< Enter a Scope
+  COIL_OP_SCOPL  = 0x1A,  ///< Leave a Scope
+  // Reserved: 1B-2F
 
   // Arithmetic (0x20-0x4F)
-  COIL_OP_ADD = 0x20,     ///< Addition
-  COIL_OP_SUB = 0x21,     ///< Subtraction
-  COIL_OP_MUL = 0x22,     ///< Multiplication
-  COIL_OP_DIV = 0x23,     ///< Division
-  COIL_OP_MOD = 0x24,     ///< Remainder
-  COIL_OP_INC = 0x25,     ///< Increment
-  COIL_OP_DEC = 0x26,     ///< Decrement
-  COIL_OP_NEG = 0x27,     ///< Negate a value
-  // Reserved: 28-4F
+  COIL_OP_ADD  = 0x20,    ///< Addition
+  COIL_OP_SUB  = 0x21,    ///< Subtraction
+  COIL_OP_MUL  = 0x22,    ///< Multiplication
+  COIL_OP_DIV  = 0x23,    ///< Division
+  COIL_OP_MOD  = 0x24,    ///< Remainder
+  COIL_OP_INC  = 0x25,    ///< Increment
+  COIL_OP_DEC  = 0x26,    ///< Decrement
+  COIL_OP_NEG  = 0x27,    ///< Negate value
+  // COIL_OP_ABS  = 0x28,    ///< Absolute Value
+  // COIL_OP_SIN  = 0x29,    ///< Sin of Value
+  // COIL_OP_COS  = 0x2A,    ///< CoSin of Value
+  // COIL_OP_TAN  = 0x2B,    ///< Tanget of Value
+  // COIL_OP_POW  = 0x2C,    ///< Power
+  // COIL_OP_SQRT = 0x2D,    ///< Square Root
+  // COIL_OP_MAX  = 0x2E,    ///< Maximum Value
+  // COIL_OP_MIN  = 0x2F,    ///< Minimum Value
+  // Reserved: 30-4F
 
   // Bitwise (0x50-5F)
   COIL_OP_AND    = 0x50,  ///< Bitwise AND
@@ -198,7 +213,7 @@ enum coil_opcode_e {
 
   // Type (0xA0-0xAF)
   COIL_OP_CVT   = 0xA0,   ///< Type Cast
-  // Reserved: A3-AF
+  // Reserved: A1-AF
 
   // PU (0xB0-0xCF)
     // CPU
@@ -238,12 +253,12 @@ enum coil_opcode_e {
   // Directive (0xE0-0xFF)
   COIL_OP_DEF    = 0xE0,   ///< Define an expression
   COIL_OP_UDEF   = 0xE1,   ///< Undefine an expression
-  // Reserved: E3-EF
-  COIL_OP_SPARAM = 0xF1,   ///< Set the parameter value utilizing the current ABI (used in the caller)
-  COIL_OP_GPARAM = 0xF2,   ///< Get the parameter value utilizing the current ABI (used in the callee)
-  COIL_OP_SRET   = 0xF3,   ///< Set the return value utilizing the current ABI (used in the callee)
-  COIL_OP_GRET   = 0xF4,   ///< Get the return value utilizing the current ABI (used in the caller)
-  // Reserved: F5-FE
+  // Reserved: E2-EF
+  COIL_OP_SPARAM = 0xF0,   ///< Set the parameter value utilizing the current ABI (used in the caller)
+  COIL_OP_GPARAM = 0xF1,   ///< Get the parameter value utilizing the current ABI (used in the callee)
+  COIL_OP_SRET   = 0xF2,   ///< Set the return value utilizing the current ABI (used in the callee)
+  COIL_OP_GRET   = 0xF3,   ///< Get the return value utilizing the current ABI (used in the caller)
+  // Reserved: F4-FE
 };
 typedef uint8_t coil_opcode_t;
 
@@ -279,8 +294,8 @@ enum coil_value_type_e {
   COIL_VAL_U64  = 0x13,  ///< 64-bit unsigned integer
   
   // Floating Point (0x20-0x2F)
-  COIL_VAL_F32  = 0x20,  ///< 32-bit float (IEEE-754)
-  COIL_VAL_F64  = 0x21,  ///< 64-bit float (IEEE-754)
+  // COIL_VAL_F32  = 0x20,  ///< 32-bit float (IEEE-754)
+  // COIL_VAL_F64  = 0x21,  ///< 64-bit float (IEEE-754)
   
   // Reserved (0x30-BF)
 
