@@ -286,12 +286,14 @@ enum coil_value_type_e {
   COIL_VAL_I16  = 0x01,  ///< 16-bit signed integer
   COIL_VAL_I32  = 0x02,  ///< 32-bit signed integer
   COIL_VAL_I64  = 0x03,  ///< 64-bit signed integer
+  COIL_VAL_I128  = 0x04,  ///< 128-bit signed integer
   
   // Unsigned Integer (0x10-0x1F)
   COIL_VAL_U8   = 0x10,  ///< 8-bit unsigned integer
   COIL_VAL_U16  = 0x11,  ///< 16-bit unsigned integer
   COIL_VAL_U32  = 0x12,  ///< 32-bit unsigned integer
   COIL_VAL_U64  = 0x13,  ///< 64-bit unsigned integer
+  COIL_VAL_U128  = 0x14,  ///< 128-bit unsigned integer
   
   // Floating Point (0x20-0x2F)
   // COIL_VAL_F32  = 0x20,  ///< 32-bit float (IEEE-754)
@@ -336,6 +338,166 @@ enum coil_modifier_e {
   COIL_MOD_MUT    = 1 << 3, ///< Value can change (finds use cases in composite types)
 };
 typedef uint8_t coil_modifier_t;
+
+// -------------------------------- CBC Instructions -------------------------------- //
+// Some instructions can have immediates as first operand where as normal operations rely on the first operand to be the destination
+// ONEI is one operand with immediates
+// ONE Is one operand without immediates
+#define __COIL_HELPER_COP_INSTR_ONE_IMPL(name) \
+  COIL_COP_##name##I, \
+  COIL_COP_##name##S, \
+  COIL_COP_##name##R, \
+  COIL_COP_##name##OS, \
+  COIL_COP_##name##OR,
+#define __COIL_HELPER_COP_INSTR_ONEI_IMPL(name) \
+  COIL_COP_##name##S, \
+  COIL_COP_##name##R, \
+  COIL_COP_##name##OS, \
+  COIL_COP_##name##OR,
+#define __COIL_HELPER_COP_INSTR_TWO_IMPL(name) \
+  COIL_COP_##name##SI, \
+  COIL_COP_##name##SS, \
+  COIL_COP_##name##SR, \
+  COIL_COP_##name##SOS, \
+  COIL_COP_##name##SOR, \
+  COIL_COP_##name##RI, \
+  COIL_COP_##name##RS, \
+  COIL_COP_##name##RR, \
+  COIL_COP_##name##ROS, \
+  COIL_COP_##name##ROR, \
+  COIL_COP_##name##OSI, \
+  COIL_COP_##name##OSS, \
+  COIL_COP_##name##OSR, \
+  COIL_COP_##name##OSOS, \
+  COIL_COP_##name##OSOR, \
+  COIL_COP_##name##ORI, \
+  COIL_COP_##name##ORS, \
+  COIL_COP_##name##ORR, \
+  COIL_COP_##name##OROS, \
+  COIL_COP_##name##OROR,
+#define __COIL_HELPER_COP_INSTR_TWOI_IMPL(name) \
+  COIL_COP_##name##II, \
+  COIL_COP_##name##IS, \
+  COIL_COP_##name##IR, \
+  COIL_COP_##name##IOS, \
+  COIL_COP_##name##IOR, \
+  COIL_COP_##name##SI, \
+  COIL_COP_##name##SS, \
+  COIL_COP_##name##SR, \
+  COIL_COP_##name##SOS, \
+  COIL_COP_##name##SOR, \
+  COIL_COP_##name##RI, \
+  COIL_COP_##name##RS, \
+  COIL_COP_##name##RR, \
+  COIL_COP_##name##ROS, \
+  COIL_COP_##name##ROR, \
+  COIL_COP_##name##OSI, \
+  COIL_COP_##name##OSS, \
+  COIL_COP_##name##OSR, \
+  COIL_COP_##name##OSOS, \
+  COIL_COP_##name##OSOR, \
+  COIL_COP_##name##ORI, \
+  COIL_COP_##name##ORS, \
+  COIL_COP_##name##ORR, \
+  COIL_COP_##name##OROS, \
+  COIL_COP_##name##OROR,
+
+// b = Byte 8 bit
+// w = Word 16 bit
+// l = Long 32 bit
+// q = Quad Word 64 bit
+// o = Octa Word 128 bit
+#define __COIL_HELPER_COP_INSTR_ONE(name) \
+  __COIL_HELPER_COP_INSTR_ONE_IMPL(name##b) \
+  __COIL_HELPER_COP_INSTR_ONE_IMPL(name##w) \
+  __COIL_HELPER_COP_INSTR_ONE_IMPL(name##l) \
+  __COIL_HELPER_COP_INSTR_ONE_IMPL(name##q) \
+  __COIL_HELPER_COP_INSTR_ONE_IMPL(name##o)
+#define __COIL_HELPER_COP_INSTR_ONEI(name) \
+  __COIL_HELPER_COP_INSTR_ONEI_IMPL(name##b) \
+  __COIL_HELPER_COP_INSTR_ONEI_IMPL(name##w) \
+  __COIL_HELPER_COP_INSTR_ONEI_IMPL(name##l) \
+  __COIL_HELPER_COP_INSTR_ONEI_IMPL(name##q) \
+  __COIL_HELPER_COP_INSTR_ONEI_IMPL(name##o)
+#define __COIL_HELPER_COP_INSTR_TWO(name) \
+  __COIL_HELPER_COP_INSTR_TWO_IMPL(name##b) \
+  __COIL_HELPER_COP_INSTR_TWO_IMPL(name##w) \
+  __COIL_HELPER_COP_INSTR_TWO_IMPL(name##l) \
+  __COIL_HELPER_COP_INSTR_TWO_IMPL(name##q) \
+  __COIL_HELPER_COP_INSTR_TWO_IMPL(name##o)
+#define __COIL_HELPER_COP_INSTR_TWOI(name) \
+  __COIL_HELPER_COP_INSTR_TWOI_IMPL(name##b) \
+  __COIL_HELPER_COP_INSTR_TWOI_IMPL(name##w) \
+  __COIL_HELPER_COP_INSTR_TWOI_IMPL(name##l) \
+  __COIL_HELPER_COP_INSTR_TWOI_IMPL(name##q) \
+  __COIL_HELPER_COP_INSTR_TWOI_IMPL(name##o)
+
+typedef enum coil_cbc_cpu_opcode_e {
+  // Control Flow
+  COIL_COP_NOP = 0x00,
+  __COIL_HELPER_COP_INSTR_ONEI(JMP)
+  __COIL_HELPER_COP_INSTR_ONEI(BR)
+  __COIL_HELPER_COP_INSTR_ONEI(CALL)
+  COIL_COP_RET,
+  __COIL_HELPER_COP_INSTR_TWOI(CMP)
+  __COIL_HELPER_COP_INSTR_TWOI(TEST)
+  
+  // Memory Operations
+  __COIL_HELPER_COP_INSTR_TWO(MOV)
+  __COIL_HELPER_COP_INSTR_ONE(PUSH)
+  __COIL_HELPER_COP_INSTR_ONEI(POP)
+  __COIL_HELPER_COP_INSTR_TWO(LEA)
+  COIL_COP_PUSHFD,
+  COIL_COP_POPFD,
+  COIL_COP_PUSHA,
+  COIL_COP_POPA,
+  COIL_COP_SCOPE,
+  COIL_COP_SCOPL,
+
+  // Arithmetic
+  __COIL_HELPER_COP_INSTR_TWO(ADD)
+  __COIL_HELPER_COP_INSTR_TWO(SUB)
+  __COIL_HELPER_COP_INSTR_TWO(MUL)
+  __COIL_HELPER_COP_INSTR_TWO(DIV)
+  __COIL_HELPER_COP_INSTR_TWO(MOD)
+  __COIL_HELPER_COP_INSTR_TWO(INC)
+  __COIL_HELPER_COP_INSTR_TWO(DEC)
+  __COIL_HELPER_COP_INSTR_TWO(NEG)
+
+  // Bitwise
+  __COIL_HELPER_COP_INSTR_TWO(AND)
+  __COIL_HELPER_COP_INSTR_TWO(OR)
+  __COIL_HELPER_COP_INSTR_TWO(XOR)
+  __COIL_HELPER_COP_INSTR_ONE(NOT)
+  __COIL_HELPER_COP_INSTR_TWO(SHL)
+  __COIL_HELPER_COP_INSTR_TWO(SHR)
+  __COIL_HELPER_COP_INSTR_TWO(SAL)
+  __COIL_HELPER_COP_INSTR_TWO(SAR)
+
+  // Type 
+  __COIL_HELPER_COP_INSTR_TWO(CVT)
+
+  // PU
+    // CPU
+      COIL_COP_INTlI, // 32 bits however CPUs will not always be able to use 32 bit values (i.e. x86 8bit, ARM 24 bit)
+      COIL_COP_CPU_IRET,
+      COIL_COP_CPU_CLI,
+      COIL_COP_CPU_STI,
+      COIL_COP_CPU_SYSCALL,
+      COIL_COP_CPU_SYSRET,
+      __COIL_HELPER_COP_INSTR_ONE(RDTSC)
+    // GPU
+      // TODO...
+
+  // Arch
+    // CPU
+      // TODO.
+    // GPU
+      // TODO.
+};
+typedef coil_u16_t coil_cbc_opcode_t;
+
+
 
 // -------------------------------- Target Configuration -------------------------------- //
 
@@ -424,6 +586,8 @@ typedef enum coil_cpu_arm_feature_e {
   COIL_CPU_ARM_MATMUL = 1 << 7,   ///< Matrix Multiplication Instructions
   // RESERVED
 } coil_cpu_arm_feature_t;
+
+
 
 #ifdef __cplusplus
 }
